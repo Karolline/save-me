@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -10,6 +10,7 @@ import {
   LEVELS,
   LEVEL_ORDER,
   NEW_ROW,
+  digitsOnly,
   fromDraft,
   jobSaveHint,
   linkedElsewhere,
@@ -194,7 +195,7 @@ function RowsEditor({
                       value={value}
                       placeholder={c.ph}
                       inputMode={c.mono ? "numeric" : undefined}
-                      onChange={(e) => onChange(r.key, c.k, e.target.value)}
+                      onChange={(e) => onChange(r.key, c.k, c.mono ? digitsOnly(e.target.value) : e.target.value)}
                     />
                   )}
                 </Field>
@@ -295,7 +296,7 @@ export function JobEditScreen({
 
   // 새 줄을 더하면 그 줄의 첫 칸으로 초점을 옮긴다.
   const focusTarget = useRef<string | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const id = focusTarget.current;
     if (!id) return;
     const el = document.getElementById(id);
@@ -305,7 +306,7 @@ export function JobEditScreen({
   });
   // 새 분석은 회사명부터 (지원 건에서 왔으면 한 줄 결론부터).
   const focusedFirst = useRef(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!draft || focusedFirst.current || !isNew) return;
     focusedFirst.current = true;
     document.getElementById(draft.company ? "j-conclusion" : "j-company")?.focus();
@@ -728,7 +729,7 @@ export function JobEditScreen({
               value={d.cultureScore}
               inputMode="numeric"
               placeholder="예: 72"
-              onChange={(e) => set("cultureScore", e.target.value)}
+              onChange={(e) => set("cultureScore", digitsOnly(e.target.value))}
             />
           </Field>
           <Field id="jp-type" label="실제 역할 유형" help="공고를 읽고 추정한 이 자리의 성격" wide>

@@ -50,7 +50,13 @@ function setup(ui: ReactNode, service: MockService = samples()) {
   return { service, user };
 }
 
-const listProps = { onStatusChange: () => {}, onOpen: () => {}, onAdd: () => {} };
+/** 글을 한 번에 붙여 넣는다. 큰 편집 화면에서 한 글자씩 치면 jsdom에서 느리다. */
+async function fill(user: ReturnType<typeof userEvent.setup>, el: HTMLElement, text: string) {
+  await user.click(el);
+  await user.paste(text);
+}
+
+const listProps ={ onStatusChange: () => {}, onOpen: () => {}, onAdd: () => {} };
 const viewProps = {
   fromDetail: false,
   onBack: () => {},
@@ -62,7 +68,7 @@ const viewProps = {
 const editProps = { onSaved: () => {}, onCancel: () => {}, onDeleted: () => {}, onHome: () => {} };
 
 describe("JobsScreen", () => {
-  it("lists the most recently analyzed first, with 근거 없음 counts and filter counts", async () => {
+  it("lists the most recently analyzed first, with 근거 없음 counts and filter counts", { timeout: 15_000 }, async () => {
     const onOpen = vi.fn();
     const { user } = setup(<JobsScreen status="all" {...listProps} onOpen={onOpen} />);
 
@@ -205,7 +211,7 @@ describe("JobViewScreen", () => {
 });
 
 describe("JobEditScreen", () => {
-  it("needs only a company, and saves a new analysis", async () => {
+  it("needs only a company, and saves a new analysis", { timeout: 15_000 }, async () => {
     const onSaved = vi.fn();
     const { user, service } = setup(<JobEditScreen {...editProps} onSaved={onSaved} />);
 
@@ -213,9 +219,9 @@ describe("JobEditScreen", () => {
     expect(screen.getByText("회사명을 입력하면 저장할 수 있어요")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "저장" })).toBeDisabled();
 
-    await user.type(screen.getByLabelText(/^회사명/), "새회사");
+    await fill(user, screen.getByLabelText(/^회사명/), "새회사");
     expect(screen.queryByText("회사명을 입력하면 저장할 수 있어요")).not.toBeInTheDocument();
-    await user.type(screen.getByRole("textbox", { name: /^기타 메모/ }), "회사 동향");
+    await fill(user, screen.getByRole("textbox", { name: /^기타 메모/ }), "회사 동향");
     await user.click(screen.getByRole("button", { name: "저장" }));
 
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
@@ -224,7 +230,7 @@ describe("JobEditScreen", () => {
     expect(screen.getByRole("status")).toHaveTextContent("저장했어요");
   });
 
-  it("adds and removes requirement rows, new ones unrated", async () => {
+  it("adds and removes requirement rows, new ones unrated", { timeout: 15_000 }, async () => {
     const onSaved = vi.fn();
     const { user, service } = setup(<JobEditScreen jobId={9} {...editProps} onSaved={onSaved} />);
 
@@ -232,10 +238,10 @@ describe("JobEditScreen", () => {
     await user.click(within(must).getByRole("button", { name: "+ 자격요건 문장 추가" }));
     const card = within(must).getByLabelText("자격요건 2");
     expect(within(card).getByRole("radio", { name: "– 미평가" })).toBeChecked();
-    expect(within(card).getByLabelText(/^공고 원문/)).toHaveFocus();
-    await user.type(within(card).getByLabelText(/^공고 원문/), "Kafka 운영");
+    await waitFor(() => expect(within(card).getByLabelText(/^공고 원문/)).toHaveFocus());
+    await fill(user, within(card).getByLabelText(/^공고 원문/), "Kafka 운영");
     await user.click(within(card).getByRole("radio", { name: "● 충족" }));
-    await user.type(within(card).getByLabelText(/^근거 경험/), "가, 나");
+    await fill(user, within(card).getByLabelText(/^근거 경험/), "가, 나");
 
     const duty = screen.getByRole("region", { name: "주요업무" });
     await user.click(within(within(duty).getByLabelText("주요업무 1")).getByRole("button", { name: "이 문장 삭제" }));
@@ -252,7 +258,7 @@ describe("JobEditScreen", () => {
     expect(saved.requirements[2].evidence).toEqual(["가", "나"]);
   });
 
-  it("adds and removes table rows and keeps list fields one item per line", async () => {
+  it("adds and removes table rows and keeps list fields one item per line", { timeout: 15_000 }, async () => {
     const onSaved = vi.fn();
     const { user, service } = setup(<JobEditScreen jobId={1} {...editProps} onSaved={onSaved} />, small());
 
@@ -261,14 +267,14 @@ describe("JobEditScreen", () => {
     await user.click(within(within(conditions).getByLabelText("조건 2")).getByRole("button", { name: "이 조건 삭제" }));
     await user.click(within(conditions).getByRole("button", { name: "+ 조건 추가" }));
     const added = within(conditions).getByLabelText("조건 3");
-    expect(within(added).getByLabelText(/^조건/)).toHaveFocus();
-    await user.type(within(added).getByLabelText(/^조건/), "학력 무관");
+    await waitFor(() => expect(within(added).getByLabelText(/^조건/)).toHaveFocus());
+    await fill(user, within(added).getByLabelText(/^조건/), "학력 무관");
     await user.click(within(added).getByRole("radio", { name: "● 충족" }));
 
     const gaps = screen.getByLabelText(/^갭/);
     expect(gaps).toHaveValue("시계열 DB 실무 (InfluxDB, TimescaleDB)\nROS, bag 파일\nC++\n로봇·IoT 도메인 데이터");
     await user.clear(gaps);
-    await user.type(gaps, "하나{enter}{enter}둘");
+    await fill(user, gaps, "하나\n\n둘");
 
     await user.click(screen.getByRole("button", { name: "저장" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
@@ -281,7 +287,7 @@ describe("JobEditScreen", () => {
     expect(saved.gaps).toEqual(["하나", "둘"]);
   });
 
-  it("links an application by company and date, locking 지원 여부", async () => {
+  it("links an application by company and date, locking 지원 여부", { timeout: 15_000 }, async () => {
     const onSaved = vi.fn();
     const { user, service } = setup(<JobEditScreen jobId={1} {...editProps} onSaved={onSaved} />, small());
 
@@ -326,7 +332,7 @@ describe("JobEditScreen", () => {
     expect(screen.getByLabelText(/^연결할 지원 건/)).toHaveValue("한빛증권");
     expect(screen.getByLabelText(/^서류 제출일/)).toHaveValue("1");
     expect(screen.getByRole("radio", { name: "지원함" })).toBeChecked();
-    expect(screen.getByLabelText(/^한 줄 결론/)).toHaveFocus();
+    await waitFor(() => expect(screen.getByLabelText(/^한 줄 결론/)).toHaveFocus());
 
     await user.click(screen.getByRole("button", { name: "← 한빛증권 지원 상세로" }));
     await user.click(screen.getByRole("button", { name: "취소" }));

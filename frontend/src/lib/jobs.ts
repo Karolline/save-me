@@ -299,6 +299,12 @@ export function fromDraft(d: JobDraft): JobInput {
   };
 }
 
+/** 점수 칸: 숫자가 아닌 글자는 지운다 (조용히 빈 값으로 저장되지 않게, 적는 동안 막는다). 0~1000. */
+export function digitsOnly(text: string): string {
+  const digits = text.replace(/\D/g, "").slice(0, 4);
+  return digits && Number(digits) > 1000 ? "1000" : digits;
+}
+
 /** 저장 버튼 옆 안내. 회사명만 필수. */
 export function jobSaveHint(d: JobDraft): string {
   return d.company.trim() ? "" : "회사명을 입력하면 저장할 수 있어요";

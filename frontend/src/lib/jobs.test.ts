@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Application, Job } from "@/services/types";
 import { emptyJobFields } from "@/services/mockService";
-import { NEW_ROW, fromDraft, gradeLabel, jobSaveHint, linkedElsewhere, mustSummary, prefillFrom, toDraft } from "./jobs";
+import { NEW_ROW, digitsOnly, fromDraft, gradeLabel, jobSaveHint, linkedElsewhere, mustSummary, prefillFrom, toDraft } from "./jobs";
 
 const counts = (full: number, part: number, none: number, unrated: number) => ({
   full,
@@ -121,6 +121,15 @@ describe("drafts", () => {
     expect(jobSaveHint(toDraft(null))).toBe("회사명을 입력하면 저장할 수 있어요");
     expect(jobSaveHint(toDraft(null, { company: " " }))).toBe("회사명을 입력하면 저장할 수 있어요");
     expect(jobSaveHint(toDraft(null, { company: "가" }))).toBe("");
+  });
+});
+
+describe("digitsOnly", () => {
+  it("keeps only digits, up to 1000", () => {
+    expect(digitsOnly("72점")).toBe("72");
+    expect(digitsOnly("abc")).toBe("");
+    expect(digitsOnly("99999")).toBe("1000");
+    expect(digitsOnly("")).toBe("");
   });
 });
 

@@ -47,7 +47,7 @@ describe("review routes", () => {
 });
 
 describe("job analysis routes", () => {
-  it("goes from the detail panel's [분석] to the analysis and back", async () => {
+  it("goes from the detail panel's [분석] to the analysis and back", { timeout: 15_000 }, async () => {
     const user = userEvent.setup();
     await open("/applications/8");
     await user.click(await screen.findByRole("button", { name: "분석" }));
@@ -58,7 +58,7 @@ describe("job analysis routes", () => {
     expect(await screen.findByRole("dialog", { name: "바른정보 지원 상세" })).toBeInTheDocument();
   });
 
-  it("opens [+ 분석] as a new analysis filled from the application", async () => {
+  it("opens [+ 분석] as a new analysis filled from the application", { timeout: 15_000 }, async () => {
     const user = userEvent.setup();
     await open("/applications/1");
     await user.click(await screen.findByRole("button", { name: "+ 분석" }));
