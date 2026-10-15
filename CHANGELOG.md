@@ -2,6 +2,12 @@
 
 새 버전이 위에 온다. 버전 규칙은 [`docs/versioning.md`](docs/versioning.md).
 
+## 0.2.1 (2026-10-16)
+
+- 지원현황: 막대 옆에 자리가 없는 진행 순서 문구는 막대 아래 줄로 내린다 (진행 중 필터처럼 기간이 짧을 때 회사명 칸을 덮던 문제).
+- 면접후기: 사람이 확인했는지(확인됨/미확인)를 보기와 목록에 표시하고, 미확인 후기에 [읽고 확인했어요]. 앱에서 저장하면 확인됨.
+- 면접후기 편집: 초점이 늦게 옮겨지던 문제를 고쳤다.
+
 ## 0.2.0 (2026-10-15)
 
 - 면접후기 메뉴: 회사별로 묶은 후기 목록, 즐겨찾기 질문 모아 보기, 후기 보기(개요, 질문별 별, 마크다운 보기·복사, 삭제), 말풍선 편집(꼬리질문·면접관·내 답·다시 답한다면·메모·AI 첨언, 손잡이로 끌거나 ↑↓로 순서 바꾸기).
@@ -21,6 +27,12 @@
 # Changelog (English)
 
 Newest first. Versions follow [`docs/versioning.md`](docs/versioning.md).
+
+## 0.2.1 (2026-10-16)
+
+- 지원현황: a stage-chain label that fits on neither side of its bar drops below it (it used to cover the company column when the period was short, e.g. under the 진행 중 filter).
+- 면접후기: whether a person checked a review (확인됨/미확인) shows in the view and the list, with [읽고 확인했어요] on unchecked ones. Saving in the app marks it checked.
+- 면접후기 editor: focus no longer moves a moment late.
 
 ## 0.2.0 (2026-10-15)
 
