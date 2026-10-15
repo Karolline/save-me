@@ -23,7 +23,7 @@ Read `AGENTS.md` and the parts of the tech plan (`tech 기획안.md`) the brief 
 3. **Contract**: `openapi.yaml`, backend models/routers, `frontend/src/services/types.ts`, the HTTP service and the mock service all agree. Components don't filter, count or sort data themselves.
 4. **Database**: model and migration changed together; no SQLite- or Postgres-only features; the migration keeps existing rows (the user's real data is migrated by it): new columns nullable or defaulted, no dropped or renamed columns without moving the data.
 5. **User isolation** (tech plan 5.3): every table with user data has `user_id`; every store method takes and filters by it, including ids pointing at other rows; every data endpoint uses `current_user` and every router `require_csrf_header`; each endpoint has a test that another user's data is a 404.
-6. **Language**: UI text in Korean; code, comments, commit messages, and docs in English.
+6. **Language**: UI text and commit messages in Korean; code, comments, and docs in English.
 7. **Rules**: no personal data committed (real records, dumps, `private/`); no new dependency without it being in the brief; no version bump, `CHANGELOG.md` edit, or `Closes #N` in commit messages (the main session does those after merging); commits are small and each leaves the app working; nothing pushed.
 8. **Docs**: `AGENTS.md` and `docs/` describe the new behavior where they need to.
 
