@@ -121,6 +121,36 @@ def test_job_analyses_migration_keeps_rows_and_links_applications(url):
     engine.dispose()
 
 
+def test_job_analyses_downgrade_with_linked_rows_and_upgrade_again(url):
+    config = alembic_config(url)
+    command.upgrade(config, "head")
+    engine = create_engine(normalize_url(url))
+    with engine.begin() as c:
+        c.execute(text("INSERT INTO users (id, nickname, status, created_at) VALUES (1, '나', 'active', '2026-10-01')"))
+        c.execute(
+            text(
+                "INSERT INTO job_analyses (id, user_id, company, analyzed_at, created_at, updated_at)"
+                " VALUES (1, 1, '회사', '2026-10-01', '2026-10-01', '2026-10-01')"
+            )
+        )
+        c.execute(
+            text(
+                "INSERT INTO applications (id, user_id, company, applied_at, job_id, result, created_at, updated_at)"
+                " VALUES (1, 1, '회사', '2026-09-07', 1, 'ing', '2026-10-01', '2026-10-01')"
+            )
+        )
+
+    command.downgrade(config, "df2e5845d900")
+    with engine.begin() as c:
+        assert c.execute(text("SELECT job_id FROM applications WHERE id = 1")).scalar() is None
+    command.upgrade(config, "head")
+
+    assert differences_from_models(engine) == []
+    with engine.begin() as c:
+        assert c.execute(text("SELECT COUNT(*) FROM applications")).scalar() == 1
+    engine.dispose()
+
+
 def test_upgrade_reads_database_url(tmp_path, monkeypatch):
     url = f"sqlite:///{tmp_path / 'from-env.db'}"
     monkeypatch.setenv("DATABASE_URL", url)

@@ -2,7 +2,7 @@
 camelCase(별칭)로 주고받는다."""
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
@@ -264,6 +264,8 @@ RequirementCategory = Literal["duty", "must", "pref"]
 RequirementLevel = Literal["full", "part", "none", ""]
 # 지원 조건: 충족 / 확인 필요 / 안 맞음.
 ConditionState = Literal["ok", "check", "no"]
+# 점수: 0~1000 (DB Integer를 넘는 값은 500이 아니라 422로 막는다).
+Score = Annotated[int, Field(ge=0, le=1000)] | None
 
 
 class JobCondition(ApiModel):
@@ -278,8 +280,8 @@ class CultureItem(ApiModel):
     """성향 적합도 점수표 한 줄."""
 
     name: str = ""
-    score: int | None = None
-    max: int | None = None
+    score: Score = None
+    max: Score = None
     quote: str = ""
 
 
@@ -329,7 +331,7 @@ class JobFields(ApiModel):
     fit: JobFit = ""
     conclusion: str = ""
     culture_grade: CultureGrade = ""
-    culture_score: int | None = None
+    culture_score: Score = None
     culture_type: str = ""
     culture_points: str = ""
     culture_read_between: str = ""

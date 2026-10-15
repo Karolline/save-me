@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 
 from app.db import database_url, make_engine
 from app.migrate import upgrade
@@ -60,6 +60,17 @@ class LinkConflictError(ImportFileError):
 class ImportResult:
     created: int = 0
     replaced: int = 0
+
+
+def one_line(error: Exception) -> str:
+    """오류를 한 줄로 (pydantic은 첫 오류의 위치와 내용만)."""
+    if isinstance(error, ValidationError):
+        first = error.errors()[0]
+        where = ".".join(str(p) for p in first["loc"])
+        return f"{error.error_count()}개 칸이 틀렸어요, 처음은 {where}: {first['msg']}"
+    if isinstance(error, KeyError):
+        return f"{error} 칸이 없어요"
+    return " ".join(str(error).split())
 
 
 def load(path: Path) -> list[ImportItem]:
@@ -118,7 +129,11 @@ def main(argv: list[str] | None = None) -> None:
     args = parser.parse_args(argv)
 
     url = args.database_url or database_url()
-    items = load(args.file)
+    try:
+        items = load(args.file)
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        # 파일을 못 읽거나 JSON·칸 모양이 틀렸다 (pydantic ValidationError도 ValueError). 아무것도 쓰지 않는다.
+        raise SystemExit(f"파일을 읽지 못했어요 ({args.file}): {one_line(error)}") from error
     upgrade(url)
     engine = make_engine(url)
     try:

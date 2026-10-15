@@ -557,7 +557,7 @@ components:
         fit: { type: string, enum: ["상", "중", "하", ""], default: "", description: 기술 핏 }
         conclusion: { type: string, default: "", description: 한 줄 결론 }
         cultureGrade: { type: string, enum: [Green, Yellow, Red, ""], default: "" }
-        cultureScore: { type: [integer, "null"], description: 성향 적합도 total (out of 100) }
+        cultureScore: { type: [integer, "null"], minimum: 0, maximum: 1000, description: 성향 적합도 total (out of 100) }
         cultureType: { type: string, default: "", description: 실제 역할 유형 }
         culturePoints: { type: string, default: "", description: 잘 맞는 점 }
         cultureReadBetween: { type: string, default: "", description: 공고 행간 읽기 }
@@ -580,8 +580,8 @@ components:
             type: object
             properties:
               name: { type: string }
-              score: { type: [integer, "null"] }
-              max: { type: [integer, "null"] }
+              score: { type: [integer, "null"], minimum: 0, maximum: 1000 }
+              max: { type: [integer, "null"], minimum: 0, maximum: 1000 }
               quote: { type: string }
         cultureRisks: { type: array, items: { type: string }, description: Risk · Red Flag 체크 }
         highlight:

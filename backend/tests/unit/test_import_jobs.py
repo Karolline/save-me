@@ -116,6 +116,29 @@ def test_two_analyses_for_one_application_fail(stores: Stores, user_id: int, bar
     assert stores.jobs.list(user_id).items == []
 
 
+@pytest.mark.parametrize(
+    "content, message",
+    [
+        ("{ not json", "파일을 읽지 못했어요"),
+        ('{"items": []}', "'jobs' 칸이 없어요"),
+        ('{"jobs": [{"company": "가"}]}', "처음은 0.analyzedAt"),
+        ('{"jobs": [{"company": "가", "analyzedAt": "2026-10-01", "cultureScore": 99999999999}]}', "cultureScore"),
+    ],
+)
+def test_a_malformed_file_fails_in_one_line_without_writing(tmp_path, content, message):
+    url = f"sqlite:///{tmp_path / 'bad.db'}"
+    path = tmp_path / "jobs.json"
+    path.write_text(content, encoding="utf-8")
+
+    with pytest.raises(SystemExit) as exit_info:
+        main([str(path), "--database-url", url])
+
+    text = str(exit_info.value.code)
+    assert message in text and "\n" not in text
+    # 파일을 읽기 전에 멈춰서 DB를 만들지도 않는다.
+    assert not (tmp_path / "bad.db").exists()
+
+
 def test_main_migrates_and_imports_for_the_local_user(tmp_path, capsys):
     url = f"sqlite:///{tmp_path / 'import.db'}"
     engine = create_engine(url)

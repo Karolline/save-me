@@ -8,7 +8,8 @@
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db import ApplicationRow, JobAnalysisRow, JobRequirementRow
@@ -339,6 +340,22 @@ class JobStore(BaseStore):
             )
             .values(job_id=None)
         )
-        if application is not None and application.job_id != row.id:
-            application.job_id = row.id
+        if application is not None:
+            # 비어 있을 때만 잇는다 (한 문장으로): 그사이 다른 요청이 연결했으면 0줄이 바뀐다.
+            try:
+                linked = db.execute(
+                    update(ApplicationRow)
+                    .where(
+                        ApplicationRow.id == application.id,
+                        ApplicationRow.user_id == user_id,
+                        or_(ApplicationRow.job_id.is_(None), ApplicationRow.job_id == row.id),
+                    )
+                    .values(job_id=row.id)
+                    .execution_options(synchronize_session=False)
+                )
+            except IntegrityError as error:
+                # UNIQUE(job_id)가 마지막으로 막는다.
+                raise ApplicationAlreadyLinkedError(data.application_id) from error
+            if linked.rowcount != 1:
+                raise ApplicationAlreadyLinkedError(data.application_id)
         db.flush()

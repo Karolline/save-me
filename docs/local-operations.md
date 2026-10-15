@@ -150,7 +150,8 @@ uv run python -m app.importers.reviews ../private/reviews.json --database-url po
 - 같은 분석인지는 로컬 사용자의 (`company`, `title`)로 정한다. 있으면 통째로 바꾸므로 두 번 돌려도 달라지지 않는다. 한 파일에 같은 (`company`, `title`)가 두 번 있으면 알려 주고 아무것도 쓰지 않는다.
 - `application`은 연결할 지원 건 (`company`, `appliedAt`)이거나 `null`. 없는 지원 건이 있으면 알려 주고 아무것도 쓰지 않는다. 연결하면 지원 여부는 `applied`가 된다. 지원 건 하나에는 분석 하나: 이미 다른 분석과 연결된 지원 건이나 한 지원 건을 가리키는 두 항목이 있으면 아무것도 쓰지 않는다.
 - `level`: `full`(충족), `part`(부분·인접), `none`(없음), `""`(미평가). 해당도를 매기지 않은 기존 분석은 `""`로 둔다.
-- 파일 전체를 트랜잭션 하나로 쓴다. `company`와 `analyzedAt` 말고는 빼도 된다.
+- 파일 전체를 트랜잭션 하나로 쓴다. `company`와 `analyzedAt` 말고는 빼도 된다. 점수는 0~1000.
+- 파일이 망가졌으면 (JSON, 칸 모양) 한 줄 오류를 보이고 아무것도 쓰지 않는다.
 
 ```
 cd backend
@@ -261,7 +262,8 @@ Run it after the applications are imported when analyses link to them. The file 
 - The same analysis is the same (`company`, `title`) for the local user; it is replaced as a whole, so running twice changes nothing. The same (`company`, `title`) twice in the file is named and nothing is written.
 - `application` is the application to link (`company`, `appliedAt`) or `null`. A missing application is named and nothing is written. Linking stores the status as `applied`. One analysis per application: an application already linked to another analysis, or two items pointing at one application, write nothing.
 - `level`: `full`, `part`, `none`, or `""` (not rated yet). Existing analyses without per-item ratings use `""`.
-- The whole file is written in one transaction. Everything but `company` and `analyzedAt` may be left out.
+- The whole file is written in one transaction. Everything but `company` and `analyzedAt` may be left out. Scores are 0-1000.
+- A malformed file (JSON, field shapes) prints a one-line error and writes nothing.
 
 ```
 cd backend

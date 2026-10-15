@@ -132,6 +132,11 @@ def test_company_is_required_and_values_are_checked(client: TestClient):
     assert client.post("/api/jobs", json=body(fit="최상")).status_code == 422
     assert client.post("/api/jobs", json=body(requirements=[{"category": "x", "text": "a"}])).status_code == 422
     assert client.post("/api/jobs", json={"company": "가"}).status_code == 201
+    # DB 정수를 넘는 점수는 500이 아니라 422.
+    assert client.post("/api/jobs", json=body(cultureScore=99_999_999_999)).status_code == 422
+    assert client.post("/api/jobs", json=body(cultureScore=-1)).status_code == 422
+    huge = [{"name": "가", "score": 10**12, "max": 30, "quote": ""}]
+    assert client.post("/api/jobs", json=body(cultureItems=huge)).status_code == 422
 
 
 def test_linking_an_application(client: TestClient):

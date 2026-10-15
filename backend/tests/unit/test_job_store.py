@@ -1,6 +1,10 @@
 from datetime import UTC, date, datetime
 
 import pytest
+from sqlalchemy import event
+from sqlalchemy.orm.attributes import set_committed_value
+
+from app.db import ApplicationRow
 
 from app.models import JobCondition, JobInput, Requirement
 from app.stores import (
@@ -177,6 +181,24 @@ def test_one_analysis_per_application(stores: Stores, user_id: int):
     with pytest.raises(ApplicationAlreadyLinkedError):
         stores.jobs.update(user_id, other.id, job("나", application_id=app.id))
     assert len(stores.jobs.list(user_id).items) == 2
+
+
+def test_a_concurrent_link_hits_the_unique_constraint(stores: Stores, user_id: int):
+    app = stores.applications.create(user_id, application())
+    stores.jobs.create(user_id, job("가", application_id=app.id))
+    other = stores.jobs.create(user_id, job("나"))
+
+    # 다른 요청이 막 연결한 것을 못 본 것처럼: 읽을 때 job_id를 비워 둔다.
+    def looks_unlinked(target, _context):
+        set_committed_value(target, "job_id", None)
+
+    event.listen(ApplicationRow, "load", looks_unlinked)
+    try:
+        with pytest.raises(ApplicationAlreadyLinkedError):
+            stores.jobs.update(user_id, other.id, job("나", application_id=app.id))
+    finally:
+        event.remove(ApplicationRow, "load", looks_unlinked)
+    assert stores.jobs.get(user_id, other.id).application_id is None
 
 
 def test_linking_a_missing_or_another_users_application_fails(stores: Stores, user_id: int, other_user_id: int):
