@@ -103,6 +103,22 @@ export function moveAnswer<T, G extends Movable<T>>(
 }
 
 /**
+ * 말풍선을 끄는 동안 놓일 질문: 포인터가 들어 있는 질문 카드, 카드 사이 틈이면
+ * 더 가까운 카드 (같은 거리면 지금 질문). 카드가 없으면 -1.
+ */
+export function dropGroup(rects: { top: number; bottom: number }[], y: number, current: number): number {
+  if (!rects.length) return -1;
+  const inside = rects.findIndex((r) => y >= r.top && y <= r.bottom);
+  if (inside >= 0) return inside;
+  const distance = (i: number) => (y < rects[i].top ? rects[i].top - y : y - rects[i].bottom);
+  let best = current >= 0 && current < rects.length ? current : 0;
+  rects.forEach((_, i) => {
+    if (distance(i) < distance(best)) best = i;
+  });
+  return best;
+}
+
+/**
  * 키보드 ↑↓로 말풍선을 한 칸 옮길 때 갈 자리. 그룹 맨 위·맨 아래에서는
  * 앞·뒤 질문으로 넘어간다. 더 갈 곳이 없으면 null.
  */

@@ -4,6 +4,7 @@ import {
   answerStep,
   applicationsOf,
   companiesNewestFirst,
+  dropGroup,
   interviewStages,
   moveAnswer,
   moveGroup,
@@ -55,6 +56,22 @@ describe("reordering", () => {
     const moved = moveAnswer(groups, 0, 1, 2, 0);
     expect(moved.map((g) => g.answers)).toEqual([["a1"], [], ["a2", "c1"]]);
     expect(groups[0].answers).toEqual(["a1", "a2"]);
+  });
+
+  it("drops a dragged bubble into the card under the pointer, or the nearest one in a gap", () => {
+    const rects = [
+      { top: 0, bottom: 100 },
+      { top: 114, bottom: 200 },
+      { top: 214, bottom: 300 },
+    ];
+    expect(dropGroup(rects, 150, 0)).toBe(1);
+    expect(dropGroup(rects, 103, 2)).toBe(0);
+    expect(dropGroup(rects, 111, 0)).toBe(1);
+    expect(dropGroup(rects, 107, 1)).toBe(1);
+    expect(dropGroup(rects, 107, 0)).toBe(0);
+    expect(dropGroup(rects, -40, 2)).toBe(0);
+    expect(dropGroup(rects, 900, 0)).toBe(2);
+    expect(dropGroup([], 10, 0)).toBe(-1);
   });
 
   it("steps a bubble one place, into the previous or next question at the edges", () => {

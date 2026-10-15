@@ -13,6 +13,7 @@ import {
   ADDABLE_KINDS,
   BUBBLES,
   answerStep,
+  dropGroup,
   applicationsOf,
   companiesNewestFirst,
   interviewStages,
@@ -154,14 +155,22 @@ export function ReviewEditScreen({
     groupsRef.current = groups;
   });
 
-  /** 지원 건을 고르면 그 지원 건의 다른 후기 차수를 불러오고, 새 후기면 다음 차수를 고른다. */
+  // 회사·지원 건을 고를 때마다 늘린다. 늦게 온 이전 선택의 응답은 버린다.
+  const choice = useRef(0);
+
+  /**
+   * 지원 건을 고르면 그 지원 건의 다른 후기 차수를 불러오고 (편집 중인 이 후기는
+   * 빼고), `pick`이면 다음 차수를 고른다.
+   */
   const chooseApplication = useCallback(
-    async (app: Application | undefined, pick: boolean, exceptReview?: number) => {
+    async (app: Application | undefined, pick: boolean) => {
+      const mine = ++choice.current;
       let rounds: string[] = [];
       if (app) {
         const list = await service.listReviews(app.id);
-        rounds = list.groups.flatMap((g) => g.reviews).filter((r) => r.id !== exceptReview).map((r) => r.round);
+        rounds = list.groups.flatMap((g) => g.reviews).filter((r) => r.id !== reviewId).map((r) => r.round);
       }
+      if (mine !== choice.current) return;
       setTaken(rounds);
       if (!pick) return;
       const stage = nextRound(app, rounds);
@@ -173,7 +182,7 @@ export function ReviewEditScreen({
           : { round: "", custom: !!app, interviewedAt: "" }),
       }));
     },
-    [service],
+    [service, reviewId],
   );
 
   // 컴포넌트는 key로 새로 그려지므로, 아래 값들은 사실상 처음 한 번만 불러온다.
@@ -195,7 +204,7 @@ export function ReviewEditScreen({
         const draft = draftOf(review, apps);
         setMeta(draft.meta);
         setGroups(draft.groups);
-        await chooseApplication(apps.find((a) => a.id === review.applicationId), false, review.id);
+        await chooseApplication(apps.find((a) => a.id === review.applicationId), false);
       } else if (applicationId !== undefined) {
         const app = apps.find((a) => a.id === applicationId);
         if (!app) {
@@ -237,6 +246,7 @@ export function ReviewEditScreen({
   const stages = interviewStages(app);
 
   function setCompany(company: string) {
+    choice.current++;
     setMeta((m) => ({ ...m, company, applicationId: null, round: "", custom: false, interviewedAt: "" }));
     setTaken([]);
     const list = applications ? applicationsOf(applications, company) : [];
@@ -246,6 +256,7 @@ export function ReviewEditScreen({
   function setApplication(value: string) {
     const chosen = applications?.find((a) => String(a.id) === value);
     if (!chosen) {
+      choice.current++;
       setMeta((m) => ({ ...m, applicationId: null, round: "", custom: false, interviewedAt: "" }));
       setTaken([]);
       return;
@@ -365,11 +376,12 @@ export function ReviewEditScreen({
         if (to !== from) setGroups(moveGroup(gs, from, to));
       } else {
         const [gi, ki] = findAnswer(gs, d.key);
-        let target = groupEls.findIndex((el) => {
-          const r = el.getBoundingClientRect();
-          return y >= r.top && y <= r.bottom;
-        });
-        if (target < 0) target = groupEls.length && y < groupEls[0].getBoundingClientRect().top ? 0 : groupEls.length - 1;
+        // 카드 사이 틈에서는 더 가까운 카드 (같은 거리면 지금 질문)에 둔다.
+        const target = dropGroup(
+          groupEls.map((el) => el.getBoundingClientRect()),
+          y,
+          gi,
+        );
         if (target < 0) return;
         const kids = [...groupEls[target].querySelectorAll<HTMLElement>(".kid")].filter(
           (el) => el.dataset.key !== String(d.key),

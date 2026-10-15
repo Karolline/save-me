@@ -261,6 +261,46 @@ describe("ReviewEditScreen", () => {
     expect(screen.getByRole("textbox", { name: "질문 1" })).toHaveFocus();
   });
 
+  it("ignores a late answer for a company the user already left", async () => {
+    const base = samples();
+    // 바른정보(8)의 후기 목록만 늦게 온다.
+    const service: MockService = {
+      ...base,
+      listReviews: (id?: number) =>
+        id === 8
+          ? new Promise((resolve) => setTimeout(() => resolve(base.listReviews(id)), 80))
+          : base.listReviews(id),
+    };
+    const { user } = setup(<ReviewEditScreen onSaved={() => {}} onCancel={() => {}} onHome={() => {}} />, service);
+    await waitFor(() => expect(select(/^회사/)).toBeEnabled());
+
+    await user.selectOptions(select(/^회사/), "바른정보");
+    await user.selectOptions(select(/^회사/), "라온소프트");
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    expect(select(/^회사/)).toHaveValue("라온소프트");
+    expect(select(/서류 제출일/)).toHaveValue("7");
+    // 라온소프트는 세 차수 모두 후기가 있어 첫 차수. 늦게 온 바른정보 답이면 09-24가 된다.
+    expect(select(/면접 차수/)).toHaveValue("1차 면접");
+    expect(screen.getByLabelText("면접일")).toHaveValue("2026-08-04");
+  });
+
+  it("doesn't count the review being edited as taken when its application is picked again", async () => {
+    const { user } = setup(<ReviewEditScreen reviewId={4} onSaved={() => {}} onCancel={() => {}} onHome={() => {}} />);
+    await waitFor(() => expect(select(/면접 차수/)).toHaveValue("2차 면접"));
+    const options = () => within(select(/면접 차수/)).getAllByRole("option").map((o) => o.textContent);
+    await waitFor(() => expect(options()).toContain("1차 면접 · 08.04 (후기 있음)"));
+    expect(options()).toContain("2차 면접 · 08.18");
+
+    await user.selectOptions(select(/^회사/), "바른정보");
+    await waitFor(() => expect(select(/면접 차수/)).toHaveValue("1차 면접"));
+    await user.selectOptions(select(/^회사/), "라온소프트");
+
+    await waitFor(() => expect(select(/면접 차수/)).toHaveValue("2차 면접"));
+    expect(options()).toContain("2차 면접 · 08.18");
+    expect(options()).toContain("3차 면접 · 09.01 (후기 있음)");
+  });
+
   it("adds and deletes bubbles and questions, asking before a question with bubbles goes", async () => {
     const onSaved = vi.fn();
     const { user, service } = setup(
