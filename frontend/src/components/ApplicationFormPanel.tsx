@@ -13,7 +13,7 @@ import { icons } from "./icons";
 import { useSessionErrors } from "./session";
 
 interface StageDraft {
-  /** Stable React key while rows move around. */
+  /** 줄이 움직여도 바뀌지 않는 React key. */
   key: number;
   kind: 2 | 3 | 4;
   name: string;
@@ -53,7 +53,7 @@ function draftOf(a: Application): Draft {
     sub: a.sub,
     jobTitle: a.jobTitle,
     jobUrl: a.jobUrl,
-    // The documents stage is appliedAt; the form lists only the later ones.
+    // 서류 단계는 appliedAt이고, 폼은 그 다음 단계만 보여 준다.
     stages: a.stages.slice(1).map((s) => ({ key: nextKey++, kind: s.kind as 2 | 3 | 4, name: s.name, at: s.at })),
     result: a.result,
     resultText: a.resultText,
@@ -61,7 +61,7 @@ function draftOf(a: Application): Draft {
   };
 }
 
-/** Stages with a day come first, by day; ones still without a day stay last. */
+/** 날짜가 있는 단계가 날짜순으로 먼저, 아직 날짜가 없는 단계는 맨 뒤. */
 function byDay(stages: StageDraft[]): StageDraft[] {
   return [...stages].sort((x, y) => (x.at || "9999").localeCompare(y.at || "9999"));
 }
@@ -73,7 +73,7 @@ function inputOf(d: Draft): ApplicationInput {
     sub: d.sub.trim(),
     jobTitle: d.jobTitle.trim(),
     jobUrl: d.jobUrl.trim(),
-    // A stage without a day isn't saved (it can't go on the timeline).
+    // 날짜가 없는 단계는 저장하지 않는다 (타임라인에 놓을 수 없다).
     stages: byDay(d.stages)
       .filter((s) => s.at)
       .map((s) => ({ kind: s.kind, name: s.name.trim(), at: s.at })),
@@ -84,9 +84,8 @@ function inputOf(d: Draft): ApplicationInput {
 }
 
 /**
- * Adding or changing an application (tech plan S2 6번), in the side panel.
- * An application is told apart by (company, the day the documents were
- * submitted), so saving is off while that pair is taken.
+ * 지원 건 추가·수정 (기획안 S2 6번), 옆 패널에서. 지원 건은 (회사, 서류
+ * 제출일)로 구분하므로, 그 짝이 이미 있으면 저장을 끈다.
  */
 export function ApplicationFormPanel({
   id,
@@ -94,7 +93,7 @@ export function ApplicationFormPanel({
   onCancel,
   onDeleted,
 }: {
-  /** Absent for a new application. */
+  /** 새 지원 건이면 없다. */
   id?: number;
   onSaved: (saved: Application) => void;
   onCancel: () => void;
@@ -106,7 +105,7 @@ export function ApplicationFormPanel({
   const editing = id !== undefined;
   const [draft, setDraft] = useState<Draft | null>(editing ? null : EMPTY);
   const [missing, setMissing] = useState(false);
-  // Every other (company, appliedAt) pair, for the duplicate check.
+  // 중복 확인용: 다른 지원 건들의 (company, appliedAt) 짝.
   const [taken, setTaken] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -310,7 +309,7 @@ export function ApplicationFormPanel({
                       type="date"
                       value={s.at}
                       onChange={(e) => setStage(s.key, { at: e.target.value })}
-                      // Re-sort once a day is picked, not on every keystroke.
+                      // 글자마다가 아니라 날짜를 고른 뒤에 다시 정렬한다.
                       onBlur={() => setDraft((d) => d && { ...d, stages: byDay(d.stages) })}
                       aria-label={`${i + 1}번째 단계 날짜`}
                     />
@@ -426,7 +425,7 @@ export function ApplicationFormPanel({
         >
           <p>
             ‘{draft.company}
-            {draft.sub ? ` ${draft.sub}` : ""}’ 지원 기록이 삭제돼요. 되돌릴 수 없어요.
+            {draft.sub ? ` ${draft.sub}` : ""}’ 지원 기록과 면접 후기가 모두 삭제돼요. 되돌릴 수 없어요.
           </p>
         </ConfirmDialog>
       )}

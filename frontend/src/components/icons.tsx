@@ -1,4 +1,4 @@
-/** Line icons from the mockup. Decorative: the text next to them is the label. */
+/** 목업의 선 아이콘. 장식용이고, 옆 글자나 aria-label이 이름이다. */
 
 const stroke = {
   fill: "none",
@@ -51,6 +51,33 @@ export const icons = {
   close: (
     <svg viewBox="0 0 24 24" width="18" height="18" {...stroke} strokeLinecap="round">
       <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  ),
+  more: (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+      <circle cx="6" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="18" cy="12" r="1.6" />
+    </svg>
+  ),
+  starOn: (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
+      <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9-4.3-4.1 5.9-.8z" />
+    </svg>
+  ),
+  starOff: (
+    <svg viewBox="0 0 24 24" width="18" height="18" {...stroke} strokeWidth={1.7} strokeLinejoin="round">
+      <path d="M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.9L12 17l-5.2 2.7 1-5.9-4.3-4.1 5.9-.8z" />
+    </svg>
+  ),
+  grip: (
+    <svg viewBox="0 0 12 16" width="10" height="14" fill="currentColor" aria-hidden="true">
+      <circle cx="3" cy="3" r="1.4" />
+      <circle cx="9" cy="3" r="1.4" />
+      <circle cx="3" cy="8" r="1.4" />
+      <circle cx="9" cy="8" r="1.4" />
+      <circle cx="3" cy="13" r="1.4" />
+      <circle cx="9" cy="13" r="1.4" />
     </svg>
   ),
   kakao: (

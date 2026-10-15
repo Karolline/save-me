@@ -11,6 +11,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { ApplicationDetailPanel } from "@/components/ApplicationDetailPanel";
 import { ApplicationFormPanel } from "@/components/ApplicationFormPanel";
 import { ApplicationsScreen } from "@/components/ApplicationsScreen";
+import { ReviewEditScreen } from "@/components/ReviewEditScreen";
+import { ReviewsScreen } from "@/components/ReviewsScreen";
+import { ReviewViewScreen } from "@/components/ReviewViewScreen";
 import { ToastProvider, useToast } from "@/components/feedback";
 import { LoginScreen } from "@/components/LoginScreen";
 import { SESSION_EXPIRED, SessionContext, useSession } from "@/components/session";
@@ -18,8 +21,8 @@ import { NotFoundScreen, SettingsScreen } from "@/components/SettingsScreen";
 import { Shell } from "@/components/Shell";
 import { useService, type User } from "@/services";
 
-// Route components own navigation; screens only receive callbacks,
-// which keeps them testable without a router.
+// 이동은 라우트 컴포넌트가 맡고, 화면은 콜백만 받는다.
+// 그래서 화면은 라우터 없이 테스트할 수 있다.
 
 const rootRoute = createRootRoute({
   component: () => (
@@ -38,7 +41,7 @@ const loginRoute = createRoute({
   },
 });
 
-/** Everything behind login: checks the session, then draws the shell. */
+/** 로그인 뒤의 모든 화면: 세션을 확인한 뒤 셸을 그린다. */
 const appRoute = createRoute({
   getParentRoute: () => rootRoute,
   id: "app",
@@ -120,7 +123,7 @@ const indexRoute = createRoute({
   },
 });
 
-/** Tells the list that an application was saved or deleted in a panel. */
+/** 패널에서 지원 건을 저장하거나 지웠다고 목록에 알린다. */
 const ApplicationsChanged = createContext<() => void>(() => {});
 
 const applicationsRoute = createRoute({
@@ -145,7 +148,7 @@ const applicationsRoute = createRoute({
   },
 });
 
-/** A route id that isn't a whole number can't exist; -1 makes the panel say so. */
+/** 정수가 아닌 경로 id는 있을 수 없다. -1이면 화면이 없다고 알려 준다. */
 const toId = (param: string) => (/^\d+$/.test(param) ? Number(param) : -1);
 
 const newApplicationRoute = createRoute({
@@ -180,6 +183,10 @@ const applicationRoute = createRoute({
         id={toId(id)}
         onClose={() => navigate({ to: "/applications" })}
         onEdit={() => navigate({ to: "/applications/$id/edit", params: { id } })}
+        onAddReview={() => navigate({ to: "/applications/$id/reviews/new", params: { id } })}
+        onOpenReview={(reviewId) =>
+          navigate({ to: "/reviews/$reviewId", params: { reviewId: String(reviewId) }, search: { from: "detail" } })
+        }
       />
     );
   },
@@ -211,6 +218,130 @@ const editApplicationRoute = createRoute({
   },
 });
 
+// ── 면접 후기 (기획안 S2 7번) ──
+
+const reviewsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/reviews",
+  validateSearch: (search: Record<string, unknown>): { view?: "fav" } =>
+    search.view === "fav" ? { view: "fav" } : {},
+  component: function ReviewsPage() {
+    const { view } = reviewsRoute.useSearch();
+    const navigate = useNavigate();
+    return (
+      <ReviewsScreen
+        view={view === "fav" ? "fav" : "all"}
+        onViewChange={(next) => navigate({ to: "/reviews", search: next === "fav" ? { view: "fav" } : {}, replace: true })}
+        onOpen={(reviewId, q) =>
+          navigate({ to: "/reviews/$reviewId", params: { reviewId: String(reviewId) }, search: q === undefined ? {} : { q } })
+        }
+        onAdd={() => navigate({ to: "/reviews/new" })}
+      />
+    );
+  },
+});
+
+/** 후기를 어디서 열었는지 (`from=detail`: 지원 상세), 강조할 질문 (`q`). */
+interface ReviewSearch {
+  from?: "detail";
+  q?: number;
+}
+
+function parseReviewSearch(search: Record<string, unknown>): ReviewSearch {
+  const out: ReviewSearch = {};
+  if (search.from === "detail") out.from = "detail";
+  const q = Number(search.q);
+  if (search.q !== undefined && Number.isInteger(q)) out.q = q;
+  return out;
+}
+
+const newReviewRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/reviews/new",
+  component: function NewReviewPage() {
+    const navigate = useNavigate();
+    return (
+      <ReviewEditScreen
+        onSaved={(reviewId) => navigate({ to: "/reviews/$reviewId", params: { reviewId: String(reviewId) } })}
+        onCancel={() => navigate({ to: "/reviews" })}
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
+const newApplicationReviewRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/applications/$id/reviews/new",
+  component: function NewApplicationReviewPage() {
+    const { id } = newApplicationReviewRoute.useParams();
+    const navigate = useNavigate();
+    return (
+      <ReviewEditScreen
+        key={id}
+        applicationId={toId(id)}
+        onSaved={(reviewId) =>
+          navigate({ to: "/reviews/$reviewId", params: { reviewId: String(reviewId) }, search: { from: "detail" } })
+        }
+        onCancel={() => navigate({ to: "/applications/$id", params: { id } })}
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
+const reviewRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/reviews/$reviewId",
+  validateSearch: parseReviewSearch,
+  component: function ReviewPage() {
+    const { reviewId } = reviewRoute.useParams();
+    const { from, q } = reviewRoute.useSearch();
+    const navigate = useNavigate();
+    const back = (applicationId: number) =>
+      from === "detail"
+        ? navigate({ to: "/applications/$id", params: { id: String(applicationId) } })
+        : navigate({ to: "/reviews" });
+    return (
+      <ReviewViewScreen
+        key={reviewId}
+        id={toId(reviewId)}
+        fromDetail={from === "detail"}
+        focusQuestion={q}
+        onBack={back}
+        onDeleted={back}
+        onEdit={() => navigate({ to: "/reviews/$reviewId/edit", params: { reviewId }, search: from ? { from } : {} })}
+        onOpenApplication={(applicationId) =>
+          navigate({ to: "/applications/$id", params: { id: String(applicationId) } })
+        }
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
+const editReviewRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/reviews/$reviewId/edit",
+  validateSearch: parseReviewSearch,
+  component: function EditReviewPage() {
+    const { reviewId } = editReviewRoute.useParams();
+    const { from } = editReviewRoute.useSearch();
+    const navigate = useNavigate();
+    const toView = (id: string) =>
+      navigate({ to: "/reviews/$reviewId", params: { reviewId: id }, search: from ? { from } : {} });
+    return (
+      <ReviewEditScreen
+        key={reviewId}
+        reviewId={toId(reviewId)}
+        onSaved={(saved) => toView(String(saved))}
+        onCancel={() => toView(reviewId)}
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/settings",
@@ -229,7 +360,7 @@ const settingsRoute = createRoute({
   },
 });
 
-/** Any other address, inside the shell. */
+/** 그 밖의 주소, 셸 안에서. */
 const notFoundRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "$",
@@ -244,6 +375,11 @@ const routeTree = rootRoute.addChildren([
   appRoute.addChildren([
     indexRoute,
     applicationsRoute.addChildren([newApplicationRoute, applicationRoute, editApplicationRoute]),
+    newApplicationReviewRoute,
+    reviewsRoute,
+    newReviewRoute,
+    reviewRoute,
+    editReviewRoute,
     settingsRoute,
     notFoundRoute,
   ]),

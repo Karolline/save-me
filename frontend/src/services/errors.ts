@@ -8,12 +8,17 @@ export class ApiError extends Error {
   }
 }
 
-/** The session is missing or expired: the user has to log in again. */
+/** 세션이 없거나 만료됐다: 다시 로그인해야 한다. */
 export function isUnauthorized(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401;
 }
 
-/** Another application to the same company on the same day exists. */
+/** 같은 회사에 같은 날 낸 지원 건이 이미 있다. */
 export function isConflict(error: unknown): boolean {
   return error instanceof ApiError && error.status === 409;
+}
+
+/** 찾는 것이 없다 (또는 남의 것이다). */
+export function isNotFound(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404;
 }
