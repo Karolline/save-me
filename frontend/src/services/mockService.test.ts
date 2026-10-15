@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { isConflict, isUnauthorized } from "./errors";
-import { createMockService, formatPeriod, SAMPLE_APPLICATIONS } from "./mockService";
-import type { ApplicationInput } from "./types";
+import { isConflict, isNotFound, isUnauthorized } from "./errors";
+import { createMockService, formatPeriod, SAMPLE_APPLICATIONS, SAMPLE_REVIEWS } from "./mockService";
+import type { ApplicationInput, ReviewInput } from "./types";
 
 const INPUT: ApplicationInput = {
   company: "누리커머스",
@@ -95,5 +95,90 @@ describe("mockService", () => {
     const created = await service.createApplication(INPUT);
     created.company = "바뀜";
     expect((await service.getApplication(created.id))?.company).toBe("누리커머스");
+  });
+});
+
+describe("mockService reviews", () => {
+  const samples = () => createMockService({ applications: SAMPLE_APPLICATIONS, reviews: SAMPLE_REVIEWS });
+  const review = (applicationId: number, round: string, interviewedAt: string | null): ReviewInput => ({
+    applicationId,
+    round,
+    extra: "",
+    interviewedAt,
+    summary: "",
+    questions: [{ question: "자기소개", isFavorite: true, answers: [{ kind: "mine", body: "답" }] }],
+  });
+
+  it("groups by company, latest interview first, rows oldest first", async () => {
+    const list = await samples().listReviews();
+
+    expect(list.groups.map((g) => g.company)).toEqual(["바른정보", "라온소프트", "파랑모빌리티"]);
+    expect(list.groups[1].reviews.map((r) => r.round)).toEqual(["1차 면접", "2차 면접", "3차 면접"]);
+    expect(list.groups[1].latest).toBe("2026-09-01");
+    expect(list.groups[1].multipleApplications).toBe(false);
+    expect(list.groups[2].reviews[0]).toMatchObject({ extra: "실무진", questionCount: 2, favoriteCount: 1 });
+    expect([list.total, list.favoriteCount]).toEqual([6, 4]);
+  });
+
+  it("sorts undated reviews by their creation day and marks companies with several applications", async () => {
+    const service = createMockService({ applications: SAMPLE_APPLICATIONS });
+    await service.createReview(review(1, "1차 면접", "2025-12-01"));
+    await service.createReview(review(6, "1차 면접", null));
+    await service.createReview(review(8, "1차 면접", "2026-09-24"));
+
+    const list = await service.listReviews();
+    // 날짜 없는 후기는 만든 날(목업 시계로 2026-10-01)로 친다.
+    expect(list.groups.map((g) => [g.company, g.latest])).toEqual([
+      ["한빛증권", "2026-10-01"],
+      ["바른정보", "2026-09-24"],
+    ]);
+    expect(list.groups[0].multipleApplications).toBe(true);
+  });
+
+  it("lists one application's reviews, and 404s for a missing application", async () => {
+    const service = samples();
+    const list = await service.listReviews(7);
+    expect(list.groups.flatMap((g) => g.reviews).map((r) => r.round)).toEqual(["1차 면접", "2차 면접", "3차 면접"]);
+    expect(isNotFound(await service.listReviews(999).catch((e) => e))).toBe(true);
+  });
+
+  it("lists starred questions newest review first, and stars without changing updatedAt", async () => {
+    const service = samples();
+    const favorites = await service.listFavoriteQuestions();
+    expect(favorites.map((f) => [f.company, f.round])).toEqual([
+      ["바른정보", "1차 면접"],
+      ["라온소프트", "3차 면접"],
+      ["파랑모빌리티", "2차 면접"],
+      ["파랑모빌리티", "1차 면접"],
+    ]);
+
+    const before = (await service.getReview(1))!;
+    const second = before.questions[1];
+    expect((await service.setQuestionFavorite(1, second.id, true)).isFavorite).toBe(true);
+    const after = (await service.getReview(1))!;
+    expect(after.favoriteCount).toBe(2);
+    expect(after.updatedAt).toBe(before.updatedAt);
+    expect(isNotFound(await service.setQuestionFavorite(2, second.id, true).catch((e) => e))).toBe(true);
+  });
+
+  it("replaces questions on save, validates, and deletes with the application", async () => {
+    const service = samples();
+    const created = await service.createReview(review(9, " 1차 면접 ", null));
+    expect(created).toMatchObject({ company: "초록식품", round: "1차 면접", questionCount: 1, favoriteCount: 1 });
+
+    const updated = await service.updateReview(created.id, { ...review(9, "2차 면접", "2026-10-20"), questions: [] });
+    expect(updated.questions).toEqual([]);
+    expect(updated.createdAt).toBe(created.createdAt);
+
+    const bad = (changes: Partial<ReviewInput>) => service.createReview({ ...review(9, "x", null), ...changes }).catch((e) => e);
+    expect((await bad({ round: "  " })).status).toBe(422);
+    expect((await bad({ questions: [{ question: "", isFavorite: false, answers: [{ kind: "nope" as never, body: "" }] }] })).status).toBe(422);
+    expect(isNotFound(await bad({ applicationId: 999 }))).toBe(true);
+
+    await service.deleteApplication(9);
+    expect(await service.getReview(created.id)).toBeNull();
+    await service.deleteReview(1);
+    expect(await service.getReview(1)).toBeNull();
+    expect(isNotFound(await service.deleteReview(1).catch((e) => e))).toBe(true);
   });
 });

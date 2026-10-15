@@ -72,6 +72,39 @@ describe("httpService", () => {
     expect(JSON.parse(String(fetch.mock.calls[1][1]?.body))).toEqual({ note: "메모" });
   });
 
+  it("calls the review endpoints", async () => {
+    const fetch = stubFetch(200, {});
+    const service = createHttpService("/api", fetch);
+    const review = { applicationId: 4, round: "1차 면접", extra: "", interviewedAt: null, summary: "", questions: [] };
+
+    await service.listReviews();
+    await service.listReviews(4);
+    await service.listFavoriteQuestions();
+    await service.getReview(7);
+    await service.createReview(review);
+    await service.updateReview(7, review);
+    await service.setQuestionFavorite(7, 12, true);
+
+    const calls = fetch.mock.calls.map(([url, init]) => `${init?.method ?? "GET"} ${url}`);
+    expect(calls).toEqual([
+      "GET /api/reviews",
+      "GET /api/reviews?applicationId=4",
+      "GET /api/reviews/favorites",
+      "GET /api/reviews/7",
+      "POST /api/reviews",
+      "PUT /api/reviews/7",
+      "PUT /api/reviews/7/questions/12/favorite",
+    ]);
+    expect(JSON.parse(String(fetch.mock.calls[4][1]?.body))).toEqual(review);
+    expect(JSON.parse(String(fetch.mock.calls[6][1]?.body))).toEqual({ isFavorite: true });
+    expect(fetch.mock.calls[6][1]?.headers).toMatchObject({ "X-Requested-With": "SaveMe" });
+
+    const gone = stubFetch(204);
+    await createHttpService("/api", gone).deleteReview(7);
+    expect(`${gone.mock.calls[0][1]?.method} ${gone.mock.calls[0][0]}`).toBe("DELETE /api/reviews/7");
+    expect(await createHttpService("/api", stubFetch(404, { detail: "Review not found" })).getReview(9)).toBeNull();
+  });
+
   it("deletes with no body expected back", async () => {
     const fetch = stubFetch(204);
     await createHttpService("/api", fetch).deleteApplication(5);

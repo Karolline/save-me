@@ -82,6 +82,28 @@ function saveHint(meta: Meta): string {
   return "";
 }
 
+/** 저장된 후기를 편집할 초안으로. */
+function draftOf(review: Review, apps: Application[]): { meta: Meta; groups: DraftGroup[] } {
+  const app = apps.find((a) => a.id === review.applicationId);
+  return {
+    meta: {
+      company: review.company,
+      applicationId: review.applicationId,
+      round: review.round,
+      custom: !interviewStages(app).some((s) => s.name === review.round),
+      interviewedAt: review.interviewedAt ?? "",
+      extra: review.extra,
+      summary: review.summary,
+    },
+    groups: review.questions.map((q) => ({
+      key: newKey(),
+      question: q.question,
+      isFavorite: q.isFavorite,
+      answers: q.answers.map((a) => ({ key: newKey(), kind: a.kind, body: a.body })),
+    })),
+  };
+}
+
 /** 내용만큼 늘어나는 textarea. */
 function GrowArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -120,7 +142,6 @@ export function ReviewEditScreen({
   const [taken, setTaken] = useState<string[]>([]);
   const [groups, setGroups] = useState<DraftGroup[]>(() => (reviewId === undefined ? [emptyGroup()] : []));
   const [active, setActive] = useState<number | null>(null);
-  const [focusId, setFocusId] = useState<string | null>(null);
   const [confirmGroup, setConfirmGroup] = useState<DraftGroup | null>(null);
   const [showMarkdown, setShowMarkdown] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -155,6 +176,7 @@ export function ReviewEditScreen({
     [service],
   );
 
+  // 컴포넌트는 key로 새로 그려지므로, 아래 값들은 사실상 처음 한 번만 불러온다.
   useEffect(() => {
     let live = true;
     (async () => {
@@ -170,7 +192,9 @@ export function ReviewEditScreen({
       }
       setApplications(apps);
       if (review) {
-        startFrom(review, apps);
+        const draft = draftOf(review, apps);
+        setMeta(draft.meta);
+        setGroups(draft.groups);
         await chooseApplication(apps.find((a) => a.id === review.applicationId), false, review.id);
       } else if (applicationId !== undefined) {
         const app = apps.find((a) => a.id === applicationId);
@@ -180,10 +204,10 @@ export function ReviewEditScreen({
         }
         setMeta((m) => ({ ...m, company: app.company }));
         setPresetCompany(app.company);
+        focusNext(`q-${groupsRef.current[0]?.key}`);
         await chooseApplication(app, true);
-        setFocusId(`q-${groupsRef.current[0]?.key}`);
       } else {
-        setFocusId("rd-company");
+        focusNext("rd-company");
       }
     })().catch((error) => {
       if (live && !handleSessionError(error)) setFailed(true);
@@ -191,37 +215,21 @@ export function ReviewEditScreen({
     return () => {
       live = false;
     };
-    // 처음 한 번만 불러온다.
-  }, []);
+  }, [service, reviewId, applicationId, chooseApplication, handleSessionError]);
 
-  function startFrom(review: Review, apps: Application[]) {
-    const app = apps.find((a) => a.id === review.applicationId);
-    setMeta({
-      company: review.company,
-      applicationId: review.applicationId,
-      round: review.round,
-      custom: !interviewStages(app).some((s) => s.name === review.round),
-      interviewedAt: review.interviewedAt ?? "",
-      extra: review.extra,
-      summary: review.summary,
-    });
-    setGroups(
-      review.questions.map((q) => ({
-        key: newKey(),
-        question: q.question,
-        isFavorite: q.isFavorite,
-        answers: q.answers.map((a) => ({ key: newKey(), kind: a.kind, body: a.body })),
-      })),
-    );
+  // 새로 생긴 칸이나 옮긴 손잡이로, 다음에 그린 뒤 초점을 옮긴다.
+  const focusTarget = useRef<string | null>(null);
+  function focusNext(id: string) {
+    focusTarget.current = id;
   }
-
-  // 새로 생긴 칸이나 옮긴 손잡이로 초점을 옮긴다.
   useEffect(() => {
-    if (!focusId) return;
-    const el = document.getElementById(focusId) ?? document.querySelector<HTMLElement>(`[data-grip="${focusId}"]`);
-    el?.focus();
-    setFocusId(null);
-  }, [focusId, groups]);
+    const id = focusTarget.current;
+    if (!id) return;
+    const el = document.getElementById(id) ?? document.querySelector<HTMLElement>(`[data-grip="${id}"]`);
+    if (!el) return;
+    el.focus();
+    focusTarget.current = null;
+  });
 
   // ── 메타 ──
 
@@ -248,7 +256,7 @@ export function ReviewEditScreen({
   function setRound(value: string) {
     if (value === CUSTOM) {
       setMeta((m) => ({ ...m, custom: true, round: "" }));
-      setFocusId("rd-custom");
+      focusNext("rd-custom");
     } else if (!value) {
       setMeta((m) => ({ ...m, custom: false, round: "" }));
     } else {
@@ -267,14 +275,14 @@ export function ReviewEditScreen({
     const g = emptyGroup();
     setGroups((gs) => [...gs, g]);
     setActive(g.key);
-    setFocusId(`q-${g.key}`);
+    focusNext(`q-${g.key}`);
   }
 
   function addAnswer(groupKey: number, kind: AnswerKind) {
     const a = { key: newKey(), kind, body: "" };
     updateGroup(groupKey, (g) => ({ ...g, answers: [...g.answers, a] }));
     setActive(groupKey);
-    setFocusId(`a-${a.key}`);
+    focusNext(`a-${a.key}`);
   }
 
   function removeGroup(key: number) {
@@ -320,7 +328,7 @@ export function ReviewEditScreen({
       setGroups(moveAnswer(gs, gi, ki, step[0], step[1]));
       setActive(gs[step[0]].key);
     }
-    setFocusId(`${type}-${key}`);
+    focusNext(`${type}-${key}`);
   }
 
   // ── 끌어서 옮기기 (마우스·터치, pointer 이벤트) ──
