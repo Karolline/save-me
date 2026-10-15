@@ -40,13 +40,9 @@ try {
     Start-Database
     # Dump inside the container and copy the file out: piping binary output
     # through Windows PowerShell 5.1 would corrupt it.
-    Invoke-Db pg_dump -U saveme -d $Database -Fc -f $inContainer
-    Push-Location $Repo
-    try {
-        docker compose cp "db:$inContainer" $target *> $null
-        if ($LASTEXITCODE -ne 0) { throw "copying the dump out of the container failed" }
-    } finally { Pop-Location }
-    Invoke-Db rm -f $inContainer
+    Invoke-Db pg_dump -U saveme -d $Database -Fc -f $inContainer | Out-Null
+    Invoke-Docker compose cp "db:$inContainer" $target | Out-Null
+    Invoke-Db rm -f $inContainer | Out-Null
     $file = Get-Item $target
     if ($file.Length -eq 0) { throw "the dump is empty" }
 } catch {

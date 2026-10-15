@@ -48,15 +48,11 @@ if ($Database -eq "saveme") {
 
 Write-Host "Restoring $File into $Database ..."
 $inContainer = "/tmp/restore.dump"
-Push-Location $Repo
-try {
-    docker compose cp $File "db:$inContainer" *> $null
-    if ($LASTEXITCODE -ne 0) { throw "copying the dump into the container failed" }
-} finally { Pop-Location }
-Invoke-Db dropdb -U saveme --if-exists --force $Database
-Invoke-Db createdb -U saveme -O saveme $Database
-Invoke-Db pg_restore -U saveme -d $Database --no-owner --exit-on-error $inContainer
-Invoke-Db rm -f $inContainer
+Invoke-Docker compose cp $File "db:$inContainer" | Out-Null
+Invoke-Db dropdb -U saveme --if-exists --force $Database | Out-Null
+Invoke-Db createdb -U saveme -O saveme $Database | Out-Null
+Invoke-Db pg_restore -U saveme -d $Database --no-owner --exit-on-error $inContainer | Out-Null
+Invoke-Db rm -f $inContainer | Out-Null
 
 $restored = Get-TableCounts $Database
 Write-Host ""
@@ -75,5 +71,5 @@ if ($Database -eq $scratch) {
         Write-Host ""
         Write-Host "Restore drill OK: the dump restores to the same row counts as the real database."
     }
-    if (-not $KeepScratch) { Invoke-Db dropdb -U saveme --if-exists --force $scratch }
+    if (-not $KeepScratch) { Invoke-Db dropdb -U saveme --if-exists --force $scratch | Out-Null }
 }

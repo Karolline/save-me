@@ -18,11 +18,8 @@ $ErrorActionPreference = "Stop"
 & "$PSScriptRoot\backup.ps1" -BackupDir $BackupDir -Reason before-update
 if ($LASTEXITCODE -ne 0) { throw "The backup failed, so the app was not updated." }
 
-Push-Location $Repo
-try {
-    docker compose up -d --build
-    if ($LASTEXITCODE -ne 0) { throw "docker compose up failed" }
-} finally { Pop-Location }
+Write-Host "Rebuilding and restarting (a few minutes the first time) ..."
+Invoke-Docker compose up -d --build | Out-Null
 
 $deadline = (Get-Date).AddMinutes(2)
 while ($true) {
@@ -31,9 +28,7 @@ while ($true) {
         break
     } catch {
         if ((Get-Date) -gt $deadline) {
-            Push-Location $Repo
-            docker compose logs --tail 40 app
-            Pop-Location
+            Invoke-Docker compose logs --tail 40 app | Write-Host
             throw "The app did not start. If a migration failed, the data is unchanged; the backup is in the backup folder."
         }
         Start-Sleep -Seconds 2

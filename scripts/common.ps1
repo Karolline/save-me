@@ -11,9 +11,27 @@ function Get-BackupDir([string]$Dir) {
     return (Join-Path $env:USERPROFILE "SaveMe-backups")
 }
 
+# Runs `docker <args>` from the repo and returns its standard output lines.
+# Docker writes progress to stderr, which Windows PowerShell 5.1 would turn
+# into errors, so stderr is only shown when the command fails (exit code).
+function Invoke-Docker {
+    $ErrorActionPreference = "Continue"
+    Push-Location $Repo
+    try { $lines = & docker @args 2>&1 } finally { Pop-Location }
+    $code = $LASTEXITCODE
+    $stdout = @($lines | Where-Object { $_ -isnot [System.Management.Automation.ErrorRecord] } | ForEach-Object { "$_" })
+    if ($code -ne 0) {
+        $stderr = ($lines | Where-Object { $_ -is [System.Management.Automation.ErrorRecord] } | ForEach-Object { "$_" }) -join "`n"
+        throw "docker $($args -join ' ') failed (exit $code): $stderr"
+    }
+    return $stdout
+}
+
+# `docker compose exec -T db <args>`
+function Invoke-Db { Invoke-Docker compose exec -T db @args }
+
 function Test-Docker {
-    docker info --format "{{.ServerVersion}}" *> $null
-    return ($LASTEXITCODE -eq 0)
+    try { Invoke-Docker info --format "{{.ServerVersion}}" | Out-Null; return $true } catch { return $false }
 }
 
 # Starts Docker Desktop if needed, then the database container, and waits
@@ -28,30 +46,17 @@ function Start-Database {
             Start-Sleep -Seconds 3
         }
     }
-    Push-Location $Repo
-    try {
-        docker compose up -d db *> $null
-        if ($LASTEXITCODE -ne 0) { throw "docker compose up -d db failed" }
-        $deadline = (Get-Date).AddMinutes(1)
-        while ($true) {
-            docker compose exec -T db pg_isready -U saveme -d saveme *> $null
-            if ($LASTEXITCODE -eq 0) { break }
+    Invoke-Docker compose up -d db | Out-Null
+    $deadline = (Get-Date).AddMinutes(1)
+    while ($true) {
+        try { Invoke-Db pg_isready -U saveme -d saveme | Out-Null; break } catch {
             if ((Get-Date) -gt $deadline) { throw "PostgreSQL did not become ready" }
             Start-Sleep -Seconds 2
         }
-    } finally { Pop-Location }
+    }
 }
 
-# Runs `docker compose exec -T db <args>` from the repo and throws on failure.
-function Invoke-Db {
-    Push-Location $Repo
-    try {
-        docker compose exec -T db @args
-        if ($LASTEXITCODE -ne 0) { throw "failed: docker compose exec -T db $args" }
-    } finally { Pop-Location }
-}
-
-# Row counts of every table in the public schema, as "table rows" lines.
+# Exact row counts of every table in the public schema, as "table rows" lines.
 function Get-TableCounts([string]$Database) {
     $tables = Invoke-Db psql -U saveme -d $Database -tA -c "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
     $lines = @()
