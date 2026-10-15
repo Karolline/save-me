@@ -108,6 +108,28 @@ describe("httpService", () => {
     expect(await createHttpService("/api", stubFetch(404, { detail: "Review not found" })).getReview(9)).toBeNull();
   });
 
+  it("calls the job analysis endpoints", async () => {
+    const fetch = stubFetch(200, { items: [], counts: {} });
+    const service = createHttpService("/api", fetch);
+
+    await service.listJobs();
+    await service.listJobs("skipped");
+    await service.updateJob(3, { company: "가" } as never);
+    await service.createJob({ company: "나" } as never);
+
+    expect(fetch.mock.calls.map(([url, init]) => [url, init?.method ?? "GET"])).toEqual([
+      ["/api/jobs", "GET"],
+      ["/api/jobs?status=skipped", "GET"],
+      ["/api/jobs/3", "PUT"],
+      ["/api/jobs", "POST"],
+    ]);
+    expect(fetch.mock.calls[2][1]?.headers).toMatchObject({ "X-Requested-With": "SaveMe" });
+    expect(await createHttpService("/api", stubFetch(404, { detail: "nope" })).getJob(9)).toBeNull();
+    const deleting = stubFetch(204);
+    await createHttpService("/api", deleting).deleteJob(4);
+    expect(deleting.mock.calls[0]).toMatchObject(["/api/jobs/4", { method: "DELETE" }]);
+  });
+
   it("deletes with no body expected back", async () => {
     const fetch = stubFetch(204);
     await createHttpService("/api", fetch).deleteApplication(5);

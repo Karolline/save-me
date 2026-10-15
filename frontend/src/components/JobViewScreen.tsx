@@ -436,17 +436,17 @@ export function JobViewScreen({
         </div>
       </div>
       <div className="jcards">
-        <section className="card jcard" aria-label="기술 핏">
+        <section className="card jcard" aria-label="기술 핏 요약">
           <span className="k">기술 핏</span>
           <b className="jbig">{job.fit || "–"}</b>
           <p>{mustSummary(job.counts.must)}</p>
         </section>
-        <section className="card jcard" aria-label="성향 적합도">
+        <section className="card jcard" aria-label="성향 적합도 요약">
           <span className="k">성향 적합도</span>
           <b className={`jbig ${GRADE_CLASS[job.cultureGrade]}`}>{gradeLabel(job.cultureGrade, job.cultureScore, "점") || "–"}</b>
           <p>{job.cultureType || "아직 평가하지 않았어요"}</p>
         </section>
-        <section className="card jcard" aria-label="지원 조건">
+        <section className="card jcard" aria-label="지원 조건 요약">
           <span className="k">지원 조건</span>
           {job.conditions.length ? (
             <ul className="conds">

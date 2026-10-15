@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { isConflict, isNotFound, isUnauthorized } from "./errors";
-import { createMockService, formatPeriod, SAMPLE_APPLICATIONS, SAMPLE_REVIEWS } from "./mockService";
-import type { ApplicationInput, ReviewInput } from "./types";
+import { createMockService, emptyJobFields, formatPeriod, SAMPLE_APPLICATIONS, SAMPLE_REVIEWS } from "./mockService";
+import { SAMPLE_JOBS } from "./sampleJobs";
+import type { ApplicationInput, JobInput, ReviewInput } from "./types";
 
 const INPUT: ApplicationInput = {
   company: "누리커머스",
@@ -205,5 +206,75 @@ describe("mockService reviews", () => {
     await service.deleteReview(1);
     expect(await service.getReview(1)).toBeNull();
     expect(isNotFound(await service.deleteReview(1).catch((e) => e))).toBe(true);
+  });
+});
+
+// 샘플 지원 건 id: 4 파랑모빌리티, 7 라온소프트, 8 바른정보, 9 초록식품, 1 한빛증권 상반기.
+// 샘플 분석 id (SAMPLE_JOBS 순서): 1 한결로보틱스, 2 바른정보(지원 8), 3 초록식품(지원 9), 9 소담커머스(미평가 있음).
+describe("mockService job analyses", () => {
+  const withJobs = () => createMockService({ applications: SAMPLE_APPLICATIONS, jobs: SAMPLE_JOBS });
+  const input = (changes: Partial<JobInput> = {}): JobInput => ({ ...emptyJobFields("가"), applicationId: null, ...changes });
+
+  it("lists most recently analyzed first, with filter counts over everything", async () => {
+    const service = withJobs();
+    const all = await service.listJobs();
+    expect(all.items.map((j) => j.company).slice(0, 4)).toEqual(["한결로보틱스", "마루증권", "소담커머스", "초록식품"]);
+    expect(all.counts).toEqual({ all: 11, undecided: 3, applied: 6, skipped: 2 });
+
+    const skipped = await service.listJobs("skipped");
+    expect(skipped.items.map((j) => j.company)).toEqual(["늘봄카드", "해든게임즈"]);
+    expect(skipped.counts.all).toBe(11);
+
+    expect(all.items[0]).toMatchObject({ mustFull: 3, mustTotal: 5, noEvidenceCount: 3, cultureGrade: "Yellow", cultureScore: 72 });
+  });
+
+  it("counts levels per category, unrated apart, like the server", async () => {
+    const sodam = (await withJobs().getJob(9))!;
+    expect(sodam.counts.must).toEqual({ full: 0, part: 0, none: 0, unrated: 1, total: 1 });
+    expect(sodam.counts.duty).toEqual({ full: 1, part: 1, none: 0, unrated: 0, total: 2 });
+    expect(sodam.noEvidenceCount).toBe(0);
+  });
+
+  it("links an application, forces applied, and shows it on the application", async () => {
+    const service = withJobs();
+    const created = await service.createJob(input({ status: "skipped", applicationId: 1 }));
+    expect(created.status).toBe("applied");
+    expect(created.application).toMatchObject({ id: 1, company: "한빛증권", sub: "상반기" });
+    expect(created.analyzedAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    const app = (await service.getApplication(1))!;
+    expect([app.jobId, app.jobAnalyzedAt]).toEqual([created.id, created.analyzedAt]);
+    expect((await service.listApplications()).items.find((a) => a.id === 8)!.jobId).toBe(2);
+
+    // 지원 건 하나에 분석 하나.
+    expect(isConflict(await service.createJob(input({ applicationId: 1 })).catch((e) => e))).toBe(true);
+    expect(isNotFound(await service.createJob(input({ applicationId: 999 })).catch((e) => e))).toBe(true);
+    // 같은 연결로 다시 저장하는 것은 된다.
+    expect((await service.updateJob(created.id, input({ applicationId: 1 }))).applicationId).toBe(1);
+  });
+
+  it("deleting an analysis unlinks; deleting an application keeps the analysis", async () => {
+    const service = withJobs();
+    await service.deleteJob(2);
+    expect((await service.getApplication(8))!.jobId).toBeNull();
+    expect(await service.getJob(2)).toBeNull();
+    expect(isNotFound(await service.deleteJob(2).catch((e) => e))).toBe(true);
+
+    await service.deleteApplication(9);
+    const kept = (await service.getJob(3))!;
+    expect(kept.application).toBeNull();
+    expect(kept.status).toBe("applied");
+  });
+
+  it("validates like the server and replaces requirements", async () => {
+    const service = withJobs();
+    expect((await service.createJob(input({ company: " " })).catch((e) => e)).status).toBe(422);
+    expect((await service.createJob(input({ fit: "최상" as never })).catch((e) => e)).status).toBe(422);
+    const updated = await service.updateJob(
+      1,
+      input({ requirements: [{ category: "pref", level: "full", text: "Kafka", description: "", evidence: [], noEvidence: "", caution: "" }] }),
+    );
+    expect(updated.requirements.map((r) => r.text)).toEqual(["Kafka"]);
+    expect(isNotFound(await service.updateJob(999, input()).catch((e) => e))).toBe(true);
   });
 });

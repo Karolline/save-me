@@ -45,3 +45,34 @@ describe("review routes", () => {
     expect(await screen.findAllByRole("article")).not.toHaveLength(0);
   });
 });
+
+describe("job analysis routes", () => {
+  it("goes from the detail panel's [분석] to the analysis and back", async () => {
+    const user = userEvent.setup();
+    await open("/applications/8");
+    await user.click(await screen.findByRole("button", { name: "분석" }));
+
+    expect(await screen.findByRole("heading", { name: "데이터 파이프라인 엔지니어" })).toBeInTheDocument();
+    expect(router.state.location.search).toEqual({ from: "detail" });
+    await user.click(screen.getByRole("button", { name: "← 바른정보 지원 상세로" }));
+    expect(await screen.findByRole("dialog", { name: "바른정보 지원 상세" })).toBeInTheDocument();
+  });
+
+  it("opens [+ 분석] as a new analysis filled from the application", async () => {
+    const user = userEvent.setup();
+    await open("/applications/1");
+    await user.click(await screen.findByRole("button", { name: "+ 분석" }));
+
+    expect(await screen.findByRole("heading", { name: "공고 분석 추가" })).toBeInTheDocument();
+    expect(router.state.location.search).toEqual({ applicationId: 1 });
+    await waitFor(() => expect(screen.getByLabelText(/^회사명/)).toHaveValue("한빛증권"));
+  });
+
+  it("filters the list through the address", async () => {
+    const user = userEvent.setup();
+    await open("/jobs");
+    await user.click(await screen.findByRole("button", { name: /^지원 안 함\s*\d/ }));
+    await waitFor(() => expect(router.state.location.search).toEqual({ status: "skipped" }));
+    expect(await screen.findByText("늘봄카드")).toBeInTheDocument();
+  });
+});
