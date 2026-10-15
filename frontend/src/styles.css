@@ -367,3 +367,8 @@ td.mono { white-space: nowrap; }
 .rv-summary h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; }
 .rv-summary p { margin: 0; white-space: pre-wrap; line-height: 1.6; word-break: break-word; }
 .qv-q { white-space: pre-wrap; word-break: break-word; }
+
+/* 사람 확인 여부 (목업 경험 화면의 확인 표시와 같은 모양) */
+.vf-ok { background: var(--retry); color: var(--ing); }
+.vf-no { background: var(--memo); color: var(--closed); }
+.unv-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: var(--memo); border: 1px solid var(--memo-line); border-radius: var(--r); padding: 10px 14px; font-size: 13px; line-height: 1.6; }

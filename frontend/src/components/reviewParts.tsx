@@ -54,7 +54,12 @@ export function ReadBubbles({ answers }: { answers: Answer[] }) {
   );
 }
 
-/** 후기 한 줄: 날짜 · 제목 (· 서류 제출일) · 질문 수 · 즐겨찾기 수. */
+/** 사람 확인 여부: 확인됨(초록) / 미확인(노랑). */
+export function VerifiedPill({ verified }: { verified: boolean }) {
+  return verified ? <span className="pill vf-ok">확인됨</span> : <span className="pill vf-no">미확인</span>;
+}
+
+/** 후기 한 줄: 날짜 · 제목 (· 서류 제출일) · 미확인 표시 · 질문 수 · 즐겨찾기 수. */
 export function ReviewRow({
   review,
   showApplication,
@@ -77,6 +82,7 @@ export function ReviewRow({
         )}
       </span>
       <span className="rmeta">
+        {!review.verified && <VerifiedPill verified={false} />}
         <span className="pill">질문 {review.questionCount}</span>
         {review.favoriteCount > 0 && (
           <span className="pill fav" aria-label={`즐겨찾기 ${review.favoriteCount}`}>

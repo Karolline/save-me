@@ -161,6 +161,31 @@ describe("mockService reviews", () => {
     expect(isNotFound(await service.setQuestionFavorite(2, second.id, true).catch((e) => e))).toBe(true);
   });
 
+  it("keeps whether a person checked a review, like the server", async () => {
+    const service = samples();
+    // 샘플에서 라온소프트 3차 면접(후기 5)만 미확인이다.
+    expect((await service.getReview(5))!.verified).toBe(false);
+    expect((await service.getReview(1))!.verified).toBe(true);
+
+    const before = (await service.getReview(5))!;
+    const marked = await service.setReviewVerified(5, true);
+    expect(marked.verified).toBe(true);
+    expect(marked.updatedAt).toBe(before.updatedAt);
+
+    await service.setReviewVerified(5, false);
+    const { questions, ...rest } = (await service.getReview(5))!;
+    const saved = await service.updateReview(5, {
+      applicationId: rest.applicationId,
+      round: rest.round,
+      extra: rest.extra,
+      interviewedAt: rest.interviewedAt,
+      summary: rest.summary,
+      questions: questions.map(({ question, isFavorite, answers }) => ({ question, isFavorite, answers })),
+    });
+    expect(saved.verified).toBe(true); // 앱에서 저장하면 확인됨
+    expect(isNotFound(await service.setReviewVerified(999, true).catch((e) => e))).toBe(true);
+  });
+
   it("replaces questions on save, validates, and deletes with the application", async () => {
     const service = samples();
     const created = await service.createReview(review(9, " 1차 면접 ", null));

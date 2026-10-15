@@ -64,6 +64,8 @@ export type ReviewSeed = [
   interviewedAt: string | null,
   summary: string,
   questions: QuestionSeed[],
+  /** 사람 확인 여부 (없으면 확인됨). */
+  verified?: boolean,
 ];
 
 /** 목업의 지어낸 면접 후기 (기획안 S2 7번). 지원 건은 (회사, 서류 제출일)로 찾는다. */
@@ -104,7 +106,7 @@ export const SAMPLE_REVIEWS: ReviewSeed[] = [
       ["mine", "데이터 플랫폼을 설계하는 사람이라고 했다."],
       ["memo", "분위기는 좋았는데 연락이 없다."],
     ]],
-  ]],
+  ], false],
   ["바른정보", "2026-09-07", "1차 면접", "", "2026-09-24", "", [
     ["우리 팀의 배치 파이프라인을 처음 맡는다면 무엇부터 보겠어요?", true, [
       ["mine", "실패 이력과 의존 관계 그래프부터 보겠다고 했다. 반응이 좋았다."],
@@ -190,6 +192,7 @@ interface StoredReview {
   interviewedAt: string | null;
   summary: string;
   questions: Question[];
+  verified: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -270,6 +273,7 @@ export function createMockService(options: MockOptions = {}): MockService {
       interviewedAt: r.interviewedAt,
       questionCount: r.questions.length,
       favoriteCount: r.questions.filter((q) => q.isFavorite).length,
+      verified: r.verified,
       createdAt: r.createdAt,
     };
   }
@@ -278,11 +282,17 @@ export function createMockService(options: MockOptions = {}): MockService {
     return { ...summaryOf(r), summary: r.summary, questions: r.questions, updatedAt: r.updatedAt };
   }
 
-  function fill(input: ReviewInput, base: Pick<StoredReview, "id" | "createdAt">): StoredReview {
+  // 앱에서 저장하면 사람이 본 것이므로 확인됨 (백엔드와 같음).
+  function fill(
+    input: ReviewInput,
+    base: Pick<StoredReview, "id" | "createdAt">,
+    verified = true,
+  ): StoredReview {
     const clean = validateReview(input);
     if (!rows.has(clean.applicationId)) throw notFound("Application");
     return {
       ...base,
+      verified,
       applicationId: clean.applicationId,
       round: clean.round,
       extra: clean.extra,
@@ -335,7 +345,7 @@ export function createMockService(options: MockOptions = {}): MockService {
     rows.set(id, build(id, input, "", now()));
   }
 
-  for (const [company, appliedAt, round, extra, interviewedAt, summary, questions] of options.reviews ?? []) {
+  for (const [company, appliedAt, round, extra, interviewedAt, summary, questions, verified] of options.reviews ?? []) {
     const app = [...rows.values()].find((a) => a.company === company && a.appliedAt === appliedAt);
     if (!app) throw new Error(`no sample application ${company} ${appliedAt}`);
     const id = nextReviewId++;
@@ -351,7 +361,7 @@ export function createMockService(options: MockOptions = {}): MockService {
         answers: answers.map(([kind, body]) => ({ kind, body })),
       })),
     };
-    reviews.set(id, fill(input, { id, createdAt: now() }));
+    reviews.set(id, fill(input, { id, createdAt: now() }, verified ?? true));
   }
 
   return {
@@ -502,6 +512,15 @@ export function createMockService(options: MockOptions = {}): MockService {
         // 후기의 updatedAt은 그대로 둔다.
         question.isFavorite = isFavorite;
         return question;
+      }),
+
+    setReviewVerified: (id: number, verified: boolean) =>
+      call(() => {
+        const r = reviews.get(id);
+        if (!r) throw notFound("Review");
+        // 후기의 updatedAt은 그대로 둔다.
+        r.verified = verified;
+        return reviewOf(r);
       }),
 
     deleteReview: (id: number) =>

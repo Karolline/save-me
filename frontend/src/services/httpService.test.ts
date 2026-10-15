@@ -84,6 +84,7 @@ describe("httpService", () => {
     await service.createReview(review);
     await service.updateReview(7, review);
     await service.setQuestionFavorite(7, 12, true);
+    await service.setReviewVerified(7, true);
 
     const calls = fetch.mock.calls.map(([url, init]) => `${init?.method ?? "GET"} ${url}`);
     expect(calls).toEqual([
@@ -94,7 +95,9 @@ describe("httpService", () => {
       "POST /api/reviews",
       "PUT /api/reviews/7",
       "PUT /api/reviews/7/questions/12/favorite",
+      "PUT /api/reviews/7/verified",
     ]);
+    expect(JSON.parse(String(fetch.mock.calls[7][1]?.body))).toEqual({ verified: true });
     expect(JSON.parse(String(fetch.mock.calls[4][1]?.body))).toEqual(review);
     expect(JSON.parse(String(fetch.mock.calls[6][1]?.body))).toEqual({ isFavorite: true });
     expect(fetch.mock.calls[6][1]?.headers).toMatchObject({ "X-Requested-With": "SaveMe" });

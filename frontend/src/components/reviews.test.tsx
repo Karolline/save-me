@@ -61,6 +61,15 @@ describe("ReviewsScreen", () => {
     expect(onOpen).toHaveBeenCalledWith(4);
   });
 
+  it("marks unchecked reviews in their rows", async () => {
+    setup(<ReviewsScreen view="all" {...listProps} />);
+    const row = await screen.findByRole("button", { name: /3차 면접 \(임원\)/ });
+    expect(within(row).getByText("미확인")).toBeInTheDocument();
+    for (const other of screen.getAllByRole("button", { name: /2차 면접 \(팀장\)/ })) {
+      expect(within(other).queryByText("미확인")).not.toBeInTheDocument();
+    }
+  });
+
   it("shows the submission day when a company's reviews span applications", async () => {
     const service = createMockService({ applications: SAMPLE_APPLICATIONS });
     const base = { round: "1차 면접", extra: "", interviewedAt: "2026-01-05", summary: "", questions: [] };
@@ -148,6 +157,24 @@ describe("ReviewViewScreen", () => {
     expect(await screen.findByRole("button", { name: "← 라온소프트 지원 상세로" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "질문 1" })).toHaveClass("focus");
     expect(screen.getByText("면접관")).toBeInTheDocument();
+  });
+
+  it("shows whether a person checked it, and marks it checked", async () => {
+    const { user, service } = setup(<ReviewViewScreen id={5} {...viewProps} />);
+
+    expect(await screen.findByText("아직 사람이 확인하지 않은 후기예요.")).toBeInTheDocument();
+    expect(screen.getByText("미확인")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "읽고 확인했어요" }));
+
+    expect(await screen.findByText("확인됨")).toBeInTheDocument();
+    expect(screen.queryByText("아직 사람이 확인하지 않은 후기예요.")).not.toBeInTheDocument();
+    expect((await service.getReview(5))!.verified).toBe(true);
+  });
+
+  it("shows a checked review without the band", async () => {
+    setup(<ReviewViewScreen id={1} {...viewProps} />);
+    expect(await screen.findByText("확인됨")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "읽고 확인했어요" })).not.toBeInTheDocument();
   });
 
   it("stars a question right away", async () => {

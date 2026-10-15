@@ -152,6 +152,10 @@ export function createHttpService(
       return json<Question>(await request(path, send("PUT", { isFavorite })));
     },
 
+    async setReviewVerified(id: number, verified: boolean) {
+      return json<Review>(await request(`${reviewPath(id)}/verified`, send("PUT", { verified })));
+    },
+
     async deleteReview(id: number) {
       await empty(await request(reviewPath(id), send("DELETE")));
     },

@@ -3,7 +3,7 @@ import { reviewMarkdown, reviewTitle } from "@/lib/reviews";
 import { useService, type Review } from "@/services";
 import { ConfirmDialog, useEscape, useToast } from "./feedback";
 import { icons } from "./icons";
-import { MarkdownDialog, ReadBubbles, StarButton } from "./reviewParts";
+import { MarkdownDialog, ReadBubbles, StarButton, VerifiedPill } from "./reviewParts";
 import { useSessionErrors } from "./session";
 import { NotFoundScreen } from "./SettingsScreen";
 
@@ -74,6 +74,17 @@ export function ReviewViewScreen({
     }
   }
 
+  async function markVerified() {
+    if (!review) return;
+    try {
+      const saved = await service.setReviewVerified(review.id, true);
+      setReview((r) => r && { ...r, verified: saved.verified });
+      toast("확인됨으로 바꿨어요");
+    } catch (error) {
+      if (!handleSessionError(error)) toast("저장하지 못했어요. 다시 시도해 주세요.");
+    }
+  }
+
   async function remove() {
     if (!review) return;
     setBusy(true);
@@ -121,7 +132,8 @@ export function ReviewViewScreen({
             </button>
             {" · "}
             <span className="mono">{review.interviewedAt ?? "날짜 없음"}</span>
-            {` · 질문 ${review.questions.length}개`}
+            {` · 질문 ${review.questions.length}개`}{" "}
+            <VerifiedPill verified={review.verified} />
           </p>
         </div>
         <div className="rev-tools">
@@ -165,6 +177,17 @@ export function ReviewViewScreen({
           )}
         </div>
       </div>
+      {!review.verified && (
+        <div className="unv-bar" role="note">
+          <span>
+            <b>아직 사람이 확인하지 않은 후기예요.</b> AI가 원본을 옮겨 정리한 내용이에요. 읽어 보고 맞으면 확인을 눌러
+            주세요. 편집해서 저장해도 확인됨이 돼요.
+          </span>
+          <button type="button" className="btn btn-sm" onClick={markVerified}>
+            읽고 확인했어요
+          </button>
+        </div>
+      )}
       {review.summary.trim() && (
         <section className="card rv-summary" aria-label="개요">
           <h2>개요</h2>

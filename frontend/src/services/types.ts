@@ -149,6 +149,8 @@ export interface ReviewSummary {
   interviewedAt: string | null;
   questionCount: number;
   favoriteCount: number;
+  /** 사람이 읽고 확인했는지. 앱에서 저장하면 확인됨, 가져온 AI 정리본은 미확인일 수 있다. */
+  verified: boolean;
   createdAt: string;
 }
 
@@ -213,5 +215,7 @@ export interface SaveMeService {
   createReview(input: ReviewInput): Promise<Review>;
   updateReview(id: number, input: ReviewInput): Promise<Review>;
   setQuestionFavorite(reviewId: number, questionId: number, isFavorite: boolean): Promise<Question>;
+  /** 사람 확인 표시 ([읽고 확인했어요]). 후기의 updatedAt은 바뀌지 않는다. */
+  setReviewVerified(id: number, verified: boolean): Promise<Review>;
   deleteReview(id: number): Promise<void>;
 }

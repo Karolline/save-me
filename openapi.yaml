@@ -239,6 +239,27 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Question" }
         "404": { description: Not found (or another user's) }
+  /reviews/{id}/verified:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    put:
+      summary: Mark a review as checked by a person, or not (its updatedAt stays)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [verified]
+              properties:
+                verified: { type: boolean }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+        "404": { description: Not found (or another user's) }
 
 components:
   schemas:
@@ -382,7 +403,7 @@ components:
     ReviewSummary:
       type: object
       required:
-        [id, applicationId, company, sub, appliedAt, round, extra, interviewedAt, questionCount, favoriteCount, createdAt]
+        [id, applicationId, company, sub, appliedAt, round, extra, interviewedAt, questionCount, favoriteCount, verified, createdAt]
       properties:
         id: { type: integer }
         applicationId: { type: integer }
@@ -394,6 +415,9 @@ components:
         interviewedAt: { type: [string, "null"], format: date }
         questionCount: { type: integer }
         favoriteCount: { type: integer }
+        verified:
+          type: boolean
+          description: A person read and checked it. Saving in the app sets it; imported AI write-ups may start unchecked.
         createdAt: { type: string, format: date-time }
     Review:
       allOf:
