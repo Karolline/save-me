@@ -27,6 +27,8 @@ function app(appliedAt: string, later: [2 | 3 | 4, string, string][] = [], endAt
     note: "",
     depth: 1,
     period: "",
+    jobId: null,
+    jobAnalyzedAt: null,
     createdAt: "",
     updatedAt: "",
   };

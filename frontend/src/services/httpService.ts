@@ -5,6 +5,10 @@ import type {
   ApplicationList,
   AuthConfig,
   FavoriteQuestion,
+  Job,
+  JobInput,
+  JobList,
+  JobStatusFilter,
   Question,
   Review,
   ReviewInput,
@@ -73,6 +77,7 @@ export function createHttpService(
 
   const appPath = (id: number) => `/applications/${encodeURIComponent(String(id))}`;
   const reviewPath = (id: number) => `/reviews/${encodeURIComponent(String(id))}`;
+  const jobPath = (id: number) => `/jobs/${encodeURIComponent(String(id))}`;
 
   return {
     async getAuthConfig() {
@@ -158,6 +163,29 @@ export function createHttpService(
 
     async deleteReview(id: number) {
       await empty(await request(reviewPath(id), send("DELETE")));
+    },
+
+    async listJobs(status: JobStatusFilter = "all") {
+      const qs = status === "all" ? "" : `?status=${status}`;
+      return json<JobList>(await request(`/jobs${qs}`));
+    },
+
+    async getJob(id: number) {
+      const response = await request(jobPath(id));
+      if (response.status === 404) return null;
+      return json<Job>(response);
+    },
+
+    async createJob(input: JobInput) {
+      return json<Job>(await request("/jobs", send("POST", input)));
+    },
+
+    async updateJob(id: number, input: JobInput) {
+      return json<Job>(await request(jobPath(id), send("PUT", input)));
+    },
+
+    async deleteJob(id: number) {
+      await empty(await request(jobPath(id), send("DELETE")));
     },
   };
 }

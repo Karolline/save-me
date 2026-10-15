@@ -58,6 +58,9 @@ export interface Application {
   depth: StageKind;
   /** 예: "2026-07 ~ 08" (서버가 계산). */
   period: string;
+  /** 연결된 공고분석과 그 분석일 (없으면 null). */
+  jobId: number | null;
+  jobAnalyzedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -187,6 +190,169 @@ export interface FavoriteQuestion extends Question {
   interviewedAt: string | null;
 }
 
+// ── 공고분석 ──
+
+export type JobStatus = "undecided" | "applied" | "skipped";
+export type JobStatusFilter = "all" | JobStatus;
+/** 기술 핏. ""는 아직 판정하지 않음. */
+export type JobFit = "상" | "중" | "하" | "";
+export type CultureGrade = "Green" | "Yellow" | "Red" | "";
+/** 주요업무, 자격요건, 우대사항. */
+export type RequirementCategory = "duty" | "must" | "pref";
+/** 충족, 부분·인접, 없음, ""(미평가). */
+export type RequirementLevel = "full" | "part" | "none" | "";
+/** 지원 조건: 충족, 확인 필요, 안 맞음. */
+export type ConditionState = "ok" | "check" | "no";
+
+export interface JobCondition {
+  label: string;
+  state: ConditionState;
+  /** 내 상황. */
+  text: string;
+}
+
+export interface CultureItem {
+  name: string;
+  score: number | null;
+  max: number | null;
+  /** 점수를 준 근거가 되는 공고 문장. */
+  quote: string;
+}
+
+export interface HighlightItem {
+  exp: string;
+  /** 대응하는 공고 요구. */
+  maps: string;
+  /** 이유 · 주의. */
+  why: string;
+}
+
+export interface ExcludedItem {
+  exp: string;
+  /** 쓸 곳. */
+  where: string;
+}
+
+export interface ExpectedQuestion {
+  question: string;
+  /** 가장 가까운 경험 → 말하는 방식. */
+  answer: string;
+}
+
+export interface Requirement {
+  category: RequirementCategory;
+  /** 공고 원문. */
+  text: string;
+  level: RequirementLevel;
+  description: string;
+  /** 근거 경험 태그. */
+  evidence: string[];
+  /** 근거 없음 (빨강). */
+  noEvidence: string;
+  /** 주의 (황토). */
+  caution: string;
+}
+
+/** 분석에서 사용자가 고치는 칸. */
+export interface JobFields {
+  company: string;
+  team: string;
+  /** 직무 (공고 제목). */
+  title: string;
+  url: string;
+  deadline: string | null;
+  status: JobStatus;
+  fit: JobFit;
+  /** 한 줄 결론. */
+  conclusion: string;
+  cultureGrade: CultureGrade;
+  cultureScore: number | null;
+  /** 실제 역할 유형. */
+  cultureType: string;
+  /** 잘 맞는 점. */
+  culturePoints: string;
+  /** 공고 행간 읽기. */
+  cultureReadBetween: string;
+  /** 기타 메모: 다른 칸에 맞지 않는 내용. */
+  notes: string;
+  /** 공고 원문 (붙여 넣은 그대로). */
+  rawText: string;
+  conditions: JobCondition[];
+  fitNotes: string[];
+  cultureItems: CultureItem[];
+  cultureRisks: string[];
+  highlight: HighlightItem[];
+  excluded: ExcludedItem[];
+  questions: ExpectedQuestion[];
+  toWrite: string[];
+  gaps: string[];
+  expSuggestions: string[];
+  askBack: string[];
+  checks: string[];
+  /** 이 순서로 저장된다. 저장하면 통째로 바뀐다. */
+  requirements: Requirement[];
+}
+
+export interface JobInput extends JobFields {
+  /** 연결할 지원 건. 연결하면 지원 여부는 늘 applied로 저장된다. */
+  applicationId: number | null;
+}
+
+/** 한 구분의 해당도별 수. total은 미평가까지 센다 (서버가 계산). */
+export interface LevelCounts {
+  full: number;
+  part: number;
+  none: number;
+  unrated: number;
+  total: number;
+}
+
+export interface LinkedApplication {
+  id: number;
+  company: string;
+  sub: string;
+  appliedAt: string;
+  result: Result;
+  resultText: string;
+}
+
+export interface JobSummary {
+  id: number;
+  company: string;
+  team: string;
+  title: string;
+  analyzedAt: string;
+  status: JobStatus;
+  fit: JobFit;
+  cultureGrade: CultureGrade;
+  cultureScore: number | null;
+  /** 자격요건 중 충족한 수와 전체 수. */
+  mustFull: number;
+  mustTotal: number;
+  /** 내 해당도가 "없음"인 요구사항 수. */
+  noEvidenceCount: number;
+  applicationId: number | null;
+}
+
+export interface Job extends JobFields {
+  id: number;
+  /** 분석일: 저장할 때마다 서울 기준 오늘. */
+  analyzedAt: string;
+  applicationId: number | null;
+  application: LinkedApplication | null;
+  counts: Record<RequirementCategory, LevelCounts>;
+  noEvidenceCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JobList {
+  /** 최근에 분석한 순, 고른 필터로 거른 것. */
+  items: JobSummary[];
+  /** 필터와 상관없이 모든 분석에 대한 수. */
+  counts: Record<JobStatusFilter, number>;
+}
+
 /**
  * 백엔드 호출은 모두 이 인터페이스를 거친다. 세션 없이 부르면 status 401인
  * ApiError를 던진다 (`isUnauthorized` 참고).
@@ -218,4 +384,13 @@ export interface SaveMeService {
   /** 사람 확인 표시 ([읽고 확인했어요]). 후기의 updatedAt은 바뀌지 않는다. */
   setReviewVerified(id: number, verified: boolean): Promise<Review>;
   deleteReview(id: number): Promise<void>;
+
+  listJobs(status?: JobStatusFilter): Promise<JobList>;
+  /** 없거나 남의 분석이면 null. */
+  getJob(id: number): Promise<Job | null>;
+  /** 지원 건이 없으면 404, 이미 다른 분석과 연결되어 있으면 409인 ApiError. */
+  createJob(input: JobInput): Promise<Job>;
+  updateJob(id: number, input: JobInput): Promise<Job>;
+  /** 연결된 지원 건은 남고 연결만 풀린다. */
+  deleteJob(id: number): Promise<void>;
 }

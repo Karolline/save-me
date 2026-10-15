@@ -10,19 +10,26 @@ import { useSessionErrors } from "./session";
  * `key={id}`로 그려서, 다른 지원 건은 새 상태로 시작한다.
  *
  * 옆 패널(모바일은 전체 화면)의 지원 건 하나: 전형 단계, 공고, 면접 후기,
- * 느낀점 (기획안 S1 상세). 공고분석 연결은 그 기능과 함께 붙는다.
+ * 느낀점 (기획안 S1 상세). 공고 섹션의 [분석]은 연결된 공고분석으로, [+ 분석]은
+ * 이 지원 건으로 채운 새 분석으로 간다 (기획안 S2 10번).
  */
 export function ApplicationDetailPanel({
   id,
   onClose,
   onEdit,
   onAddReview,
+  onOpenJob,
+  onAddJob,
   onOpenReview,
 }: {
   id: number;
   onClose: () => void;
   onEdit: () => void;
   onAddReview: () => void;
+  /** 연결된 공고분석 상세로. */
+  onOpenJob: (jobId: number) => void;
+  /** 이 지원 건으로 새 공고분석을 연다 (회사·직무·URL을 채워서). */
+  onAddJob: () => void;
   onOpenReview: (reviewId: number) => void;
 }) {
   const service = useService();
@@ -144,6 +151,22 @@ export function ApplicationDetailPanel({
               <section className="sec">
                 <div className="sec-h">
                   <h3>공고</h3>
+                  <span className="row-end">
+                    {app.jobId !== null && app.jobAnalyzedAt && (
+                      <span className="hint">
+                        분석 <span className="mono">{app.jobAnalyzedAt}</span>
+                      </span>
+                    )}
+                    {app.jobId !== null ? (
+                      <button type="button" className="btn btn-sm btn-primary" onClick={() => onOpenJob(app.jobId!)}>
+                        분석
+                      </button>
+                    ) : (
+                      <button type="button" className="btn btn-sm" onClick={onAddJob}>
+                        + 분석
+                      </button>
+                    )}
+                  </span>
                 </div>
                 {app.jobTitle || app.jobUrl ? (
                   <>

@@ -11,6 +11,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { ApplicationDetailPanel } from "@/components/ApplicationDetailPanel";
 import { ApplicationFormPanel } from "@/components/ApplicationFormPanel";
 import { ApplicationsScreen } from "@/components/ApplicationsScreen";
+import { JobEditScreen } from "@/components/JobEditScreen";
+import { JobsScreen } from "@/components/JobsScreen";
+import { JobViewScreen } from "@/components/JobViewScreen";
 import { ReviewEditScreen } from "@/components/ReviewEditScreen";
 import { ReviewsScreen } from "@/components/ReviewsScreen";
 import { ReviewViewScreen } from "@/components/ReviewViewScreen";
@@ -19,7 +22,7 @@ import { LoginScreen } from "@/components/LoginScreen";
 import { SESSION_EXPIRED, SessionContext, useSession } from "@/components/session";
 import { NotFoundScreen, SettingsScreen } from "@/components/SettingsScreen";
 import { Shell } from "@/components/Shell";
-import { useService, type User } from "@/services";
+import { useService, type JobStatusFilter, type User } from "@/services";
 
 // 이동은 라우트 컴포넌트가 맡고, 화면은 콜백만 받는다.
 // 그래서 화면은 라우터 없이 테스트할 수 있다.
@@ -187,6 +190,10 @@ const applicationRoute = createRoute({
         onOpenReview={(reviewId) =>
           navigate({ to: "/reviews/$reviewId", params: { reviewId: String(reviewId) }, search: { from: "detail" } })
         }
+        onOpenJob={(jobId) =>
+          navigate({ to: "/jobs/$jobId", params: { jobId: String(jobId) }, search: { from: "detail" } })
+        }
+        onAddJob={() => navigate({ to: "/jobs/new", search: { applicationId: toId(id) } })}
       />
     );
   },
@@ -342,6 +349,121 @@ const editReviewRoute = createRoute({
   },
 });
 
+// ── 공고분석 (기획안 S2 10번) ──
+
+const JOB_FILTERS: JobStatusFilter[] = ["undecided", "applied", "skipped"];
+
+const jobsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/jobs",
+  validateSearch: (search: Record<string, unknown>): { status?: JobStatusFilter } =>
+    JOB_FILTERS.includes(search.status as JobStatusFilter) ? { status: search.status as JobStatusFilter } : {},
+  component: function JobsPage() {
+    const { status } = jobsRoute.useSearch();
+    const navigate = useNavigate();
+    return (
+      <JobsScreen
+        status={status ?? "all"}
+        onStatusChange={(next) => navigate({ to: "/jobs", search: next === "all" ? {} : { status: next }, replace: true })}
+        onOpen={(jobId) => navigate({ to: "/jobs/$jobId", params: { jobId: String(jobId) } })}
+        onAdd={() => navigate({ to: "/jobs/new" })}
+      />
+    );
+  },
+});
+
+/** 분석을 어디서 열었는지 (`from=detail`: 지원 상세). */
+const parseJobSearch = (search: Record<string, unknown>): { from?: "detail" } =>
+  search.from === "detail" ? { from: "detail" } : {};
+
+/** 분석에서 돌아갈 곳: 지원 상세에서 왔고 연결된 지원 건이 있으면 그 상세, 아니면 목록. */
+function useJobBack(from: "detail" | undefined) {
+  const navigate = useNavigate();
+  return (applicationId: number | null) =>
+    from === "detail" && applicationId !== null
+      ? navigate({ to: "/applications/$id", params: { id: String(applicationId) } })
+      : navigate({ to: "/jobs" });
+}
+
+const newJobRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/jobs/new",
+  validateSearch: (search: Record<string, unknown>): { applicationId?: number } => {
+    const id = Number(search.applicationId);
+    return search.applicationId !== undefined && Number.isInteger(id) ? { applicationId: id } : {};
+  },
+  component: function NewJobPage() {
+    const { applicationId } = newJobRoute.useSearch();
+    const navigate = useNavigate();
+    const fromDetail = applicationId !== undefined;
+    return (
+      <JobEditScreen
+        key={applicationId ?? "new"}
+        applicationId={applicationId}
+        onSaved={(jobId) =>
+          navigate({ to: "/jobs/$jobId", params: { jobId: String(jobId) }, search: fromDetail ? { from: "detail" } : {} })
+        }
+        onCancel={() =>
+          fromDetail
+            ? navigate({ to: "/applications/$id", params: { id: String(applicationId) } })
+            : navigate({ to: "/jobs" })
+        }
+        onDeleted={() => navigate({ to: "/jobs" })}
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
+const jobRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/jobs/$jobId",
+  validateSearch: parseJobSearch,
+  component: function JobPage() {
+    const { jobId } = jobRoute.useParams();
+    const { from } = jobRoute.useSearch();
+    const navigate = useNavigate();
+    const back = useJobBack(from);
+    return (
+      <JobViewScreen
+        key={jobId}
+        id={toId(jobId)}
+        fromDetail={from === "detail"}
+        onBack={back}
+        onDeleted={back}
+        onEdit={() => navigate({ to: "/jobs/$jobId/edit", params: { jobId }, search: from ? { from } : {} })}
+        onOpenApplication={(applicationId) =>
+          navigate({ to: "/applications/$id", params: { id: String(applicationId) } })
+        }
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
+const editJobRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/jobs/$jobId/edit",
+  validateSearch: parseJobSearch,
+  component: function EditJobPage() {
+    const { jobId } = editJobRoute.useParams();
+    const { from } = editJobRoute.useSearch();
+    const navigate = useNavigate();
+    const back = useJobBack(from);
+    const toView = () => navigate({ to: "/jobs/$jobId", params: { jobId }, search: from ? { from } : {} });
+    return (
+      <JobEditScreen
+        key={jobId}
+        jobId={toId(jobId)}
+        onSaved={toView}
+        onCancel={toView}
+        onDeleted={back}
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/settings",
@@ -380,6 +502,10 @@ const routeTree = rootRoute.addChildren([
     newReviewRoute,
     reviewRoute,
     editReviewRoute,
+    jobsRoute,
+    newJobRoute,
+    jobRoute,
+    editJobRoute,
     settingsRoute,
     notFoundRoute,
   ]),

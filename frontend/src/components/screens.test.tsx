@@ -269,7 +269,7 @@ describe("ApplicationFormPanel", () => {
 describe("ApplicationDetailPanel", () => {
   it("shows the stages, the posting and the note, and saves the note", async () => {
     const onEdit = vi.fn();
-    const { user, service } = setup(<ApplicationDetailPanel id={4} onClose={() => {}} onEdit={onEdit} onAddReview={() => {}} onOpenReview={() => {}} />);
+    const { user, service } = setup(<ApplicationDetailPanel id={4} onClose={() => {}} onEdit={onEdit} onAddReview={() => {}} onOpenReview={() => {}} onOpenJob={() => {}} onAddJob={() => {}} />);
 
     expect(await screen.findByRole("heading", { name: "파랑모빌리티" })).toBeInTheDocument();
     expect(screen.getByText("2026-02-02")).toBeInTheDocument();
@@ -292,14 +292,14 @@ describe("ApplicationDetailPanel", () => {
   });
 
   it("says so when the application doesn't exist", async () => {
-    setup(<ApplicationDetailPanel id={999} onClose={() => {}} onEdit={() => {}} onAddReview={() => {}} onOpenReview={() => {}} />);
+    setup(<ApplicationDetailPanel id={999} onClose={() => {}} onEdit={() => {}} onAddReview={() => {}} onOpenReview={() => {}} onOpenJob={() => {}} onAddJob={() => {}} />);
     expect(await screen.findByText("지원 기록을 찾을 수 없어요")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "수정" })).not.toBeInTheDocument();
   });
 
   it("closes from the backdrop and the close button", async () => {
     const onClose = vi.fn();
-    const { user } = setup(<ApplicationDetailPanel id={4} onClose={onClose} onEdit={() => {}} onAddReview={() => {}} onOpenReview={() => {}} />);
+    const { user } = setup(<ApplicationDetailPanel id={4} onClose={onClose} onEdit={() => {}} onAddReview={() => {}} onOpenReview={() => {}} onOpenJob={() => {}} onAddJob={() => {}} />);
     await user.click(screen.getByRole("button", { name: "닫기" }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -318,12 +318,14 @@ describe("Shell", () => {
     const names = within(nav)
       .getAllByRole("button")
       .map((b) => b.textContent);
-    expect(names).toEqual(["지원현황", "공고분석준비 중", "지원서류준비 중", "면접후기", "빈출질문준비 중", "경험준비 중", "이력준비 중"]);
+    expect(names).toEqual(["지원현황", "공고분석", "지원서류준비 중", "면접후기", "빈출질문준비 중", "경험준비 중", "이력준비 중"]);
     expect(within(nav).getByText("내 재료")).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: "지원현황" })).toHaveAttribute("aria-current", "page");
 
-    await user.click(within(nav).getByRole("button", { name: /공고분석/ }));
+    await user.click(within(nav).getByRole("button", { name: /지원서류/ }));
     expect(onNavigate).not.toHaveBeenCalled();
+    await user.click(within(nav).getByRole("button", { name: "공고분석" }));
+    expect(onNavigate).toHaveBeenCalledWith("/jobs");
     await user.click(within(nav).getByRole("button", { name: "지원현황" }));
     expect(onNavigate).toHaveBeenCalledWith("/applications");
   });

@@ -450,7 +450,7 @@ describe("ApplicationDetailPanel reviews", () => {
     const onAddReview = vi.fn();
     const onOpenReview = vi.fn();
     const { user } = setup(
-      <ApplicationDetailPanel id={7} onClose={() => {}} onEdit={() => {}} onAddReview={onAddReview} onOpenReview={onOpenReview} />,
+      <ApplicationDetailPanel id={7} onClose={() => {}} onEdit={() => {}} onAddReview={onAddReview} onOpenReview={onOpenReview} onOpenJob={() => {}} onAddJob={() => {}} />,
     );
 
     const section = await screen.findByRole("region", { name: "면접 후기" });
@@ -463,7 +463,7 @@ describe("ApplicationDetailPanel reviews", () => {
   });
 
   it("says so when there is no review yet", async () => {
-    setup(<ApplicationDetailPanel id={9} onClose={() => {}} onEdit={() => {}} onAddReview={() => {}} onOpenReview={() => {}} />);
+    setup(<ApplicationDetailPanel id={9} onClose={() => {}} onEdit={() => {}} onAddReview={() => {}} onOpenReview={() => {}} onOpenJob={() => {}} onAddJob={() => {}} />);
     expect(await screen.findByText("아직 후기가 없어요. 면접을 봤다면 질문과 내 답을 남겨 두세요.")).toBeInTheDocument();
   });
 });
