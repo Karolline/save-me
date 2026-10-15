@@ -152,6 +152,23 @@ def test_saving_on_screen_marks_verified_and_importing_clears_it(stores: Stores,
     assert stores.jobs.get(user_id, found.id).verified is False
 
 
+def test_marking_verified_keeps_the_dates(engine, user_id: int, other_user_id: int):
+    store = JobStore(engine, fixed(datetime(2026, 10, 13, 3, 0, tzinfo=UTC)))
+    store.save_imported(
+        user_id, [(JobFields(**job().model_dump(exclude={"application_id"})), date(2026, 10, 1), None)]
+    )
+    imported = store.find(user_id, "한결로보틱스", "데이터 엔지니어")
+    later = JobStore(engine, fixed(datetime(2026, 10, 20, 3, 0, tzinfo=UTC)))
+
+    marked = later.set_verified(user_id, imported.id, True)
+
+    assert marked.verified is True
+    assert (marked.analyzed_at, marked.updated_at) == (imported.analyzed_at, imported.updated_at)
+    assert later.set_verified(user_id, imported.id, False).verified is False
+    assert later.set_verified(other_user_id, imported.id, True) is None
+    assert later.get(user_id, imported.id).verified is False
+
+
 def test_linking_forces_applied_and_shows_on_the_application(stores: Stores, user_id: int):
     app = stores.applications.create(user_id, application("바른정보", date(2026, 9, 7), sub="하반기"))
 

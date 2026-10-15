@@ -129,6 +129,24 @@ def test_update_replaces_and_delete(client: TestClient):
     assert client.delete(f"/api/jobs/{created['id']}").status_code == 404
 
 
+def test_marking_an_analysis_verified(client: TestClient, other_client: TestClient, anon_client: TestClient):
+    created = create(client)
+    url = f"/api/jobs/{created['id']}/verified"
+
+    unmarked = client.put(url, json={"verified": False})
+    assert unmarked.status_code == 200 and unmarked.json()["verified"] is False
+    assert unmarked.json()["updatedAt"] == created["updatedAt"]
+    assert unmarked.json()["analyzedAt"] == created["analyzedAt"]
+
+    assert client.put(url, json={"verified": True}).json()["verified"] is True
+    assert other_client.put(url, json={"verified": False}).status_code == 404
+    assert anon_client.put(url, json={"verified": False}).status_code == 401
+    assert client.put("/api/jobs/999/verified", json={"verified": True}).status_code == 404
+    assert client.put(url, json={}).status_code == 422
+    client.headers.pop("X-Requested-With")
+    assert client.put(url, json={"verified": False}).status_code == 403
+
+
 def test_company_is_required_and_values_are_checked(client: TestClient):
     assert client.post("/api/jobs", json=body(company="  ")).status_code == 422
     assert client.post("/api/jobs", json=body(fit="최상")).status_code == 422

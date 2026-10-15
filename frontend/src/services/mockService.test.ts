@@ -242,6 +242,16 @@ describe("mockService job analyses", () => {
     expect((await service.createJob(input({ company: "새 회사" }))).verified).toBe(true);
   });
 
+  it("marks 사람 확인 without touching the dates", async () => {
+    const service = withJobs();
+    const before = (await service.getJob(2))!;
+    const marked = await service.setJobVerified(2, true);
+    expect(marked.verified).toBe(true);
+    expect([marked.analyzedAt, marked.updatedAt]).toEqual([before.analyzedAt, before.updatedAt]);
+    expect((await service.getJob(2))!.verified).toBe(true);
+    expect((await service.setJobVerified(999, true).catch((e) => e)).status).toBe(404);
+  });
+
   it("links an application, forces applied, and shows it on the application", async () => {
     const service = withJobs();
     const created = await service.createJob(input({ status: "skipped", applicationId: 1 }));

@@ -338,7 +338,7 @@ export interface Job extends JobFields {
   id: number;
   /** 분석일: 저장할 때마다 서울 기준 오늘. */
   analyzedAt: string;
-  /** 사람 확인: 가져온 분석은 false, 화면에서 만들거나 고쳐 저장하면 true. */
+  /** 사람 확인: 가져온 분석은 false, 화면에서 만들거나 고쳐 저장하거나 [읽고 확인했어요]를 누르면 true. */
   verified: boolean;
   applicationId: number | null;
   application: LinkedApplication | null;
@@ -393,6 +393,8 @@ export interface SaveMeService {
   /** 지원 건이 없으면 404, 이미 다른 분석과 연결되어 있으면 409인 ApiError. */
   createJob(input: JobInput): Promise<Job>;
   updateJob(id: number, input: JobInput): Promise<Job>;
+  /** 사람 확인 표시 ([읽고 확인했어요]). 분석일과 updatedAt은 바뀌지 않는다. */
+  setJobVerified(id: number, verified: boolean): Promise<Job>;
   /** 연결된 지원 건은 남고 연결만 풀린다. */
   deleteJob(id: number): Promise<void>;
 }

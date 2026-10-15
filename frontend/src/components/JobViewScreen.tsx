@@ -119,6 +119,17 @@ export function JobViewScreen({
     }
   }
 
+  async function markVerified() {
+    if (!job) return;
+    try {
+      const saved = await service.setJobVerified(job.id, true);
+      setJob((j) => j && { ...j, verified: saved.verified });
+      toast("확인됨으로 바꿨어요");
+    } catch (error) {
+      if (!handleSessionError(error)) toast("저장하지 못했어요. 다시 시도해 주세요.");
+    }
+  }
+
   if (job === null) return <NotFoundScreen onHome={onHome} />;
   if (failed) {
     return (
@@ -411,12 +422,23 @@ export function JobViewScreen({
           )}
         </div>
       </div>
+      {!job.verified && (
+        <div className="unv-bar" role="note">
+          <span>
+            <b>아직 사람이 확인하지 않은 분석이에요.</b> AI가 정리해 가져온 내용이에요. 읽어 보고 맞으면 확인을 눌러
+            주세요. 편집해서 저장해도 확인됨이 돼요.
+          </span>
+          <button type="button" className="btn btn-sm" onClick={markVerified}>
+            읽고 확인했어요
+          </button>
+        </div>
+      )}
       <div className="card jmeta">
         <div>
           <span className="k">사람 확인</span>
           <span
-            className={`pill ${job.verified ? "checked" : "unchecked"}`}
-            title={job.verified ? "편집해 저장한 분석" : "가져온 뒤 아직 편집하지 않은 분석"}
+            className={`pill ${job.verified ? "vf-ok" : "vf-no"}`}
+            title={job.verified ? "사람이 확인한 분석" : "가져온 뒤 아직 사람이 확인하지 않은 분석"}
           >
             {job.verified ? "Y" : "N"}
           </span>

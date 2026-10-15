@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.auth import current_user, get_stores, require_csrf_header
-from app.models import Job, JobInput, JobList, JobStatusFilter, User
+from app.models import Job, JobInput, JobList, JobStatusFilter, User, VerifiedInput
 from app.stores import ApplicationAlreadyLinkedError, ApplicationNotFoundError, Stores
 
 router = APIRouter(
@@ -72,6 +72,20 @@ def update_job(
         raise not_found("Application")
     except ApplicationAlreadyLinkedError:
         raise HTTPException(status.HTTP_409_CONFLICT, ALREADY_LINKED)
+    if job is None:
+        raise not_found()
+    return job
+
+
+@router.put("/{job_id}/verified", response_model=Job, response_model_by_alias=True)
+def set_verified(
+    job_id: int,
+    data: VerifiedInput,
+    user: User = Depends(current_user),
+    stores: Stores = Depends(get_stores),
+) -> Job:
+    """사람 확인 표시 ([읽고 확인했어요]). 분석일과 updatedAt은 바뀌지 않는다."""
+    job = stores.jobs.set_verified(user.id, job_id, data.verified)
     if job is None:
         raise not_found()
     return job

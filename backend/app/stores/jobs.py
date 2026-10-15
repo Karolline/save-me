@@ -205,6 +205,17 @@ class JobStore(BaseStore):
             self._fill(db, row, user_id, data, seoul_today(now), now)
             return self._reload(db, user_id, job_id)
 
+    def set_verified(self, user_id: int, job_id: int, verified: bool) -> Job | None:
+        """사람 확인 표시를 바꾼다 ([읽고 확인했어요]). 분석일과 updated_at은 그대로 둔다.
+        분석이 이 사용자 것이 아니면 None."""
+        with self.session() as db, db.begin():
+            row = self._row(db, user_id, job_id)
+            if row is None:
+                return None
+            row.verified = verified
+            db.flush()
+            return to_job(row)
+
     def delete(self, user_id: int, job_id: int) -> bool:
         """분석을 지운다. 연결된 지원 건은 남고 연결만 풀린다."""
         with self.session() as db, db.begin():

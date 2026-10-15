@@ -119,6 +119,21 @@ describe("JobsScreen", () => {
 });
 
 describe("JobViewScreen", () => {
+  it("marks an imported analysis as checked with [읽고 확인했어요]", async () => {
+    const { user } = setup(<JobViewScreen id={1} {...viewProps} />);
+
+    const bar = await screen.findByRole("note");
+    expect(bar.textContent).toContain("아직 사람이 확인하지 않은 분석이에요.");
+    const meta = document.querySelector(".jmeta")!;
+    expect(meta.firstElementChild?.textContent).toBe("사람 확인N");
+
+    await user.click(within(bar).getByRole("button", { name: "읽고 확인했어요" }));
+
+    expect(await screen.findByText("확인됨으로 바꿨어요")).toBeInTheDocument();
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+    expect(meta.firstElementChild?.textContent).toBe("사람 확인Y");
+  });
+
   it("shows the summary cards with the server's 자격요건 counts and every filled section", async () => {
     setup(<JobViewScreen id={1} {...viewProps} />);
 

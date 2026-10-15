@@ -752,6 +752,15 @@ export function createMockService(options: MockOptions = {}): MockService {
         return jobOf(updated);
       }),
 
+    setJobVerified: (id: number, verified: boolean) =>
+      call(() => {
+        const j = jobs.get(id);
+        if (!j) throw notFound("Job analysis");
+        // 분석일과 updatedAt은 그대로 둔다.
+        j.verified = verified;
+        return jobOf(j);
+      }),
+
     deleteJob: (id: number) =>
       call(() => {
         // 연결은 분석 쪽에 있어서, 지우면 지원 건의 연결도 함께 풀린다.

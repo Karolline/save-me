@@ -324,6 +324,27 @@ paths:
       responses:
         "204": { description: Deleted }
         "404": { description: Not found (or another user's) }
+  /jobs/{id}/verified:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    put:
+      summary: Mark an analysis as checked by a person, or not (analyzedAt and updatedAt stay)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [verified]
+              properties:
+                verified: { type: boolean }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "404": { description: Not found (or another user's) }
 
 components:
   schemas:
@@ -661,7 +682,7 @@ components:
           properties:
             id: { type: integer }
             analyzedAt: { type: string, format: date, description: Today in Asia/Seoul on every save }
-            verified: { type: boolean, description: "사람 확인: false for imported analyses, true once created or saved on screen (POST/PUT)" }
+            verified: { type: boolean, description: "사람 확인: false for imported analyses, true once created or saved on screen (POST/PUT) or marked with PUT /jobs/{id}/verified" }
             applicationId: { type: [integer, "null"] }
             application:
               description: The linked application, or null

@@ -402,8 +402,6 @@ td.mono { white-space: nowrap; }
 .jbig.c-green, .pill.c-green { color: var(--ing); } .pill.c-green { background: var(--retry); }
 .jbig.c-yellow, .pill.c-yellow { color: var(--closed); } .pill.c-yellow { background: var(--memo); }
 .jbig.c-red, .pill.c-red { color: var(--fail); } .pill.c-red { background: #FBECEA; }
-.pill.checked { color: var(--ing); background: var(--retry); }
-.pill.unchecked { color: var(--fail); background: #FBECEA; }
 .conds { list-style: none; margin: 2px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 1.5; }
 .conds li { display: flex; gap: 6px; }
 .conds b { font-weight: 600; }

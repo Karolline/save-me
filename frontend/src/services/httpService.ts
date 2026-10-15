@@ -184,6 +184,10 @@ export function createHttpService(
       return json<Job>(await request(jobPath(id), send("PUT", input)));
     },
 
+    async setJobVerified(id: number, verified: boolean) {
+      return json<Job>(await request(`${jobPath(id)}/verified`, send("PUT", { verified })));
+    },
+
     async deleteJob(id: number) {
       await empty(await request(jobPath(id), send("DELETE")));
     },
