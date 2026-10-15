@@ -31,6 +31,12 @@ export const icons = {
       <path d="M8 9h8M8 12h5" strokeLinecap="round" />
     </svg>
   ),
+  question: (
+    <svg viewBox="0 0 24 24" {...stroke} strokeLinecap="round">
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6v.4M12 17h.01" />
+    </svg>
+  ),
   star: (
     <svg viewBox="0 0 24 24" {...stroke} strokeLinejoin="round">
       <path d="M12 4l2.4 5 5.4.6-4 3.7 1.1 5.4L12 16l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z" />

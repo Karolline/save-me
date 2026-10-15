@@ -313,7 +313,7 @@ describe("Shell", () => {
     const names = within(nav)
       .getAllByRole("button")
       .map((b) => b.textContent);
-    expect(names).toEqual(["지원현황", "공고분석준비 중", "지원서류준비 중", "면접후기준비 중", "경험준비 중", "이력준비 중"]);
+    expect(names).toEqual(["지원현황", "공고분석준비 중", "지원서류준비 중", "면접후기준비 중", "빈출질문준비 중", "경험준비 중", "이력준비 중"]);
     expect(within(nav).getByText("내 재료")).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: "지원현황" })).toHaveAttribute("aria-current", "page");
 
