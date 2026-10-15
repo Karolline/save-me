@@ -103,11 +103,11 @@ def test_a_failure_while_writing_leaves_nothing(stores: Stores, user_id: int, ra
     original = ReviewStore._fill
     calls = []
 
-    def failing_fill(*args):
+    def failing_fill(*args, **kwargs):
         calls.append(1)
         if len(calls) == 3:
             raise RuntimeError("디스크가 꽉 찼다")
-        original(*args)
+        original(*args, **kwargs)
 
     monkeypatch.setattr(ReviewStore, "_fill", staticmethod(failing_fill))
     with pytest.raises(RuntimeError):
@@ -136,3 +136,13 @@ def test_main_migrates_and_imports_for_the_local_user(tmp_path, capsys):
     assert "0 added, 2 replaced" in capsys.readouterr().out
     assert stores.reviews.list(user.id).total == 2
     engine.dispose()
+
+
+def test_imports_the_verified_flag_and_defaults_to_verified(stores: Stores, user_id: int, raon, tmp_path):
+    data = json.loads(json.dumps(FILE))
+    data["reviews"][0]["verified"] = False  # 원본 파일의 "사람확인: N"
+
+    import_reviews(stores, user_id, load(write(tmp_path, data)))
+
+    by_round = {r.round: r.verified for r in stores.reviews.list(user_id).groups[0].reviews}
+    assert by_round == {"1차 면접": False, "2차 면접": True}

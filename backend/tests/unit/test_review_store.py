@@ -215,3 +215,34 @@ def test_find_by_application_and_round(stores: Stores, user_id: int, other_user_
     assert stores.reviews.find(user_id, app.id, " 1차 면접 ").id == created.id
     assert stores.reviews.find(user_id, app.id, "2차 면접") is None
     assert stores.reviews.find(other_user_id, app.id, "1차 면접") is None
+
+
+def test_reviews_saved_in_the_app_are_verified(stores: Stores, user_id: int):
+    app = stores.applications.create(user_id, application("라온소프트"))
+    created = stores.reviews.create(user_id, review(app.id))
+    assert created is not None and created.verified is True
+
+
+def test_imported_reviews_keep_the_given_verified_flag_until_saved_in_the_app(stores: Stores, user_id: int):
+    app = stores.applications.create(user_id, application("라온소프트"))
+    stores.reviews.save_all(user_id, [review(app.id, "1차 면접"), review(app.id, "2차 면접")], [False, True])
+    by_round = {r.round: r for g in stores.reviews.list(user_id).groups for r in g.reviews}
+    assert (by_round["1차 면접"].verified, by_round["2차 면접"].verified) == (False, True)
+
+    # 앱에서 고쳐 저장하면 사람이 본 것이므로 확인됨이 된다.
+    updated = stores.reviews.update(user_id, by_round["1차 면접"].id, review(app.id, "1차 면접"))
+    assert updated is not None and updated.verified is True
+
+
+def test_marking_verified_keeps_updated_at_and_is_per_user(stores: Stores, user_id: int, other_user_id: int):
+    app = stores.applications.create(user_id, application("라온소프트"))
+    stores.reviews.save_all(user_id, [review(app.id)], [False])
+    unverified = stores.reviews.list(user_id).groups[0].reviews[0]
+    before = stores.reviews.get(user_id, unverified.id)
+
+    assert stores.reviews.set_verified(other_user_id, unverified.id, True) is None
+    marked = stores.reviews.set_verified(user_id, unverified.id, True)
+
+    assert marked is not None and marked.verified is True
+    assert marked.updated_at == before.updated_at
+    assert stores.reviews.set_verified(user_id, unverified.id, False).verified is False

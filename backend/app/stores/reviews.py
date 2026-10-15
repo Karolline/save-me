@@ -45,6 +45,7 @@ def to_summary(row: InterviewReviewRow) -> ReviewSummary:
         interviewed_at=row.interviewed_at,
         question_count=len(row.questions),
         favorite_count=sum(1 for q in row.questions if q.is_favorite),
+        verified=row.verified,
         created_at=row.created_at,
     )
 
@@ -192,6 +193,16 @@ class ReviewStore(BaseStore):
             question.updated_at = self.clock()
             return to_question(question)
 
+    def set_verified(self, user_id: int, review_id: int, verified: bool) -> Review | None:
+        """사람 확인 표시를 바꾼다 ([읽고 확인했어요]). 후기의 updated_at은 그대로 둔다."""
+        with self.session() as db, db.begin():
+            row = self._row(db, user_id, review_id)
+            if row is None:
+                return None
+            row.verified = verified
+            db.flush()
+            return to_review(row)
+
     def delete(self, user_id: int, review_id: int) -> bool:
         with self.session() as db, db.begin():
             row = self._row(db, user_id, review_id)
@@ -200,15 +211,19 @@ class ReviewStore(BaseStore):
             db.delete(row)
             return True
 
-    def save_all(self, user_id: int, items: list[ReviewInput]) -> tuple[int, int]:
+    def save_all(
+        self, user_id: int, items: list[ReviewInput], verified: list[bool] | None = None
+    ) -> tuple[int, int]:
         """여러 후기를 트랜잭션 하나로 저장한다 (가져오기). 같은 지원 건에 차수
         이름이 같은 후기가 있으면 통째로 바꾸고, 없으면 만든다. 하나라도 실패하면
         아무것도 쓰지 않는다. 지원 건이 이 사용자 것이 아니면 LookupError.
+        `verified`는 항목마다 사람 확인 여부 (주지 않으면 모두 확인됨).
         (만든 수, 바꾼 수)를 돌려준다."""
         created = replaced = 0
         now = self.clock()
+        flags = verified if verified is not None else [True] * len(items)
         with self.session() as db, db.begin():
-            for data in items:
+            for data, is_verified in zip(items, flags, strict=True):
                 if self._application(db, user_id, data.application_id) is None:
                     raise LookupError(f"application {data.application_id} not found")
                 review_id = db.scalar(
@@ -228,7 +243,7 @@ class ReviewStore(BaseStore):
                     created += 1
                 else:
                     replaced += 1
-                self._fill(row, user_id, data, now)
+                self._fill(row, user_id, data, now, verified=is_verified)
                 db.flush()
         return created, replaced
 
@@ -271,7 +286,11 @@ class ReviewStore(BaseStore):
         )
 
     @staticmethod
-    def _fill(row: InterviewReviewRow, user_id: int, data: ReviewInput, now) -> None:
+    def _fill(
+        row: InterviewReviewRow, user_id: int, data: ReviewInput, now, verified: bool = True
+    ) -> None:
+        """앱에서 저장하면 사람이 본 것이므로 확인됨이 된다 (가져오기는 파일 값)."""
+        row.verified = verified
         row.application_id = data.application_id
         row.round = data.round
         row.extra = data.extra

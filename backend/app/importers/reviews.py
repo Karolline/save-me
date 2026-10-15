@@ -36,6 +36,8 @@ class ImportItem(ApiModel):
     interviewed_at: date | None = None
     summary: str = ""
     questions: list[QuestionInput] = []
+    # 원본 파일의 "사람확인" (Y면 true). 없으면 사람이 쓴 것으로 본다.
+    verified: bool = True
 
 
 class ImportFileError(ValueError):
@@ -73,7 +75,7 @@ def import_reviews(stores: Stores, user_id: int, items: list[ImportItem]) -> Imp
         ready.append(
             ReviewInput(
                 application_id=app.id,
-                **item.model_dump(exclude={"company", "applied_at"}),
+                **item.model_dump(exclude={"company", "applied_at", "verified"}),
             )
         )
     if missing:
@@ -91,7 +93,7 @@ def import_reviews(stores: Stores, user_id: int, items: list[ImportItem]) -> Imp
         raise DuplicateReviewError("같은 지원 건과 차수가 파일에 두 번 있어요: " + ", ".join(duplicates))
 
     # 트랜잭션 하나로 쓴다: 중간에 실패하면 아무것도 남지 않는다.
-    created, replaced = stores.reviews.save_all(user_id, ready)
+    created, replaced = stores.reviews.save_all(user_id, ready, [i.verified for i in items])
     return ImportResult(created=created, replaced=replaced)
 
 

@@ -11,6 +11,7 @@ from app.models import (
     ReviewInput,
     ReviewList,
     User,
+    VerifiedInput,
 )
 from app.stores import Stores
 
@@ -103,6 +104,20 @@ def set_favorite(
     if question is None:
         raise not_found("Question")
     return question
+
+
+@router.put("/{review_id}/verified", response_model=Review, response_model_by_alias=True)
+def set_verified(
+    review_id: int,
+    data: VerifiedInput,
+    user: User = Depends(current_user),
+    stores: Stores = Depends(get_stores),
+) -> Review:
+    """사람 확인 표시 ([읽고 확인했어요]). 후기의 updatedAt은 바뀌지 않는다."""
+    review = stores.reviews.set_verified(user.id, review_id, data.verified)
+    if review is None:
+        raise not_found()
+    return review
 
 
 @router.delete("/{review_id}", status_code=status.HTTP_204_NO_CONTENT)

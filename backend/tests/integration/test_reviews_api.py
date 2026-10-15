@@ -200,3 +200,24 @@ def test_another_users_review_and_application_are_404_everywhere(client: TestCli
 
     still = client.get(url).json()
     assert still == review
+
+
+def test_marking_a_review_verified(client: TestClient, other_client: TestClient, anon_client: TestClient):
+    application = create_application(client)
+    review = create(client, application["id"])
+    assert review["verified"] is True
+    url = f"/api/reviews/{review['id']}/verified"
+
+    unmarked = client.put(url, json={"verified": False})
+    assert unmarked.status_code == 200 and unmarked.json()["verified"] is False
+    assert unmarked.json()["updatedAt"] == review["updatedAt"]
+    listed = client.get("/api/reviews").json()["groups"][0]["reviews"][0]
+    assert listed["verified"] is False
+
+    assert client.put(url, json={"verified": True}).json()["verified"] is True
+    assert other_client.put(url, json={"verified": False}).status_code == 404
+    assert anon_client.put(url, json={"verified": False}).status_code == 401
+    assert client.put("/api/reviews/999/verified", json={"verified": True}).status_code == 404
+    assert client.put(url, json={}).status_code == 422
+    client.headers.pop("X-Requested-With")
+    assert client.put(url, json={"verified": False}).status_code == 403

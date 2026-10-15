@@ -27,6 +27,7 @@ from sqlalchemy import (
     create_engine,
     event,
     false,
+    true,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy.pool import StaticPool
@@ -186,6 +187,9 @@ class InterviewReviewRow(Base):
     interviewed_at: Mapped[date | None] = mapped_column(Date, nullable=True)
     # 개요: 면접 형식, 분위기, 전체 느낌.
     summary: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 사람이 읽고 확인했는지. 앱에서 저장하면 확인됨이고, 가져온 AI 정리본은
+    # 원본 파일의 "사람확인" 값을 따른다. 화면은 미확인 후기에 확인 띠를 보인다.
+    verified: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
 

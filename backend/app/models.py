@@ -204,7 +204,13 @@ class ReviewSummary(ApiModel):
     interviewed_at: date | None
     question_count: int
     favorite_count: int
+    # 사람이 읽고 확인했는지 (가져온 AI 정리본은 처음에 미확인일 수 있다).
+    verified: bool
     created_at: datetime
+
+
+class VerifiedInput(ApiModel):
+    verified: bool
 
 
 class Review(ReviewSummary):
