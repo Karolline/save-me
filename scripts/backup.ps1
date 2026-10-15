@@ -4,13 +4,14 @@ Backs up the real SaveMe database (saveme) with pg_dump.
 
 .DESCRIPTION
 Writes saveme-YYYYMMDD-HHMMSS-<reason>.dump (pg_dump custom format) to the
-backup folder and keeps the newest -Keep dumps. Point the backup folder at a
-folder that the Naver MYBOX PC app syncs, so every dump is uploaded.
+backup folder and keeps the newest -Keep dumps. Put the backup folder on the
+Naver MYBOX drive (N:, from the MYBOX Explorer app), so every dump is uploaded.
 
 The folder is, in order: -BackupDir, the SAVEME_BACKUP_DIR environment
-variable, or %USERPROFILE%\SaveMe-backups. Each run appends a line to
-backup.log in that folder. Starts Docker Desktop and the database container
-if they are not running.
+variable, or %USERPROFILE%\SaveMe-backups. If the folder's drive is missing
+(MYBOX not running), the dump goes to %USERPROFILE%\SaveMe-backups with a
+warning. Each run appends a line to backup.log in the folder it used. Starts
+Docker Desktop and the database container if they are not running.
 
 .EXAMPLE
 powershell -ExecutionPolicy Bypass -File scripts\backup.ps1
@@ -26,12 +27,22 @@ $ErrorActionPreference = "Stop"
 . "$PSScriptRoot\common.ps1"
 
 $BackupDir = Get-BackupDir $BackupDir
-New-Item -ItemType Directory -Force $BackupDir | Out-Null
+# The MYBOX drive (N:) only exists while the MYBOX app runs. Without it, keep
+# the dump locally rather than losing it; it can be copied over later.
+$fallback = $null
+try {
+    New-Item -ItemType Directory -Force $BackupDir | Out-Null
+} catch {
+    $fallback = $BackupDir
+    $BackupDir = Join-Path $env:USERPROFILE "SaveMe-backups"
+    New-Item -ItemType Directory -Force $BackupDir | Out-Null
+}
 $log = Join-Path $BackupDir "backup.log"
 function Write-Log([string]$Message) {
     "$(Get-Date -Format s) $Message" | Out-File -Append -Encoding utf8 $log
     Write-Host $Message
 }
+if ($fallback) { Write-Log "WARNING $fallback is not available (is MYBOX running?); backing up to $BackupDir instead" }
 
 $name = "$Database-$(Get-Date -Format yyyyMMdd-HHmmss)-$Reason.dump"
 $target = Join-Path $BackupDir $name
