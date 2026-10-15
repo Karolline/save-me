@@ -657,10 +657,11 @@ components:
       allOf:
         - $ref: "#/components/schemas/JobFields"
         - type: object
-          required: [id, analyzedAt, applicationId, application, counts, noEvidenceCount, createdAt, updatedAt]
+          required: [id, analyzedAt, humanChecked, applicationId, application, counts, noEvidenceCount, createdAt, updatedAt]
           properties:
             id: { type: integer }
             analyzedAt: { type: string, format: date, description: Today in Asia/Seoul on every save }
+            humanChecked: { type: boolean, description: "사람 확인: false for imported analyses, true once created or saved on screen (POST/PUT)" }
             applicationId: { type: [integer, "null"] }
             application:
               description: The linked application, or null

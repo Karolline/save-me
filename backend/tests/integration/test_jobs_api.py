@@ -77,6 +77,7 @@ def test_create_and_get_in_camel_case(client: TestClient):
     assert created["noEvidenceCount"] == 1
     assert created["applicationId"] is None and created["application"] is None
     assert {"analyzedAt", "createdAt", "updatedAt", "notes", "rawText"} <= created.keys()
+    assert created["humanChecked"] is True
 
     fetched = client.get(f"/api/jobs/{created['id']}")
     assert fetched.status_code == 200 and fetched.json() == created
@@ -120,6 +121,7 @@ def test_update_replaces_and_delete(client: TestClient):
     )
     assert updated.status_code == 200
     assert updated.json()["title"] == "바뀐 직무"
+    assert updated.json()["humanChecked"] is True
     assert [r["text"] for r in updated.json()["requirements"]] == ["Kafka"]
 
     assert client.delete(f"/api/jobs/{created['id']}").status_code == 204

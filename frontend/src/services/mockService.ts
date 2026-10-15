@@ -266,6 +266,7 @@ interface StoredJob extends JobFields {
   id: number;
   applicationId: number | null;
   analyzedAt: string;
+  humanChecked: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -357,7 +358,11 @@ export function createMockService(options: MockOptions = {}): MockService {
   }
 
   /** 검증하고 연결 규칙을 지켜 저장할 분석을 만든다 (백엔드와 같은 오류). */
-  function fillJob(input: JobInput, base: Pick<StoredJob, "id" | "createdAt">, analyzedAt: string): StoredJob {
+  function fillJob(
+    input: JobInput,
+    base: Pick<StoredJob, "id" | "createdAt" | "humanChecked">,
+    analyzedAt: string,
+  ): StoredJob {
     const clean = validateJob(input);
     const { applicationId, ...fields } = clean;
     if (applicationId !== null) {
@@ -537,7 +542,11 @@ export function createMockService(options: MockOptions = {}): MockService {
       applicationId = app.id;
     }
     const id = nextJobId++;
-    jobs.set(id, fillJob({ ...emptyJobFields(), ...job, applicationId }, { id, createdAt: now() }, analyzedAt));
+    // 샘플은 가져온 분석이라 사람 확인 N.
+    jobs.set(
+      id,
+      fillJob({ ...emptyJobFields(), ...job, applicationId }, { id, createdAt: now(), humanChecked: false }, analyzedAt),
+    );
   }
 
   return {
@@ -728,7 +737,7 @@ export function createMockService(options: MockOptions = {}): MockService {
       call(() => {
         const id = nextJobId;
         const createdAt = now();
-        const created = fillJob(input, { id, createdAt }, seoulDay(createdAt));
+        const created = fillJob(input, { id, createdAt, humanChecked: true }, seoulDay(createdAt));
         nextJobId++;
         jobs.set(id, created);
         return jobOf(created);
@@ -738,7 +747,7 @@ export function createMockService(options: MockOptions = {}): MockService {
       call(() => {
         const existing = jobs.get(id);
         if (!existing) throw notFound("Job analysis");
-        const updated = fillJob(input, { id, createdAt: existing.createdAt }, seoulDay(now()));
+        const updated = fillJob(input, { id, createdAt: existing.createdAt, humanChecked: true }, seoulDay(now()));
         jobs.set(id, updated);
         return jobOf(updated);
       }),

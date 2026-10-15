@@ -235,6 +235,13 @@ describe("mockService job analyses", () => {
     expect(sodam.noEvidenceCount).toBe(0);
   });
 
+  it("marks 사람 확인 when an analysis is saved on screen; sample (imported) ones are not", async () => {
+    const service = withJobs();
+    expect((await service.getJob(1))!.humanChecked).toBe(false);
+    expect((await service.updateJob(1, input())).humanChecked).toBe(true);
+    expect((await service.createJob(input({ company: "새 회사" }))).humanChecked).toBe(true);
+  });
+
   it("links an application, forces applied, and shows it on the application", async () => {
     const service = withJobs();
     const created = await service.createJob(input({ status: "skipped", applicationId: 1 }));

@@ -136,6 +136,7 @@ def to_job(row: JobAnalysisRow) -> Job:
         ],
         id=row.id,
         analyzed_at=row.analyzed_at,
+        human_checked=row.human_checked,
         application_id=app.id if app else None,
         application=(
             LinkedApplication(
@@ -182,24 +183,25 @@ class JobStore(BaseStore):
             return to_job(row) if row else None
 
     def create(self, user_id: int, data: JobInput, analyzed_at: date | None = None) -> Job:
-        """새 분석. 분석일은 주지 않으면 서울 기준 오늘.
+        """새 분석. 분석일은 주지 않으면 서울 기준 오늘. 화면에서 만든 것이라 사람 확인은 True.
 
         지원 건이 없거나 남의 것이면 ApplicationNotFoundError, 이미 다른 분석과
         연결되어 있으면 ApplicationAlreadyLinkedError."""
         now = self.clock()
         with self.session() as db, db.begin():
-            row = JobAnalysisRow(user_id=user_id, created_at=now)
+            row = JobAnalysisRow(user_id=user_id, created_at=now, human_checked=True)
             self._fill(db, row, user_id, data, analyzed_at or seoul_today(now), now)
             return self._reload(db, user_id, row.id)
 
     def update(self, user_id: int, job_id: int, data: JobInput) -> Job | None:
         """분석을 고친다. 요구사항은 받은 것으로 통째로 바뀌고, 분석일은 서울 기준
-        오늘이 된다. 분석이 이 사용자 것이 아니면 None. 연결 오류는 create와 같다."""
+        오늘이 되고, 사람 확인은 True가 된다. 분석이 이 사용자 것이 아니면 None. 연결 오류는 create와 같다."""
         now = self.clock()
         with self.session() as db, db.begin():
             row = self._row(db, user_id, job_id)
             if row is None:
                 return None
+            row.human_checked = True
             self._fill(db, row, user_id, data, seoul_today(now), now)
             return self._reload(db, user_id, job_id)
 
@@ -218,7 +220,7 @@ class JobStore(BaseStore):
     ) -> tuple[int, int]:
         """여러 분석을 트랜잭션 하나로 저장한다 (가져오기). 항목은 (내용, 분석일,
         연결할 지원 건 id). 같은 (회사, 직무) 분석이 있으면 통째로 바꾸고 없으면
-        만든다. 분석일은 받은 날짜를 그대로 쓴다. 하나라도 실패하면 아무것도 쓰지
+        만든다. 분석일은 받은 날짜를 그대로 쓰고, 사람 확인은 False가 된다. 하나라도 실패하면 아무것도 쓰지
         않는다. (만든 수, 바꾼 수)를 돌려준다."""
         created = replaced = 0
         now = self.clock()
@@ -240,6 +242,8 @@ class JobStore(BaseStore):
                 else:
                     replaced += 1
                 data = JobInput(**fields.model_dump(), application_id=application_id)
+                # 가져온 내용은 아직 사람이 보지 않았다 (바꿔 넣어도 다시 N).
+                row.human_checked = False
                 self._fill(db, row, user_id, data, analyzed_at, now)
         return created, replaced
 

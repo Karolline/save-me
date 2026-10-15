@@ -124,6 +124,9 @@ describe("JobViewScreen", () => {
 
     expect(await screen.findByRole("heading", { name: "로봇 데이터 플랫폼 엔지니어" })).toBeInTheDocument();
     expect(screen.getByText("한결로보틱스 · 로봇플랫폼실 · 데이터플랫폼팀")).toBeInTheDocument();
+    // 사람 확인은 맨 위 정보 칸의 첫 칸. 샘플은 가져온 분석이라 N.
+    const meta = document.querySelector(".jmeta")!;
+    expect(meta.firstElementChild?.textContent).toBe("사람 확인N");
     const fit = screen.getByRole("region", { name: "기술 핏 요약" });
     expect(fit.textContent).toContain("중");
     expect(fit.textContent).toContain("자격요건 5개 중 충족 3 / 부분 2 / 없음 0");

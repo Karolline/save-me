@@ -423,6 +423,8 @@ class Job(JobFields):
 
     id: int
     analyzed_at: date
+    # 사람이 확인했는지 (가져온 분석은 False, 화면에서 저장하면 True).
+    human_checked: bool
     application_id: int | None
     application: LinkedApplication | None
     counts: RequirementCounts
