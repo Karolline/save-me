@@ -1,7 +1,7 @@
 """job analyses: 공고분석과 요구사항, 지원 건 연결
 
 Revision ID: 59bb515a140b
-Revises: df2e5845d900
+Revises: 2b80d6dd19cf
 Create Date: 2026-10-15 18:05:47.753428
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '59bb515a140b'
-down_revision: Union[str, Sequence[str], None] = 'df2e5845d900'
+down_revision: Union[str, Sequence[str], None] = '2b80d6dd19cf'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
