@@ -30,9 +30,9 @@ const STATS: [keyof ApplicationList["stats"], string][] = [
 const KINDS: StageKind[] = [1, 2, 3, 4];
 
 /**
- * 지원현황 (tech plan S1 1번, S2 5·9번): stats, legend, filter, the timeline
- * and its table. `version` changes when an application was saved elsewhere,
- * which reloads the list.
+ * 지원현황 (기획안 S1 1번, S2 5·9번): 통계, 범례, 필터, 타임라인과 표.
+ * 처음엔 "진행 중" 필터로 연다 (2026-10-15 사용자 결정).
+ * 다른 곳에서 지원 건을 저장하면 `version`이 바뀌고, 목록을 다시 불러온다.
  */
 export function ApplicationsScreen({
   version = 0,
@@ -45,12 +45,10 @@ export function ApplicationsScreen({
 }) {
   const service = useService();
   const handleSessionError = useSessionErrors();
-  const [filter, setFilter] = useState<StatusFilter>("all");
+  const [filter, setFilter] = useState<StatusFilter>("ing");
   const [list, setList] = useState<ApplicationList | null>(null);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
-  // The whole period, from the unfiltered list (a filter doesn't change it).
-  const [title, setTitle] = useState("");
 
   useEffect(() => {
     let live = true;
@@ -59,7 +57,6 @@ export function ApplicationsScreen({
       .then((result) => {
         if (!live) return;
         setList(result);
-        if (filter === "all") setTitle(rangeTitle(result.items));
       })
       .catch((error) => {
         if (live && !handleSessionError(error)) setFailed(true);
@@ -70,6 +67,8 @@ export function ApplicationsScreen({
   }, [service, filter, version, attempt, handleSessionError]);
 
   const stats = list?.stats;
+  // 제목의 기간은 지금 보이는 막대들의 기간이다 (필터를 바꾸면 차트 축과 같이 바뀐다).
+  const title = list ? rangeTitle(list.items) : "";
 
   const head = (
     <div className="ph">

@@ -29,43 +29,46 @@ function setup(ui: ReactNode, service: MockService = createMockService({ applica
 }
 
 describe("ApplicationsScreen", () => {
-  it("shows the stats, legend and one timeline row per application, oldest first", async () => {
+  it("opens on 진행 중, with stats over everything", async () => {
     setup(<ApplicationsScreen onOpen={() => {}} onAdd={() => {}} />);
 
     const rows = await screen.findAllByTestId("timeline-row");
-    expect(rows).toHaveLength(9);
-    expect(within(rows[0]).getByText("한빛증권")).toBeInTheDocument();
-    expect(within(rows[0]).getByText("상반기")).toBeInTheDocument();
+    expect(rows.map((r) => within(r).getByRole("button").textContent)).toEqual(["바른정보", "초록식품"]);
+    expect(screen.getByRole("button", { name: /진행 중\s*2/ })).toHaveAttribute("aria-pressed", "true");
 
     const stats = screen.getByLabelText("통계");
     expect(stats.textContent).toContain("9전체");
     expect(stats.textContent).toContain("3서류 탈락");
     expect(stats.textContent).toContain("2기타");
-    expect(screen.getByRole("heading", { name: /지원 현황/ }).textContent).toContain("2025.11 – 2026.10");
+    // 제목의 기간은 보이는 막대들의 기간
+    expect(screen.getByRole("heading", { name: /지원 현황/ }).textContent).toContain("2026.09 – 2026.10");
     expect(screen.getByText("2차 면접 이상")).toBeInTheDocument();
   });
 
-  it("filters to applications in progress and back", async () => {
+  it("shows every application oldest first under 전체, and the ended ones under 종료", async () => {
     const { user } = setup(<ApplicationsScreen onOpen={() => {}} onAdd={() => {}} />);
     await screen.findAllByTestId("timeline-row");
 
-    await user.click(screen.getByRole("button", { name: /진행 중s*2/ }));
+    await user.click(screen.getByRole("button", { name: /전체\s*9/ }));
 
-    await waitFor(() => expect(screen.getAllByTestId("timeline-row")).toHaveLength(2));
-    expect(screen.getByRole("button", { name: /진행 중s*2/ })).toHaveAttribute("aria-pressed", "true");
-    // The title keeps the whole period.
+    await waitFor(() => expect(screen.getAllByTestId("timeline-row")).toHaveLength(9));
+    const rows = screen.getAllByTestId("timeline-row");
+    expect(within(rows[0]).getByText("한빛증권")).toBeInTheDocument();
+    expect(within(rows[0]).getByText("상반기")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /지원 현황/ }).textContent).toContain("2025.11 – 2026.10");
 
-    await user.click(screen.getByRole("button", { name: /종료s*7/ }));
+    await user.click(screen.getByRole("button", { name: /종료\s*7/ }));
     await waitFor(() => expect(screen.getAllByTestId("timeline-row")).toHaveLength(7));
   });
 
   it("opens an application from its name, in the chart and in the table", async () => {
     const onOpen = vi.fn();
     const { user } = setup(<ApplicationsScreen onOpen={onOpen} onAdd={() => {}} />);
-    const rows = await screen.findAllByTestId("timeline-row");
+    await screen.findAllByTestId("timeline-row");
+    await user.click(screen.getByRole("button", { name: /전체\s*9/ }));
+    await waitFor(() => expect(screen.getAllByTestId("timeline-row")).toHaveLength(9));
 
-    await user.click(within(rows[3]).getByRole("button", { name: /파랑모빌리티/ }));
+    await user.click(within(screen.getAllByTestId("timeline-row")[3]).getByRole("button", { name: /파랑모빌리티/ }));
     expect(onOpen).toHaveBeenLastCalledWith(4);
 
     await user.click(screen.getByText("표로 보기"));
@@ -76,9 +79,11 @@ describe("ApplicationsScreen", () => {
   });
 
   it("shows the result in each row's chain", async () => {
-    setup(<ApplicationsScreen onOpen={() => {}} onAdd={() => {}} />);
-    const rows = await screen.findAllByTestId("timeline-row");
-    expect(rows[3].textContent).toContain("서류 → 1차 면접 → 2차 면접 → ✕ 2차 면접 탈락");
+    const { user } = setup(<ApplicationsScreen onOpen={() => {}} onAdd={() => {}} />);
+    await screen.findAllByTestId("timeline-row");
+    await user.click(screen.getByRole("button", { name: /전체\s*9/ }));
+    await waitFor(() => expect(screen.getAllByTestId("timeline-row")).toHaveLength(9));
+    expect(screen.getAllByTestId("timeline-row")[3].textContent).toContain("서류 → 1차 면접 → 2차 면접 → ✕ 2차 면접 탈락");
   });
 
   it("shows the empty state to a first-time user", async () => {
@@ -106,7 +111,7 @@ describe("ApplicationsScreen", () => {
     expect(await screen.findByText("불러오지 못했어요")).toBeInTheDocument();
     service.setOffline(false);
     await user.click(screen.getByRole("button", { name: "다시 시도" }));
-    expect(await screen.findAllByTestId("timeline-row")).toHaveLength(9);
+    expect(await screen.findAllByTestId("timeline-row")).toHaveLength(2);
   });
 
   it("ends the session on a 401", async () => {
@@ -202,7 +207,7 @@ describe("ApplicationFormPanel", () => {
     await user.selectOptions(screen.getByLabelText("1번째 단계 종류"), "4");
     await user.type(screen.getByLabelText("1번째 단계 이름"), "2차 면접");
     await user.type(screen.getByLabelText("2번째 단계 날짜"), "2026-08-04");
-    await user.click(screen.getByLabelText("1번째 단계 이름")); // blur re-sorts by day
+    await user.click(screen.getByLabelText("1번째 단계 이름")); // 포커스가 빠지면 날짜순으로 다시 정렬
     expect(screen.getByLabelText("1번째 단계 날짜")).toHaveValue("2026-08-04");
 
     await user.click(screen.getByLabelText(/기타/));
