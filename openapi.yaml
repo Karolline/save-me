@@ -9,7 +9,7 @@ info:
     Every endpoint except `GET /auth/config` and `POST /auth/dev-login` needs a
     session (the `saveme_session` HttpOnly cookie); without one it returns 401.
     Requests other than GET must send `X-Requested-With: SaveMe` (403 otherwise).
-    Another user's application is a 404, as if it didn't exist.
+    Another user's application, review or question is a 404, as if it didn't exist.
 servers:
   - url: /api
 
@@ -139,6 +139,107 @@ paths:
               schema: { $ref: "#/components/schemas/Application" }
         "404": { description: Not found (or another user's) }
 
+  /reviews:
+    get:
+      summary: The user's interview reviews, grouped by company
+      description: |
+        Company cards newest first (by their latest review), rows inside oldest
+        first. A review without interviewedAt sorts as if dated by the day it
+        was created (UTC).
+      parameters:
+        - name: applicationId
+          in: query
+          required: false
+          schema: { type: integer }
+          description: Only that application's reviews (oldest first), for the detail panel.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewList" }
+        "404": { description: applicationId is not the user's application }
+    post:
+      summary: Add a review
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+        "404": { description: applicationId is missing or another user's }
+        "422": { description: Invalid input (empty round, unknown answer kind, ...) }
+  /reviews/favorites:
+    get:
+      summary: Starred questions, newest review first, then question order
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/FavoriteQuestion" }
+  /reviews/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      summary: One review with its questions and answers
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+        "404": { description: Not found (or another user's) }
+    put:
+      summary: Replace a review's fields, questions and answers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Review" }
+        "404": { description: The review or applicationId is missing or another user's }
+        "422": { description: Invalid input }
+    delete:
+      summary: Delete a review with its questions and answers
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found (or another user's) }
+  /reviews/{id}/questions/{questionId}/favorite:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+      - { name: questionId, in: path, required: true, schema: { type: integer } }
+    put:
+      summary: Star or unstar a question (the review's updatedAt stays)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [isFavorite]
+              properties:
+                isFavorite: { type: boolean }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Question" }
+        "404": { description: Not found (or another user's) }
+
 components:
   schemas:
     AuthConfig:
@@ -237,3 +338,102 @@ components:
             all: { type: integer }
             ing: { type: integer }
             done: { type: integer }
+    Answer:
+      type: object
+      required: [kind, body]
+      description: One bubble under a question.
+      properties:
+        kind:
+          type: string
+          enum: [follow, interviewer, mine, retry, memo, ai]
+          description: "꼬리질문, 면접관, 내 답, 다시 답한다면, 메모, AI 첨언"
+        body: { type: string }
+    QuestionInput:
+      type: object
+      properties:
+        question: { type: string, default: "", description: May be empty }
+        isFavorite: { type: boolean, default: false }
+        answers:
+          type: array
+          items: { $ref: "#/components/schemas/Answer" }
+    ReviewInput:
+      type: object
+      required: [applicationId, round]
+      description: Saving replaces all questions and answers (stars as given).
+      properties:
+        applicationId: { type: integer }
+        round: { type: string, description: Trimmed; must not be empty }
+        extra: { type: string, default: "" }
+        interviewedAt: { type: [string, "null"], format: date }
+        summary: { type: string, default: "", description: 개요 }
+        questions:
+          type: array
+          items: { $ref: "#/components/schemas/QuestionInput" }
+    Question:
+      type: object
+      required: [id, question, isFavorite, answers]
+      properties:
+        id: { type: integer }
+        question: { type: string }
+        isFavorite: { type: boolean }
+        answers:
+          type: array
+          items: { $ref: "#/components/schemas/Answer" }
+    ReviewSummary:
+      type: object
+      required:
+        [id, applicationId, company, sub, appliedAt, round, extra, interviewedAt, questionCount, favoriteCount, createdAt]
+      properties:
+        id: { type: integer }
+        applicationId: { type: integer }
+        company: { type: string }
+        sub: { type: string }
+        appliedAt: { type: string, format: date }
+        round: { type: string }
+        extra: { type: string }
+        interviewedAt: { type: [string, "null"], format: date }
+        questionCount: { type: integer }
+        favoriteCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+    Review:
+      allOf:
+        - $ref: "#/components/schemas/ReviewSummary"
+        - type: object
+          required: [summary, questions, updatedAt]
+          properties:
+            summary: { type: string, description: 개요 }
+            questions:
+              type: array
+              items: { $ref: "#/components/schemas/Question" }
+            updatedAt: { type: string, format: date-time }
+    ReviewList:
+      type: object
+      required: [groups, total, favoriteCount]
+      properties:
+        groups:
+          type: array
+          items:
+            type: object
+            required: [company, latest, multipleApplications, reviews]
+            properties:
+              company: { type: string }
+              latest: { type: string, format: date, description: "The latest review's day (interviewedAt, else the creation day)" }
+              multipleApplications: { type: boolean, description: The company's reviews span more than one application }
+              reviews:
+                type: array
+                items: { $ref: "#/components/schemas/ReviewSummary" }
+        total: { type: integer }
+        favoriteCount: { type: integer }
+    FavoriteQuestion:
+      allOf:
+        - $ref: "#/components/schemas/Question"
+        - type: object
+          required: [reviewId, applicationId, company, sub, round, extra, interviewedAt]
+          properties:
+            reviewId: { type: integer }
+            applicationId: { type: integer }
+            company: { type: string }
+            sub: { type: string }
+            round: { type: string }
+            extra: { type: string }
+            interviewedAt: { type: [string, "null"], format: date }
