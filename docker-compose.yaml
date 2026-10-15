@@ -1,0 +1,54 @@
+# SaveMe on this PC: the app image plus PostgreSQL. This is where the real
+# data lives until the app is deployed (tech plan 5.15).
+#
+#   docker compose up -d --build     (or scripts/update.ps1, which backs up first)
+#
+# App: http://localhost:8100. PostgreSQL: 127.0.0.1:5442, two databases:
+#   saveme      real data, used by the app container
+#   saveme_dev  experiments: the dev server (make run back) and trying migrations
+#
+# Never run `docker compose down -v`: -v deletes the volume, i.e. all data.
+# APP_PORT, DB_PORT and PGDATA_VOLUME override the ports and the volume (the
+# compose tests use this to stay off the real data).
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: saveme
+      POSTGRES_PASSWORD: saveme
+      POSTGRES_DB: saveme
+    ports:
+      - "127.0.0.1:${DB_PORT:-5442}:5432"
+    volumes:
+      # From PostgreSQL 18 on, the volume goes on /var/lib/postgresql, not .../data.
+      - pgdata:/var/lib/postgresql
+      # Creates saveme_dev, only when the volume is new.
+      - ./docker/initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U saveme -d saveme"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+  app:
+    build: .
+    image: saveme
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Inside the compose network the database host is the service name.
+      DATABASE_URL: postgresql://saveme:saveme@db:5432/saveme
+      APP_ENV: local
+      # Local fake login ("이 PC에서 바로 시작") until Kakao login is added.
+      DEV_LOGIN: "true"
+    ports:
+      - "127.0.0.1:${APP_PORT:-8100}:8000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+    # Fixed name so the data survives `docker compose down` and project renames.
+    name: ${PGDATA_VOLUME:-saveme-pgdata}
