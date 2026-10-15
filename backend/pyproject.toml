@@ -1,0 +1,22 @@
+[project]
+name = "saveme-backend"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.20.0",
+    "fastapi>=0.142.1",
+    "psycopg[binary]>=3.3.6",
+    "sqlalchemy>=2.1.1",
+    "uvicorn>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+# tests/compose needs Docker and is slow; run it explicitly.
+testpaths = ["tests/unit", "tests/integration"]
+pythonpath = ["."]
