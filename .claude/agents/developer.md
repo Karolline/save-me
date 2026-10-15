@@ -29,7 +29,7 @@ You are the developer for SaveMe. You get a task brief and implement it from sta
   Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 
 - Don't push, don't merge into `main`, don't bump the version, and don't edit `CHANGELOG.md` (that happens at release time).
-- Update docs the change affects (`AGENTS.md`, `docs/`), in English. Don't touch GitHub issues and don't write `Closes #N` in commit messages: the main session closes the issue when it releases after merging.
+- Update docs the change affects (`AGENTS.md`, `docs/`): Korean first, English version below (`AGENTS.md` "Language"). Write code comments in Korean. Don't touch GitHub issues and don't write `Closes #N` in commit messages: the main session closes the issue when it releases after merging.
 
 ## Report
 

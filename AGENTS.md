@@ -11,8 +11,12 @@ The spec is the tech plan [`tech 기획안.md`](tech%20기획안.md) (in Korean;
 ## Language
 
 - All UI text is in Korean.
-- Commit messages are in Korean (the user's choice, 2026-10-15). The trailer lines (`Co-Authored-By: ...`) stay as they are.
-- All code, comments, and docs are in English. Exceptions, in Korean: the planning files above and `README.md` (the user's choice, 2026-10-15).
+Korean comes first (the user's choice, 2026-10-15):
+
+- UI text, comments and commit messages are in Korean. Commit trailer lines (`Co-Authored-By: ...`) stay as they are.
+- Identifiers (variables, functions, files, routes, database names) stay in English.
+- Docs (`AGENTS.md`, `docs/`, `README.md`, `CHANGELOG.md`, agent and skill files): Korean first, then the same content in English below it. The planning files above are Korean only.
+- Files written before this rule are in English; convert a file when a task changes it.
 
 ## Tech stack (fixed, do not change)
 
