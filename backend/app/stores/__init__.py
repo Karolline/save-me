@@ -8,14 +8,18 @@ from sqlalchemy import Engine
 from app.db import make_engine
 from app.stores.applications import ApplicationStore, DuplicateApplicationError
 from app.stores.base import Clock, utc_now
+from app.stores.jobs import ApplicationAlreadyLinkedError, ApplicationNotFoundError, JobStore
 from app.stores.reviews import ReviewStore
 from app.stores.users import DEV_IDENTITY, UserStore
 
 __all__ = [
+    "ApplicationAlreadyLinkedError",
+    "ApplicationNotFoundError",
     "ApplicationStore",
     "Clock",
     "DEV_IDENTITY",
     "DuplicateApplicationError",
+    "JobStore",
     "ReviewStore",
     "Stores",
     "UserStore",
@@ -28,6 +32,7 @@ class Stores:
     users: UserStore
     applications: ApplicationStore
     reviews: ReviewStore
+    jobs: JobStore
 
     @classmethod
     def create(cls, engine: Engine | None = None, clock: Clock = utc_now) -> "Stores":
@@ -36,4 +41,5 @@ class Stores:
             users=UserStore(engine, clock),
             applications=ApplicationStore(engine, clock),
             reviews=ReviewStore(engine, clock),
+            jobs=JobStore(engine, clock),
         )

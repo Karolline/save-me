@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import Settings, settings_from_env
 from app.frontend import mount_frontend
-from app.routers import applications, auth, reviews
+from app.routers import applications, auth, jobs, reviews
 from app.stores import Stores
 
 API_PREFIX = "/api"
@@ -59,6 +59,7 @@ def create_app(
     app.include_router(auth.router, prefix=API_PREFIX)
     app.include_router(applications.router, prefix=API_PREFIX)
     app.include_router(reviews.router, prefix=API_PREFIX)
+    app.include_router(jobs.router, prefix=API_PREFIX)
     if frontend_dist is not None:
         mount_frontend(app, frontend_dist)
     return app

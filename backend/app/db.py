@@ -18,6 +18,7 @@ from sqlalchemy import (
     DateTime,
     Engine,
     ForeignKey,
+    JSON,
     Integer,
     MetaData,
     String,
@@ -112,10 +113,14 @@ class SessionRow(Base):
 
 class ApplicationRow(Base):
     """지원 한 건. 한 사용자의 지원 건은 (company, applied_at)으로 구분하고,
-    UNIQUE 제약으로 지킨다 (기획안 5.13)."""
+    UNIQUE 제약으로 지킨다 (기획안 5.13). 공고분석은 지원 건 하나에 하나만
+    연결된다 (`job_id` UNIQUE)."""
 
     __tablename__ = "applications"
-    __table_args__ = (UniqueConstraint("user_id", "company", "applied_at"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "company", "applied_at"),
+        UniqueConstraint("job_id"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -126,8 +131,10 @@ class ApplicationRow(Base):
     sub: Mapped[str] = mapped_column(Text, default="", server_default="")
     job_title: Mapped[str] = mapped_column(Text, default="", server_default="")
     job_url: Mapped[str] = mapped_column(Text, default="", server_default="")
-    # 연결된 공고분석 (그 테이블과 외래 키는 나중 단계에서 추가).
-    job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # 연결된 공고분석. 분석을 지우면 NULL이 되고, 지원 건을 지워도 분석은 남는다.
+    job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("job_analyses.id", ondelete="SET NULL"), nullable=True
+    )
     # "ing"(진행 중), "fail", "etc"(무슨 일인지는 result_text에).
     result: Mapped[str] = mapped_column(String(10))
     result_text: Mapped[str] = mapped_column(Text, default="", server_default="")
@@ -142,6 +149,8 @@ class ApplicationRow(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    # 지원 건 응답의 jobAnalyzedAt에 쓴다. 연결은 store가 job_id로 바꾼다.
+    job: Mapped["JobAnalysisRow | None"] = relationship(lazy="selectin", viewonly=True)
 
 
 class ApplicationStageRow(Base):
@@ -238,6 +247,93 @@ class InterviewAnswerRow(Base):
     # follow / interviewer / mine / retry / memo / ai (검증은 models.py).
     kind: Mapped[str] = mapped_column(String(20))
     body: Mapped[str] = mapped_column(Text)
+
+
+class JobAnalysisRow(Base):
+    """공고 분석 하나 (기획안 S2 10번, 5.13).
+
+    요구사항(주요업무·자격요건·우대사항)은 세고 거르는 데 쓰여서 행으로 두고,
+    나머지 표와 목록은 이 분석 안에서만 보여서 JSON 칸으로 둔다.
+    지원 건과의 연결은 `applications.job_id`가 갖는다.
+    """
+
+    __tablename__ = "job_analyses"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company: Mapped[str] = mapped_column(Text)
+    team: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 직무 (공고 제목).
+    title: Mapped[str] = mapped_column(Text, default="", server_default="")
+    url: Mapped[str] = mapped_column(Text, default="", server_default="")
+    deadline: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # undecided / applied / skipped. 지원 건과 연결되면 applied.
+    status: Mapped[str] = mapped_column(String(20), default="undecided", server_default="undecided")
+    # 기술 핏: "상" / "중" / "하" 또는 "".
+    fit: Mapped[str] = mapped_column(String(10), default="", server_default="")
+    conclusion: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 성향 적합도: 등급("Green" / "Yellow" / "Red" 또는 ""), 총점, 실제 역할 유형.
+    culture_grade: Mapped[str] = mapped_column(String(10), default="", server_default="")
+    culture_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    culture_type: Mapped[str] = mapped_column(Text, default="", server_default="")
+    culture_points: Mapped[str] = mapped_column(Text, default="", server_default="")
+    culture_read_between: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 기타 메모: 다른 칸에 맞지 않는 내용.
+    notes: Mapped[str] = mapped_column(Text, default="", server_default="")
+    raw_text: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 분석일: 저장할 때마다 서울 기준 오늘 (가져오기는 원래 날짜).
+    analyzed_at: Mapped[date] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    # 표와 목록 (모양은 models.py).
+    conditions: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    fit_notes: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    culture_items: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    culture_risks: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    highlight: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    excluded: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    questions: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    to_write: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    gaps: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    exp_suggestions: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    ask_back: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    checks: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+
+    requirements: Mapped[list["JobRequirementRow"]] = relationship(
+        order_by=lambda: JobRequirementRow.position,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+    # 연결된 지원 건 (applications.job_id로 찾는다).
+    application: Mapped[ApplicationRow | None] = relationship(
+        lazy="selectin", viewonly=True, uselist=False
+    )
+
+
+class JobRequirementRow(Base):
+    """공고 문장 하나 (주요업무·자격요건·우대사항)와 내 해당도."""
+
+    __tablename__ = "job_requirements"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    job_analysis_id: Mapped[int] = mapped_column(
+        ForeignKey("job_analyses.id", ondelete="CASCADE"), index=True
+    )
+    # 분석 안의 순서.
+    position: Mapped[int] = mapped_column(Integer)
+    # duty(주요업무) / must(자격요건) / pref(우대사항).
+    category: Mapped[str] = mapped_column(String(10))
+    # 공고 원문.
+    text: Mapped[str] = mapped_column(Text)
+    # full(충족) / part(부분·인접) / none(없음) / ""(미평가).
+    level: Mapped[str] = mapped_column(String(10), default="", server_default="")
+    description: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 근거 경험 태그 목록.
+    evidence: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    no_evidence: Mapped[str] = mapped_column(Text, default="", server_default="")
+    caution: Mapped[str] = mapped_column(Text, default="", server_default="")
 
 
 def database_url() -> str:

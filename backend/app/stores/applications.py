@@ -57,6 +57,8 @@ def to_application(row: ApplicationRow) -> Application:
         note=row.note,
         depth=max(s.kind for s in stages),
         period=format_period(row.applied_at, max(end, row.applied_at)),
+        job_id=row.job_id,
+        job_analyzed_at=row.job.analyzed_at if row.job else None,
         created_at=row.created_at,
         updated_at=row.updated_at,
     )
