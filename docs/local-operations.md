@@ -29,7 +29,7 @@ It backs up `saveme` first (stops if that fails), rebuilds and restarts the stac
 
 `scripts/backup.ps1` runs `pg_dump` (custom format) of `saveme` inside the container and copies the file to the backup folder as `saveme-YYYYMMDD-HHMMSS-<reason>.dump`, keeping the newest 30. Each run appends a line to `backup.log` in that folder. It starts Docker Desktop and the database if needed.
 
-The backup folder is `-BackupDir`, else the `SAVEME_BACKUP_DIR` environment variable, else `%USERPROFILE%\SaveMe-backups`. Make the Naver MYBOX PC app sync that folder (or point the folder at one MYBOX already syncs), with MYBOX set to keep the login and start with Windows; then every dump is uploaded without anyone logging in. MYBOX has no public upload API, so the scripts never talk to it. Don't create share links for the dumps: they contain personal records.
+The backup folder is `-BackupDir`, else the `SAVEME_BACKUP_DIR` environment variable, else `%USERPROFILE%\SaveMe-backups`. On this PC the user environment variable `SAVEME_BACKUP_DIR` is `N:\개인\SaveMe-backups`: N: is the drive of the Naver MYBOX Explorer app (MYBOX 탐색기), so a file written there is uploaded by the app (MYBOX doesn't allow folders directly under N:). Keep MYBOX logged in and starting with Windows. If the folder can't be used (N: missing because MYBOX isn't running), the dump goes to `%USERPROFILE%\SaveMe-backups` with a warning in that folder's `backup.log`; copy it over later. MYBOX has no public upload API, so the scripts never talk to it. Don't create share links for the dumps: they contain personal records.
 
 Daily backups:
 
@@ -37,7 +37,7 @@ Daily backups:
 powershell -ExecutionPolicy Bypass -File scripts\register-backup-task.ps1 -BackupDir "<folder MYBOX syncs>"
 ```
 
-registers the scheduled task "SaveMe backup" (daily at 21:00, or as soon as possible after a missed run). Run it again to change the time (`-At 08:30`) or the folder.
+registers the scheduled task "SaveMe backup" (daily at 21:00, or as soon as possible after a missed run). Run it again to change the time (`-At 08:30`) or the folder. On this PC it is registered with `-BackupDir "N:\개인\SaveMe-backups"` (2026-10-15).
 
 ## Restoring
 

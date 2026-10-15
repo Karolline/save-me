@@ -12,7 +12,7 @@ The spec is the tech plan [`tech 기획안.md`](tech%20기획안.md) (in Korean;
 
 - All UI text is in Korean.
 - Commit messages are in Korean (the user's choice, 2026-10-15). The trailer lines (`Co-Authored-By: ...`) stay as they are.
-- All code, comments, and docs are in English. Exception: the planning files above are in Korean.
+- All code, comments, and docs are in English. Exceptions, in Korean: the planning files above and `README.md` (the user's choice, 2026-10-15).
 
 ## Tech stack (fixed, do not change)
 
