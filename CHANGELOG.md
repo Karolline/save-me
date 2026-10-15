@@ -2,6 +2,12 @@
 
 새 버전이 위에 온다. 버전 규칙은 [`docs/versioning.md`](docs/versioning.md).
 
+## 0.2.0 (2026-10-15)
+
+- 면접후기 메뉴: 회사별로 묶은 후기 목록, 즐겨찾기 질문 모아 보기, 후기 보기(개요, 질문별 별, 마크다운 보기·복사, 삭제), 말풍선 편집(꼬리질문·면접관·내 답·다시 답한다면·메모·AI 첨언, 손잡이로 끌거나 ↑↓로 순서 바꾸기).
+- 지원 건 상세에 그 지원의 면접 후기 목록과 [+ 후기 추가]. 지원 건을 지우면 후기도 함께 지워진다.
+- 기존 면접 후기 가져오기(`app.importers.reviews`, 파일 전체를 한 번에 쓰거나 아무것도 쓰지 않음).
+
 ## 0.1.0 (2026-10-15)
 
 - 지원현황: 지원 건 타임라인(막대 색 = 도달 단계, 결과 기호, 통계 줄, 범례, 필터, 툴팁, 표로 보기), 빈 상태·불러오는 중·오류 화면. 처음 열면 "진행 중" 필터.
@@ -15,6 +21,12 @@
 # Changelog (English)
 
 Newest first. Versions follow [`docs/versioning.md`](docs/versioning.md).
+
+## 0.2.0 (2026-10-15)
+
+- 면접후기 menu: reviews grouped by company, starred questions in one place, the review view (summary, per-question stars, markdown view and copy, delete), and the bubble editor (꼬리질문, 면접관, 내 답, 다시 답한다면, 메모, AI 첨언; reorder by dragging the grip or with the arrow keys).
+- The application detail panel lists its reviews with [+ 후기 추가]. Deleting an application deletes its reviews.
+- Importing existing reviews (`app.importers.reviews`, all or nothing).
 
 ## 0.1.0 (2026-10-15)
 
