@@ -1,0 +1,239 @@
+openapi: 3.1.0
+info:
+  title: SaveMe API
+  version: 0.1.0
+  description: |
+    The contract between the frontend services layer and the FastAPI backend.
+    JSON is camelCase. Dates are `YYYY-MM-DD`, times are ISO 8601 in UTC.
+
+    Every endpoint except `GET /auth/config` and `POST /auth/dev-login` needs a
+    session (the `saveme_session` HttpOnly cookie); without one it returns 401.
+    Requests other than GET must send `X-Requested-With: SaveMe` (403 otherwise).
+    Another user's application is a 404, as if it didn't exist.
+servers:
+  - url: /api
+
+paths:
+  /auth/config:
+    get:
+      summary: Which login methods the login screen offers
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthConfig" }
+  /auth/dev-login:
+    post:
+      summary: Log in as the single local user (only when DEV_LOGIN is on; never in prod)
+      responses:
+        "200":
+          description: Logged in; sets the session cookie
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "404": { description: DEV_LOGIN is off }
+  /auth/me:
+    get:
+      summary: The logged-in user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { description: No live session }
+  /auth/logout:
+    post:
+      summary: End this session
+      responses:
+        "204": { description: Logged out; clears the cookie }
+  /auth/logout-all:
+    post:
+      summary: End every session of the user
+      responses:
+        "204": { description: Logged out everywhere; clears the cookie }
+        "401": { description: No live session }
+
+  /applications:
+    get:
+      summary: The user's applications, oldest first, with stats
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [all, ing, done], default: all }
+          description: "ing: result is ing. done: anything else. Stats and counts ignore it."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApplicationList" }
+    post:
+      summary: Add an application
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ApplicationInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "409": { description: The user already has an application to this company on this day }
+        "422": { description: Invalid input }
+  /applications/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      summary: One application
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "404": { description: Not found (or another user's) }
+    put:
+      summary: Replace an application's fields and stages (the note is kept)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ApplicationInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "404": { description: Not found (or another user's) }
+        "409": { description: Another application to this company on this day exists }
+        "422": { description: Invalid input }
+    delete:
+      summary: Delete an application and its stages
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found (or another user's) }
+  /applications/{id}/note:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    put:
+      summary: Save the notes (느낀점)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [note]
+              properties:
+                note: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Application" }
+        "404": { description: Not found (or another user's) }
+
+components:
+  schemas:
+    AuthConfig:
+      type: object
+      required: [devLogin]
+      properties:
+        devLogin: { type: boolean }
+    User:
+      type: object
+      required: [id, nickname, status, provider]
+      properties:
+        id: { type: integer }
+        nickname: { type: string }
+        status: { type: string, enum: [pending, active] }
+        provider: { type: string, description: "How this session logged in: dev or kakao" }
+    Stage:
+      type: object
+      required: [kind, name, at]
+      properties:
+        kind:
+          type: integer
+          minimum: 1
+          maximum: 4
+          description: "1 서류, 2 서류 합격·코테·과제, 3 1차 면접, 4 2차 면접 이상"
+        name: { type: string }
+        at: { type: string, format: date }
+    StageInput:
+      type: object
+      required: [kind, at]
+      description: A stage after the documents; the documents stage is appliedAt.
+      properties:
+        kind: { type: integer, minimum: 2, maximum: 4 }
+        name: { type: string, default: "", description: Empty means the kind's label }
+        at: { type: string, format: date }
+    ApplicationInput:
+      type: object
+      required: [company, appliedAt]
+      properties:
+        company: { type: string, description: Trimmed; must not be empty }
+        appliedAt: { type: string, format: date, description: The day the documents were submitted }
+        sub: { type: string, default: "" }
+        jobTitle: { type: string, default: "" }
+        jobUrl: { type: string, default: "" }
+        stages:
+          type: array
+          items: { $ref: "#/components/schemas/StageInput" }
+          description: Saved by date; stages on the same day keep this order.
+        result: { type: string, enum: [ing, fail, etc], default: ing }
+        resultText: { type: string, default: "", description: Required when result is etc }
+        endAt: { type: [string, "null"], format: date, description: The day the result was announced }
+    Application:
+      type: object
+      required:
+        [id, company, sub, appliedAt, jobTitle, jobUrl, stages, result, resultText, endAt, note, depth, period, createdAt, updatedAt]
+      properties:
+        id: { type: integer }
+        company: { type: string }
+        sub: { type: string }
+        appliedAt: { type: string, format: date }
+        jobTitle: { type: string }
+        jobUrl: { type: string }
+        stages:
+          type: array
+          items: { $ref: "#/components/schemas/Stage" }
+          description: Every stage, starting with 서류 (kind 1) at appliedAt, by date.
+        result: { type: string, enum: [ing, fail, etc] }
+        resultText: { type: string }
+        endAt: { type: [string, "null"], format: date }
+        note: { type: string }
+        depth: { type: integer, minimum: 1, maximum: 4, description: The furthest stage kind reached }
+        period: { type: string, description: 'e.g. "2026-07", "2026-07 ~ 08", "2025-12 ~ 2026-01"' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ApplicationList:
+      type: object
+      required: [items, stats, counts]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Application" }
+        stats:
+          type: object
+          description: Over all of the user's applications, whatever the status filter.
+          required: [all, ing, doc, test, itv, etc]
+          properties:
+            all: { type: integer }
+            ing: { type: integer }
+            doc: { type: integer, description: Failed with depth 1 }
+            test: { type: integer, description: Failed with depth 2 }
+            itv: { type: integer, description: Failed with depth 3 or 4 }
+            etc: { type: integer }
+        counts:
+          type: object
+          required: [all, ing, done]
+          properties:
+            all: { type: integer }
+            ing: { type: integer }
+            done: { type: integer }

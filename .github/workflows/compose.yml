@@ -1,0 +1,45 @@
+# Builds the Docker image and runs the compose smoke tests. Slower than ci.yml,
+# so it only runs when something that goes into the image or the stack changes.
+
+name: Compose
+
+on:
+  push:
+    # Branches only: a version tag points at a commit main already checked,
+    # and GitHub ignores `paths` for tag pushes, so it would always run again.
+    branches: ["**"]
+    paths: &image-paths
+      - Dockerfile
+      - .dockerignore
+      - docker-compose.yaml
+      - backend/pyproject.toml
+      - backend/uv.lock
+      - backend/alembic.ini
+      - backend/migrations/**
+      - backend/tests/compose/**
+      - docker/**
+      - frontend/package.json
+      - frontend/package-lock.json
+      - .github/workflows/compose.yml
+  pull_request:
+    paths: *image-paths
+
+concurrency:
+  group: compose-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Compose smoke tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0 # no major-version tag (v10) is published
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run pytest tests/compose

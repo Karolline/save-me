@@ -1,0 +1,80 @@
+# Tests on every push and pull request. Building and publishing an image comes
+# with deployment (tech plan step 12); until then the app runs from the local
+# compose stack.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (SQLite)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0 # no major-version tag (v10) is published
+        with:
+          python-version: "3.14" # same as the Docker image
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run pytest
+
+  backend-postgres:
+    name: Backend (PostgreSQL)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        # Same major version as the compose stack.
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: saveme
+          POSTGRES_PASSWORD: saveme
+          POSTGRES_DB: saveme_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U saveme -d saveme_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      TEST_DATABASE_URL: postgresql://saveme:saveme@127.0.0.1:5432/saveme_test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0 # no major-version tag (v10) is published
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - run: uv sync --locked
+      - run: uv run pytest
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24 # same as the Docker image
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build
