@@ -100,6 +100,18 @@ def test_favorites_and_starring(client: TestClient):
     assert client.put(f"/api/reviews/{created['id']}/questions/999/favorite", json={"isFavorite": True}).status_code == 404
 
 
+def test_starring_a_question_of_another_review_is_404(client: TestClient):
+    app = create_application(client)
+    first = create(client, app["id"])
+    second = create(client, app["id"], round="2차 면접")
+    question = second["questions"][1]["id"]
+
+    response = client.put(f"/api/reviews/{first['id']}/questions/{question}/favorite", json={"isFavorite": True})
+
+    assert response.status_code == 404
+    assert client.get(f"/api/reviews/{second['id']}").json()["questions"][1]["isFavorite"] is False
+
+
 def test_update_replaces_questions_and_delete(client: TestClient):
     app = create_application(client)
     created = create(client, app["id"])

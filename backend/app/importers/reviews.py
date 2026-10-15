@@ -5,7 +5,9 @@ round, extra, interviewedAt, summary, questions (API의 camelCase 모양:
 [{question, isFavorite, answers: [{kind, body}]}])를 갖는다. 지원 건은 로컬
 사용자의 (company, appliedAt)으로 찾는다. 하나라도 못 찾으면 그 지원 건을
 알려 주고 아무것도 쓰지 않는다. 같은 지원 건에 차수 이름이 같은 후기가 있으면
-통째로 바꾸므로, 두 번 돌려도 달라지지 않는다.
+통째로 바꾸므로, 두 번 돌려도 달라지지 않는다. 한 파일에 같은 (지원 건, 차수)가
+두 번 있으면 그것들을 알려 주고 아무것도 쓰지 않는다. 쓰기는 트랜잭션 하나라서,
+중간에 실패하면 아무것도 남지 않는다.
 
 사용법 (backend/ 안에서):
     uv run python -m app.importers.reviews ../private/reviews.json
@@ -36,8 +38,16 @@ class ImportItem(ApiModel):
     questions: list[QuestionInput] = []
 
 
-class MissingApplicationError(ValueError):
+class ImportFileError(ValueError):
+    """파일을 가져올 수 없다. 아무것도 쓰지 않았다."""
+
+
+class MissingApplicationError(ImportFileError):
     """파일의 후기가 가리키는 지원 건이 없다."""
+
+
+class DuplicateReviewError(ImportFileError):
+    """파일에 같은 (지원 건, 차수) 후기가 둘 이상 있다."""
 
 
 @dataclass
@@ -69,16 +79,20 @@ def import_reviews(stores: Stores, user_id: int, items: list[ImportItem]) -> Imp
     if missing:
         raise MissingApplicationError("지원 건을 찾지 못했어요: " + ", ".join(missing))
 
-    result = ImportResult()
-    for data in ready:
-        existing = stores.reviews.find(user_id, data.application_id, data.round)
-        if existing is None:
-            stores.reviews.create(user_id, data)
-            result.created += 1
-        else:
-            stores.reviews.update(user_id, existing.id, data)
-            result.replaced += 1
-    return result
+    # 한 파일에 같은 (지원 건, 차수)가 둘이면 어느 것을 남길지 모르므로 거절한다.
+    seen: set[tuple[int, str]] = set()
+    duplicates = []
+    for item, data in zip(items, ready):
+        key = (data.application_id, data.round)
+        if key in seen:
+            duplicates.append(f"{item.company.strip()} ({item.applied_at}) {data.round}")
+        seen.add(key)
+    if duplicates:
+        raise DuplicateReviewError("같은 지원 건과 차수가 파일에 두 번 있어요: " + ", ".join(duplicates))
+
+    # 트랜잭션 하나로 쓴다: 중간에 실패하면 아무것도 남지 않는다.
+    created, replaced = stores.reviews.save_all(user_id, ready)
+    return ImportResult(created=created, replaced=replaced)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -96,7 +110,7 @@ def main(argv: list[str] | None = None) -> None:
         user = stores.users.dev_user()
         try:
             result = import_reviews(stores, user.id, items)
-        except MissingApplicationError as error:
+        except ImportFileError as error:
             raise SystemExit(str(error)) from error
     finally:
         engine.dispose()

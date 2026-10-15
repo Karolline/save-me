@@ -200,6 +200,38 @@ class ReviewStore(BaseStore):
             db.delete(row)
             return True
 
+    def save_all(self, user_id: int, items: list[ReviewInput]) -> tuple[int, int]:
+        """여러 후기를 트랜잭션 하나로 저장한다 (가져오기). 같은 지원 건에 차수
+        이름이 같은 후기가 있으면 통째로 바꾸고, 없으면 만든다. 하나라도 실패하면
+        아무것도 쓰지 않는다. 지원 건이 이 사용자 것이 아니면 LookupError.
+        (만든 수, 바꾼 수)를 돌려준다."""
+        created = replaced = 0
+        now = self.clock()
+        with self.session() as db, db.begin():
+            for data in items:
+                if self._application(db, user_id, data.application_id) is None:
+                    raise LookupError(f"application {data.application_id} not found")
+                review_id = db.scalar(
+                    select(InterviewReviewRow.id)
+                    .where(
+                        InterviewReviewRow.user_id == user_id,
+                        InterviewReviewRow.application_id == data.application_id,
+                        InterviewReviewRow.round == data.round,
+                    )
+                    .order_by(InterviewReviewRow.id)
+                    .limit(1)
+                )
+                row = self._row(db, user_id, review_id) if review_id is not None else None
+                if row is None:
+                    row = InterviewReviewRow(user_id=user_id, created_at=now)
+                    db.add(row)
+                    created += 1
+                else:
+                    replaced += 1
+                self._fill(row, user_id, data, now)
+                db.flush()
+        return created, replaced
+
     def find(self, user_id: int, application_id: int, round: str) -> Review | None:
         """그 지원 건에서 차수 이름이 같은 후기 (가져오기에서 쓴다)."""
         with self.session() as db:

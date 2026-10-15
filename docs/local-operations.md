@@ -91,6 +91,8 @@ uv run python -m app.importers.applications ../private/applications.json --datab
 
 - 지원 건은 로컬 사용자의 (`company`, `appliedAt`)으로 찾는다. 하나라도 없으면 그 지원 건들을 알려 주고 아무것도 쓰지 않는다.
 - 같은 지원 건에 같은 `round`의 후기가 있으면 통째로 바꾼다 (질문, 말풍선, 별 표시까지). 그래서 두 번 돌려도 달라지지 않는다.
+- 한 파일에 같은 (지원 건, `round`)가 두 번 있으면 그것들을 알려 주고 아무것도 쓰지 않는다.
+- 파일 전체를 트랜잭션 하나로 쓴다. 도중에 실패하면 아무것도 남지 않는다.
 - `kind`: `follow`(꼬리질문), `interviewer`(면접관), `mine`(내 답), `retry`(다시 답한다면), `memo`(메모), `ai`(AI 첨언). `extra`, `interviewedAt`, `summary`, `questions`, `isFavorite`, `answers`는 빼도 된다.
 
 ```
@@ -172,6 +174,8 @@ Run it after the applications are imported. The file is `{"reviews": [...]}` wit
 
 - The application is found by (`company`, `appliedAt`) for the local user. If any is missing, the importer names them and writes nothing.
 - A review with the same application and `round` is replaced as a whole (questions, bubbles and stars), so running it twice changes nothing.
+- If the file has the same (application, `round`) twice, the importer names them and writes nothing.
+- The whole file is written in one transaction; if anything fails midway, nothing is kept.
 - `kind`: `follow`, `interviewer`, `mine`, `retry`, `memo`, `ai`. Everything but `company`, `appliedAt` and `round` may be left out.
 
 ```

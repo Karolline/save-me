@@ -4,8 +4,8 @@ from datetime import date
 import pytest
 from sqlalchemy import create_engine
 
-from app.importers.reviews import MissingApplicationError, import_reviews, load, main
-from app.stores import Stores
+from app.importers.reviews import DuplicateReviewError, MissingApplicationError, import_reviews, load, main
+from app.stores import ReviewStore, Stores
 from tests.conftest import application
 
 FILE = {
@@ -80,6 +80,45 @@ def test_an_unknown_application_fails_without_writing(stores: Stores, user_id: i
         import_reviews(stores, user_id, load(write(tmp_path, data)))
 
     assert stores.reviews.list(user_id).total == 0
+
+
+def test_the_same_application_and_round_twice_fails_without_writing(stores: Stores, user_id: int, raon, tmp_path):
+    data = json.loads(json.dumps(FILE))
+    data["reviews"].append({"company": " 라온소프트 ", "appliedAt": "2026-07-13", "round": " 2차 면접 "})
+
+    with pytest.raises(DuplicateReviewError, match="라온소프트 \\(2026-07-13\\) 2차 면접"):
+        import_reviews(stores, user_id, load(write(tmp_path, data)))
+
+    assert stores.reviews.list(user_id).total == 0
+
+
+def test_a_failure_while_writing_leaves_nothing(stores: Stores, user_id: int, raon, tmp_path, monkeypatch):
+    import_reviews(stores, user_id, load(write(tmp_path)))
+    before = stores.reviews.list(user_id)
+    changed = json.loads(json.dumps(FILE))
+    changed["reviews"][0]["summary"] = "바뀐 개요"
+    changed["reviews"].append({"company": "라온소프트", "appliedAt": "2026-07-13", "round": "3차 면접"})
+
+    # 세 번째 후기를 쓰다가 실패하게 한다.
+    original = ReviewStore._fill
+    calls = []
+
+    def failing_fill(*args):
+        calls.append(1)
+        if len(calls) == 3:
+            raise RuntimeError("디스크가 꽉 찼다")
+        original(*args)
+
+    monkeypatch.setattr(ReviewStore, "_fill", staticmethod(failing_fill))
+    with pytest.raises(RuntimeError):
+        import_reviews(stores, user_id, load(write(tmp_path, changed)))
+    monkeypatch.undo()
+
+    after = stores.reviews.list(user_id)
+    assert after.total == 2
+    first = stores.reviews.get(user_id, after.groups[0].reviews[0].id)
+    assert first.summary == "화상, 편한 분위기"
+    assert after == before
 
 
 def test_main_migrates_and_imports_for_the_local_user(tmp_path, capsys):
