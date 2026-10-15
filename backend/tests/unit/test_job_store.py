@@ -138,18 +138,18 @@ def test_saving_replaces_requirements(stores: Stores, user_id: int, engine):
     assert count(engine, "job_requirements") == 1
 
 
-def test_saving_on_screen_marks_human_checked_and_importing_clears_it(stores: Stores, user_id: int):
+def test_saving_on_screen_marks_verified_and_importing_clears_it(stores: Stores, user_id: int):
     fields = JobFields(**job().model_dump(exclude={"application_id"}))
     stores.jobs.save_imported(user_id, [(fields, date(2026, 10, 13), None)])
     found = stores.jobs.find(user_id, "한결로보틱스", "데이터 엔지니어")
-    assert found.human_checked is False
+    assert found.verified is False
 
-    assert stores.jobs.update(user_id, found.id, job()).human_checked is True
-    assert stores.jobs.create(user_id, job(company="마루증권")).human_checked is True
+    assert stores.jobs.update(user_id, found.id, job()).verified is True
+    assert stores.jobs.create(user_id, job(company="마루증권")).verified is True
 
     # 다시 가져오면 사람이 아직 안 본 내용이라 N으로 돌아간다.
     stores.jobs.save_imported(user_id, [(fields, date(2026, 10, 14), None)])
-    assert stores.jobs.get(user_id, found.id).human_checked is False
+    assert stores.jobs.get(user_id, found.id).verified is False
 
 
 def test_linking_forces_applied_and_shows_on_the_application(stores: Stores, user_id: int):

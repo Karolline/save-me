@@ -237,9 +237,9 @@ describe("mockService job analyses", () => {
 
   it("marks 사람 확인 when an analysis is saved on screen; sample (imported) ones are not", async () => {
     const service = withJobs();
-    expect((await service.getJob(1))!.humanChecked).toBe(false);
-    expect((await service.updateJob(1, input())).humanChecked).toBe(true);
-    expect((await service.createJob(input({ company: "새 회사" }))).humanChecked).toBe(true);
+    expect((await service.getJob(1))!.verified).toBe(false);
+    expect((await service.updateJob(1, input())).verified).toBe(true);
+    expect((await service.createJob(input({ company: "새 회사" }))).verified).toBe(true);
   });
 
   it("links an application, forces applied, and shows it on the application", async () => {

@@ -282,7 +282,7 @@ class JobAnalysisRow(Base):
     notes: Mapped[str] = mapped_column(Text, default="", server_default="")
     raw_text: Mapped[str] = mapped_column(Text, default="", server_default="")
     # 사람이 확인했는지: 가져온 분석은 False, 화면에서 만들거나 고쳐 저장하면 True.
-    human_checked: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     # 분석일: 저장할 때마다 서울 기준 오늘 (가져오기는 원래 날짜).
     analyzed_at: Mapped[date] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)

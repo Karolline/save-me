@@ -16,7 +16,7 @@ function job(changes: Partial<Job> = {}): Job {
     ...emptyJobFields("한결로보틱스"),
     id: 3,
     analyzedAt: "2026-10-11",
-    humanChecked: false,
+    verified: false,
     applicationId: null,
     application: null,
     counts: { duty: counts(0, 0, 0, 0), must: counts(0, 0, 0, 0), pref: counts(0, 0, 0, 0) },

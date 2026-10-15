@@ -339,7 +339,7 @@ export interface Job extends JobFields {
   /** 분석일: 저장할 때마다 서울 기준 오늘. */
   analyzedAt: string;
   /** 사람 확인: 가져온 분석은 false, 화면에서 만들거나 고쳐 저장하면 true. */
-  humanChecked: boolean;
+  verified: boolean;
   applicationId: number | null;
   application: LinkedApplication | null;
   counts: Record<RequirementCategory, LevelCounts>;

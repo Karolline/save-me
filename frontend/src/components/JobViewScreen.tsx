@@ -415,10 +415,10 @@ export function JobViewScreen({
         <div>
           <span className="k">사람 확인</span>
           <span
-            className={`pill ${job.humanChecked ? "checked" : "unchecked"}`}
-            title={job.humanChecked ? "편집해 저장한 분석" : "가져온 뒤 아직 편집하지 않은 분석"}
+            className={`pill ${job.verified ? "checked" : "unchecked"}`}
+            title={job.verified ? "편집해 저장한 분석" : "가져온 뒤 아직 편집하지 않은 분석"}
           >
-            {job.humanChecked ? "Y" : "N"}
+            {job.verified ? "Y" : "N"}
           </span>
         </div>
         <div>

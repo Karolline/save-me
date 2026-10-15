@@ -136,7 +136,7 @@ def to_job(row: JobAnalysisRow) -> Job:
         ],
         id=row.id,
         analyzed_at=row.analyzed_at,
-        human_checked=row.human_checked,
+        verified=row.verified,
         application_id=app.id if app else None,
         application=(
             LinkedApplication(
@@ -189,7 +189,7 @@ class JobStore(BaseStore):
         연결되어 있으면 ApplicationAlreadyLinkedError."""
         now = self.clock()
         with self.session() as db, db.begin():
-            row = JobAnalysisRow(user_id=user_id, created_at=now, human_checked=True)
+            row = JobAnalysisRow(user_id=user_id, created_at=now, verified=True)
             self._fill(db, row, user_id, data, analyzed_at or seoul_today(now), now)
             return self._reload(db, user_id, row.id)
 
@@ -201,7 +201,7 @@ class JobStore(BaseStore):
             row = self._row(db, user_id, job_id)
             if row is None:
                 return None
-            row.human_checked = True
+            row.verified = True
             self._fill(db, row, user_id, data, seoul_today(now), now)
             return self._reload(db, user_id, job_id)
 
@@ -243,7 +243,7 @@ class JobStore(BaseStore):
                     replaced += 1
                 data = JobInput(**fields.model_dump(), application_id=application_id)
                 # 가져온 내용은 아직 사람이 보지 않았다 (바꿔 넣어도 다시 N).
-                row.human_checked = False
+                row.verified = False
                 self._fill(db, row, user_id, data, analyzed_at, now)
         return created, replaced
 
