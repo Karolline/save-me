@@ -9,7 +9,7 @@ info:
     Every endpoint except `GET /auth/config` and `POST /auth/dev-login` needs a
     session (the `saveme_session` HttpOnly cookie); without one it returns 401.
     Requests other than GET must send `X-Requested-With: SaveMe` (403 otherwise).
-    Another user's application, review or question is a 404, as if it didn't exist.
+    Another user's application, review, question or job analysis is a 404, as if it didn't exist.
 servers:
   - url: /api
 
@@ -113,7 +113,7 @@ paths:
         "409": { description: Another application to this company on this day exists }
         "422": { description: Invalid input }
     delete:
-      summary: Delete an application and its stages
+      summary: Delete an application and its stages (its job analysis stays, unlinked)
       responses:
         "204": { description: Deleted }
         "404": { description: Not found (or another user's) }
@@ -261,6 +261,70 @@ paths:
               schema: { $ref: "#/components/schemas/Review" }
         "404": { description: Not found (or another user's) }
 
+  /jobs:
+    get:
+      summary: The user's job posting analyses, most recently analyzed first (ties by id, newest first)
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string, enum: [all, undecided, applied, skipped], default: all }
+          description: Only analyses with this 지원 여부. Counts ignore it.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/JobList" }
+    post:
+      summary: Add an analysis (analyzedAt becomes today in Asia/Seoul)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JobInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "404": { description: applicationId is missing or another user's }
+        "409": { description: The application is already linked to another analysis }
+        "422": { description: Invalid input (empty company, unknown level, ...) }
+  /jobs/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      summary: One analysis with its requirements, counts and linked application
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "404": { description: Not found (or another user's) }
+    put:
+      summary: Replace an analysis (requirements replaced; analyzedAt becomes today in Asia/Seoul)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/JobInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "404": { description: The analysis or applicationId is missing or another user's }
+        "409": { description: The application is already linked to another analysis }
+        "422": { description: Invalid input }
+    delete:
+      summary: Delete an analysis (its linked application stays, unlinked)
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found (or another user's) }
+
 components:
   schemas:
     AuthConfig:
@@ -314,7 +378,7 @@ components:
     Application:
       type: object
       required:
-        [id, company, sub, appliedAt, jobTitle, jobUrl, stages, result, resultText, endAt, note, depth, period, createdAt, updatedAt]
+        [id, company, sub, appliedAt, jobTitle, jobUrl, stages, result, resultText, endAt, note, depth, period, jobId, jobAnalyzedAt, createdAt, updatedAt]
       properties:
         id: { type: integer }
         company: { type: string }
@@ -332,6 +396,8 @@ components:
         note: { type: string }
         depth: { type: integer, minimum: 1, maximum: 4, description: The furthest stage kind reached }
         period: { type: string, description: 'e.g. "2026-07", "2026-07 ~ 08", "2025-12 ~ 2026-01"' }
+        jobId: { type: [integer, "null"], description: The linked job analysis (one per application) }
+        jobAnalyzedAt: { type: [string, "null"], format: date, description: The linked analysis's analyzedAt }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
     ApplicationList:
@@ -461,3 +527,178 @@ components:
             round: { type: string }
             extra: { type: string }
             interviewedAt: { type: [string, "null"], format: date }
+    Requirement:
+      type: object
+      required: [category, text]
+      description: One sentence of the posting (주요업무 · 자격요건 · 우대사항) and how well I cover it.
+      properties:
+        category: { type: string, enum: [duty, must, pref], description: "주요업무, 자격요건, 우대사항" }
+        text: { type: string, description: 공고 원문 }
+        level:
+          type: string
+          enum: [full, part, none, ""]
+          default: ""
+          description: '충족, 부분·인접, 없음, "" = 미평가 (not rated yet; not counted as full/part/none)'
+        description: { type: string, default: "" }
+        evidence: { type: array, items: { type: string }, description: 근거 경험 tags }
+        noEvidence: { type: string, default: "", description: 근거 없음 (shown red) }
+        caution: { type: string, default: "", description: 주의 (shown ochre) }
+    JobFields:
+      type: object
+      required: [company]
+      description: The fields a user edits. Lists and tables are stored as JSON inside the analysis.
+      properties:
+        company: { type: string, description: Trimmed; must not be empty }
+        team: { type: string, default: "" }
+        title: { type: string, default: "", description: 직무 (공고 제목) }
+        url: { type: string, default: "" }
+        deadline: { type: [string, "null"], format: date }
+        status: { type: string, enum: [undecided, applied, skipped], default: undecided, description: 지원 여부 }
+        fit: { type: string, enum: ["상", "중", "하", ""], default: "", description: 기술 핏 }
+        conclusion: { type: string, default: "", description: 한 줄 결론 }
+        cultureGrade: { type: string, enum: [Green, Yellow, Red, ""], default: "" }
+        cultureScore: { type: [integer, "null"], description: 성향 적합도 total (out of 100) }
+        cultureType: { type: string, default: "", description: 실제 역할 유형 }
+        culturePoints: { type: string, default: "", description: 잘 맞는 점 }
+        cultureReadBetween: { type: string, default: "", description: 공고 행간 읽기 }
+        notes: { type: string, default: "", description: 기타 메모 (what fits no other section) }
+        rawText: { type: string, default: "", description: 공고 원문, pasted as is }
+        conditions:
+          type: array
+          description: 지원 조건
+          items:
+            type: object
+            properties:
+              label: { type: string }
+              state: { type: string, enum: [ok, check, no], description: "충족, 확인 필요, 안 맞음" }
+              text: { type: string, description: 내 상황 }
+        fitNotes: { type: array, items: { type: string }, description: 핏 평가, one paragraph each }
+        cultureItems:
+          type: array
+          description: 성향 적합도 score table
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              score: { type: [integer, "null"] }
+              max: { type: [integer, "null"] }
+              quote: { type: string }
+        cultureRisks: { type: array, items: { type: string }, description: Risk · Red Flag 체크 }
+        highlight:
+          type: array
+          description: 부각할 경험, first is rank 1
+          items:
+            type: object
+            properties:
+              exp: { type: string }
+              maps: { type: string }
+              why: { type: string }
+        excluded:
+          type: array
+          description: 서류에서 뺀 경험과 쓸 곳
+          items:
+            type: object
+            properties:
+              exp: { type: string }
+              where: { type: string }
+        questions:
+          type: array
+          description: 약한 부분 · 면접 예상 질문
+          items:
+            type: object
+            properties:
+              question: { type: string }
+              answer: { type: string }
+        toWrite: { type: array, items: { type: string }, description: 작성 권장 }
+        gaps: { type: array, items: { type: string }, description: 갭 }
+        expSuggestions: { type: array, items: { type: string }, description: 경험 보완 제안 }
+        askBack: { type: array, items: { type: string }, description: 면접 역질문 }
+        checks: { type: array, items: { type: string }, description: 확인 필요 }
+        requirements:
+          type: array
+          items: { $ref: "#/components/schemas/Requirement" }
+          description: Kept in this order; saving replaces them all.
+    JobInput:
+      allOf:
+        - $ref: "#/components/schemas/JobFields"
+        - type: object
+          properties:
+            applicationId:
+              type: [integer, "null"]
+              description: Link to this application (one analysis per application). When set, status is stored as applied whatever was sent.
+    LevelCounts:
+      type: object
+      required: [full, part, none, unrated, total]
+      properties:
+        full: { type: integer }
+        part: { type: integer }
+        none: { type: integer }
+        unrated: { type: integer, description: 'Requirements with level ""' }
+        total: { type: integer, description: Every requirement of the category, unrated included }
+    JobSummary:
+      type: object
+      required:
+        [id, company, team, title, analyzedAt, status, fit, cultureGrade, cultureScore, mustFull, mustTotal, noEvidenceCount, applicationId]
+      properties:
+        id: { type: integer }
+        company: { type: string }
+        team: { type: string }
+        title: { type: string }
+        analyzedAt: { type: string, format: date }
+        status: { type: string, enum: [undecided, applied, skipped] }
+        fit: { type: string, enum: ["상", "중", "하", ""] }
+        cultureGrade: { type: string, enum: [Green, Yellow, Red, ""] }
+        cultureScore: { type: [integer, "null"] }
+        mustFull: { type: integer, description: 자격요건 with level full }
+        mustTotal: { type: integer, description: Every 자격요건, unrated included }
+        noEvidenceCount: { type: integer, description: Requirements with level none (unrated not counted) }
+        applicationId: { type: [integer, "null"] }
+    Job:
+      allOf:
+        - $ref: "#/components/schemas/JobFields"
+        - type: object
+          required: [id, analyzedAt, applicationId, application, counts, noEvidenceCount, createdAt, updatedAt]
+          properties:
+            id: { type: integer }
+            analyzedAt: { type: string, format: date, description: Today in Asia/Seoul on every save }
+            applicationId: { type: [integer, "null"] }
+            application:
+              description: The linked application, or null
+              oneOf:
+                - type: "null"
+                - type: object
+                  required: [id, company, sub, appliedAt, result, resultText]
+                  properties:
+                    id: { type: integer }
+                    company: { type: string }
+                    sub: { type: string }
+                    appliedAt: { type: string, format: date }
+                    result: { type: string, enum: [ing, fail, etc] }
+                    resultText: { type: string }
+            counts:
+              type: object
+              required: [duty, must, pref]
+              description: ●◐○ counts per category; must is the 기술 핏 card's "자격요건 n개 중 …"
+              properties:
+                duty: { $ref: "#/components/schemas/LevelCounts" }
+                must: { $ref: "#/components/schemas/LevelCounts" }
+                pref: { $ref: "#/components/schemas/LevelCounts" }
+            noEvidenceCount: { type: integer }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    JobList:
+      type: object
+      required: [items, counts]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/JobSummary" }
+        counts:
+          type: object
+          description: Over all of the user's analyses, whatever the status filter.
+          required: [all, undecided, applied, skipped]
+          properties:
+            all: { type: integer }
+            undecided: { type: integer }
+            applied: { type: integer }
+            skipped: { type: integer }
