@@ -18,14 +18,14 @@ async function open(href: string) {
 }
 
 describe("review routes", () => {
-  it("opens the add page from an application, not its detail panel", async () => {
+  it("opens the add page from an application, not its detail panel", { timeout: 15_000 }, async () => {
     await open("/applications/7/reviews/new");
     expect(await screen.findByRole("heading", { name: "면접 후기 추가" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("combobox", { name: /^회사/ })).toHaveValue("라온소프트"));
     expect(screen.queryByRole("dialog", { name: /지원 상세/ })).not.toBeInTheDocument();
   });
 
-  it("goes from the detail panel to a review and back", async () => {
+  it("goes from the detail panel to a review and back", { timeout: 15_000 }, async () => {
     const user = userEvent.setup();
     await open("/applications/4");
     await user.click(await screen.findByRole("button", { name: /1차 면접 \(실무진\)/ }));

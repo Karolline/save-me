@@ -231,7 +231,7 @@ export function ReviewEditScreen({
   function focusNext(id: string) {
     focusTarget.current = id;
   }
-  useEffect(() => {
+  useLayoutEffect(() => {
     const id = focusTarget.current;
     if (!id) return;
     const el = document.getElementById(id) ?? document.querySelector<HTMLElement>(`[data-grip="${id}"]`);

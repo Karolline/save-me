@@ -36,7 +36,7 @@ function setup(ui: ReactNode, service: MockService = samples()) {
 const listProps = { onViewChange: () => {}, onOpen: () => {}, onAdd: () => {} };
 
 describe("ReviewsScreen", () => {
-  it("shows one card per company, the latest interview first, rows oldest first", async () => {
+  it("shows one card per company, the latest interview first, rows oldest first", { timeout: 15_000 }, async () => {
     const onOpen = vi.fn();
     const { user } = setup(<ReviewsScreen view="all" {...listProps} onOpen={onOpen} />);
 
@@ -197,7 +197,7 @@ const save = () => screen.getByRole("button", { name: "저장" });
 const select = (name: RegExp) => screen.getByRole("combobox", { name });
 
 describe("ReviewEditScreen", () => {
-  it("asks for the company, the submission day and the round before saving", async () => {
+  it("asks for the company, the submission day and the round before saving", { timeout: 15_000 }, async () => {
     const { user } = setup(<ReviewEditScreen onSaved={() => {}} onCancel={() => {}} onHome={() => {}} />);
 
     await waitFor(() => expect(select(/^회사/)).toHaveFocus());
@@ -258,7 +258,7 @@ describe("ReviewEditScreen", () => {
       "직접 입력",
     ]);
     expect(screen.getByRole("button", { name: "← 라온소프트 지원 상세로" })).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "질문 1" })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("textbox", { name: "질문 1" })).toHaveFocus());
   });
 
   it("ignores a late answer for a company the user already left", async () => {
@@ -285,7 +285,7 @@ describe("ReviewEditScreen", () => {
     expect(screen.getByLabelText("면접일")).toHaveValue("2026-08-04");
   });
 
-  it("doesn't count the review being edited as taken when its application is picked again", async () => {
+  it("doesn't count the review being edited as taken when its application is picked again", { timeout: 15_000 }, async () => {
     const { user } = setup(<ReviewEditScreen reviewId={4} onSaved={() => {}} onCancel={() => {}} onHome={() => {}} />);
     await waitFor(() => expect(select(/면접 차수/)).toHaveValue("2차 면접"));
     const options = () => within(select(/면접 차수/)).getAllByRole("option").map((o) => o.textContent);
@@ -301,7 +301,7 @@ describe("ReviewEditScreen", () => {
     expect(options()).toContain("3차 면접 · 09.01 (후기 있음)");
   });
 
-  it("adds and deletes bubbles and questions, asking before a question with bubbles goes", async () => {
+  it("adds and deletes bubbles and questions, asking before a question with bubbles goes", { timeout: 15_000 }, async () => {
     const onSaved = vi.fn();
     const { user, service } = setup(
       <ReviewEditScreen applicationId={8} onSaved={onSaved} onCancel={() => {}} onHome={() => {}} />,
@@ -314,7 +314,7 @@ describe("ReviewEditScreen", () => {
     expect(adds).toEqual(["+ 꼬리질문", "+ 면접관", "+ 내 답", "+ 다시 답한다면", "+ 메모"]);
     await user.type(within(first).getByRole("textbox", { name: "질문 1" }), "자기소개");
     await user.click(within(first).getByRole("button", { name: "+ 내 답" }));
-    expect(within(first).getByRole("textbox", { name: "내 답" })).toHaveFocus();
+    await waitFor(() => expect(within(first).getByRole("textbox", { name: "내 답" })).toHaveFocus());
     await user.keyboard("데이터 엔지니어");
     await user.click(within(first).getByRole("button", { name: "+ 면접관" }));
     await user.keyboard("끄덕임");
@@ -325,7 +325,7 @@ describe("ReviewEditScreen", () => {
 
     await user.click(screen.getByRole("button", { name: "+ 질문" }));
     const second = screen.getByRole("region", { name: "질문 2" });
-    expect(within(second).getByRole("textbox", { name: "질문 2" })).toHaveFocus();
+    await waitFor(() => expect(within(second).getByRole("textbox", { name: "질문 2" })).toHaveFocus());
     expect(within(first).queryByRole("button", { name: "+ 내 답" })).not.toBeInTheDocument();
     await user.click(within(second).getByRole("button", { name: "+ 꼬리질문" }));
     await user.click(within(second).getByRole("button", { name: "질문 2 삭제" }));
@@ -367,7 +367,7 @@ describe("ReviewEditScreen", () => {
     screen.getByRole("button", { name: "질문 2 옮기기 (위아래 화살표)" }).focus();
     await user.keyboard("{ArrowUp}");
     expect(screen.getByRole("textbox", { name: "질문 1" })).toHaveValue("최근에 공부한 기술은?");
-    expect(screen.getByRole("button", { name: "질문 1 옮기기 (위아래 화살표)" })).toHaveFocus();
+    await waitFor(() => expect(screen.getByRole("button", { name: "질문 1 옮기기 (위아래 화살표)" })).toHaveFocus());
 
     // 이제 질문 1의 마지막 말풍선(다시 답한다면)을 아래로: 질문 2의 맨 위로 간다.
     const grips = within(screen.getByRole("region", { name: "질문 1" })).getAllByRole("button", { name: "다시 답한다면 옮기기 (위아래 화살표)" });

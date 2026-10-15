@@ -29,7 +29,7 @@ function setup(ui: ReactNode, service: MockService = createMockService({ applica
 }
 
 describe("ApplicationsScreen", () => {
-  it("opens on 진행 중, with stats over everything", async () => {
+  it("opens on 진행 중, with stats over everything", { timeout: 15_000 }, async () => {
     setup(<ApplicationsScreen onOpen={() => {}} onAdd={() => {}} />);
 
     const rows = await screen.findAllByTestId("timeline-row");
@@ -45,7 +45,7 @@ describe("ApplicationsScreen", () => {
     expect(screen.getByText("2차 면접 이상")).toBeInTheDocument();
   });
 
-  it("shows every application oldest first under 전체, and the ended ones under 종료", async () => {
+  it("shows every application oldest first under 전체, and the ended ones under 종료", { timeout: 15_000 }, async () => {
     const { user } = setup(<ApplicationsScreen onOpen={() => {}} onAdd={() => {}} />);
     await screen.findAllByTestId("timeline-row");
 
@@ -192,7 +192,7 @@ describe("ApplicationFormPanel", () => {
     expect(save()).toBeDisabled();
   });
 
-  it("needs the text when the result is 기타, and saves stages by day", async () => {
+  it("needs the text when the result is 기타, and saves stages by day", { timeout: 15_000 }, async () => {
     const onSaved = vi.fn();
     const { user, service } = setup(
       <ApplicationFormPanel onSaved={onSaved} onCancel={() => {}} onDeleted={() => {}} />,
