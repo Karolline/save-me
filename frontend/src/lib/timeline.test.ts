@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Application, Stage } from "@/services/types";
 import {
   dayNumber,
+  placeLabel,
   endOf,
   monthsOf,
   rangeTitle,
@@ -101,5 +102,26 @@ describe("labels", () => {
   it("chains stage names and shortens days", () => {
     expect(stageChain(app("2026-07-01", [[3, "1차 면접", "2026-07-20"]]))).toBe("서류 → 1차 면접");
     expect(shortDay("2026-07-20")).toBe("07.20");
+  });
+});
+
+describe("placeLabel", () => {
+  const base = { trackWidth: 700, labelWidth: 200, preferred: "right" as const };
+
+  it("keeps the preferred side when the label fits there", () => {
+    expect(placeLabel({ ...base, barLeft: 0, barRight: 100 })).toEqual({ side: "right", x: 110 });
+    expect(placeLabel({ ...base, preferred: "left", barLeft: 500, barRight: 600 })).toEqual({ side: "left", x: 490 });
+  });
+
+  it("uses the other side when the preferred one is too narrow", () => {
+    expect(placeLabel({ ...base, barLeft: 400, barRight: 600 })).toEqual({ side: "left", x: 390 });
+    expect(placeLabel({ ...base, preferred: "left", barLeft: 50, barRight: 100 })).toEqual({ side: "right", x: 110 });
+  });
+
+  it("drops below the bar when neither side has room, staying inside the track", () => {
+    // 진행 중 필터에 긴 지원 건만 남은 경우처럼: 기간이 짧아 막대가 트랙 대부분을 차지
+    expect(placeLabel({ ...base, labelWidth: 320, barLeft: 105, barRight: 525 })).toEqual({ side: "below", x: 105 });
+    expect(placeLabel({ ...base, labelWidth: 560, barLeft: 500, barRight: 650 })).toEqual({ side: "below", x: 140 });
+    expect(placeLabel({ ...base, labelWidth: 900, barLeft: 100, barRight: 200 })).toEqual({ side: "below", x: 0 });
   });
 });

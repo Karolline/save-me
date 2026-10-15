@@ -88,3 +88,39 @@ export const stageChain = (a: Application): string => a.stages.map((s) => s.name
 
 /** "02.24" for a stage chip. */
 export const shortDay = (day: string): string => day.slice(5).replace("-", ".");
+
+export type LabelPlacement =
+  | { side: "right"; x: number }
+  | { side: "left"; x: number }
+  | { side: "below"; x: number };
+
+/**
+ * 막대 옆 문구를 실제 너비로 놓을 자리. 모두 트랙 안의 px 값이다.
+ * 먼저 `preferred` 쪽(rowLayout의 기본 쪽), 안 되면 반대쪽에 놓고, 양쪽 다
+ * 모자라면 막대 아래 줄로 내린다 (진행 중 필터처럼 기간이 짧아 막대가 길 때).
+ * right: x는 문구의 왼쪽 끝, left: x는 문구의 오른쪽 끝, below: x는 왼쪽 끝.
+ */
+export function placeLabel({
+  barLeft,
+  barRight,
+  trackWidth,
+  labelWidth,
+  preferred,
+  gap = 10,
+}: {
+  barLeft: number;
+  barRight: number;
+  trackWidth: number;
+  labelWidth: number;
+  preferred: "left" | "right";
+  gap?: number;
+}): LabelPlacement {
+  const fitsRight = barRight + gap + labelWidth <= trackWidth;
+  const fitsLeft = barLeft - gap - labelWidth >= 0;
+  const right = { side: "right", x: barRight + gap } as const;
+  const left = { side: "left", x: barLeft - gap } as const;
+  if (preferred === "right" ? fitsRight : fitsLeft) return preferred === "right" ? right : left;
+  if (preferred === "right" ? fitsLeft : fitsRight) return preferred === "right" ? left : right;
+  const x = Math.max(0, Math.min(barLeft, trackWidth - labelWidth));
+  return { side: "below", x };
+}

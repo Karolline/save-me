@@ -1,5 +1,13 @@
-import { useEffect, useRef, useState, type MouseEvent } from "react";
-import { monthsOf, rangeTitle, rowLayout, stageChain, type Month } from "@/lib/timeline";
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
+import {
+  monthsOf,
+  placeLabel,
+  rangeTitle,
+  rowLayout,
+  stageChain,
+  type LabelPlacement,
+  type Month,
+} from "@/lib/timeline";
 import {
   RESULTS,
   STAGE_KIND_LABELS,
@@ -311,22 +319,58 @@ function TimelineRow({
 }) {
   const layout = rowLayout(a, months);
   const color = `var(--d${a.depth})`;
-  const label =
-    layout.label.side === "right"
+  const track = useRef<HTMLDivElement>(null);
+  const text = useRef<HTMLSpanElement>(null);
+  // 문구의 실제 너비로 정한 자리. 재기 전(또는 너비를 못 재는 테스트 환경)에는
+  // rowLayout의 기본 쪽에 퍼센트로 둔다.
+  const [placed, setPlaced] = useState<LabelPlacement | null>(null);
+  const { left, width } = layout;
+  const preferred = layout.label.side;
+  useLayoutEffect(() => {
+    const trackEl = track.current;
+    const textEl = text.current;
+    if (!trackEl || !textEl) return;
+    const measure = () => {
+      const w = trackEl.clientWidth;
+      if (!w) return;
+      setPlaced(
+        placeLabel({
+          barLeft: (left / 100) * w,
+          barRight: ((left + width) / 100) * w,
+          trackWidth: w,
+          labelWidth: textEl.scrollWidth,
+          preferred,
+        }),
+      );
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(trackEl);
+    return () => observer.disconnect();
+  }, [left, width, preferred, a.stages, a.result, a.resultText]);
+  const label = placed
+    ? placed.side === "right"
+      ? { left: placed.x }
+      : placed.side === "left"
+        ? { right: `calc(100% - ${placed.x}px)` }
+        : { left: placed.x }
+    : layout.label.side === "right"
       ? { left: `calc(${layout.label.at}% + 10px)` }
       : { right: `calc(${100 - layout.label.at}% + 10px)` };
+  const below = placed?.side === "below";
   return (
-    <div className="crow" data-testid="timeline-row" onMouseMove={onMouseMove}>
+    <div className={`crow${below ? " lbl-below" : ""}`} data-testid="timeline-row" onMouseMove={onMouseMove}>
       <button type="button" className="cname" onClick={() => onOpen(a.id)}>
         <span>{a.company}</span>
         {a.sub && <small>{a.sub}</small>}
       </button>
-      <div className="ctrack">
+      <div className="ctrack" ref={track}>
         <span className="seg-bar" style={{ left: `${layout.left}%`, width: `${layout.width}%`, background: color }} />
         {layout.dots.map((at, i) => (
           <span key={i} className="dot" style={{ left: `${at}%`, background: color }} />
         ))}
-        <span className="lbl" style={label}>
+        <span className={`lbl${below ? " below" : ""}`} style={label} ref={text}>
           {a.stages.map((s) => s.name).join(" → ")} → <ResultText a={a} />
         </span>
       </div>
