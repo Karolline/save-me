@@ -58,6 +58,7 @@ async function fill(user: ReturnType<typeof userEvent.setup>, el: HTMLElement, t
 
 const listProps ={ onStatusChange: () => {}, onOpen: () => {}, onAdd: () => {} };
 const viewProps = {
+  onTabChange: () => {},
   fromDetail: false,
   onBack: () => {},
   onEdit: () => {},
@@ -159,7 +160,7 @@ describe("JobViewScreen", () => {
 
     // 기타 메모는 줄바꿈을 지킨다.
     const notes = screen.getByRole("region", { name: "기타 메모" });
-    expect(notes.querySelector(".pre")?.textContent).toContain("기사가 있다.\n어필 포인트");
+    expect(notes.querySelector(".pre")?.textContent).toContain("처우협의\n코딩테스트");
     expect(screen.getByRole("navigation", { name: "이 분석의 섹션" }).textContent).toContain("기타 메모");
     expect(screen.queryByText(/비어 있는 섹션/)).not.toBeInTheDocument();
     expect(screen.queryByText("– 미평가")).not.toBeInTheDocument();
@@ -226,6 +227,154 @@ describe("JobViewScreen", () => {
   it("shows the 404 screen for a missing analysis", async () => {
     setup(<JobViewScreen id={999} {...viewProps} />);
     expect(await screen.findByRole("heading", { name: "페이지를 찾을 수 없어요" })).toBeInTheDocument();
+  });
+});
+
+describe("JobViewScreen tabs", () => {
+  it("starts on 공고 분석 and asks to switch to 회사 동향", async () => {
+    const onTabChange = vi.fn();
+    const { user } = setup(<JobViewScreen id={1} {...viewProps} onTabChange={onTabChange} />);
+
+    const tabs = await screen.findByRole("tablist", { name: "분석 보기" });
+    expect(within(tabs).getAllByRole("tab").map((t) => [t.textContent, t.getAttribute("aria-selected")])).toEqual([
+      ["공고 분석", "true"],
+      ["회사 동향", "false"],
+    ]);
+    expect(screen.getByRole("region", { name: "기술 핏 요약" })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "회사 동향 섹션" })).not.toBeInTheDocument();
+
+    await user.click(within(tabs).getByRole("tab", { name: "공고 분석" }));
+    expect(onTabChange).not.toHaveBeenCalled();
+    await user.click(within(tabs).getByRole("tab", { name: "회사 동향" }));
+    expect(onTabChange).toHaveBeenCalledWith("trends");
+  });
+
+  it("draws the 회사 동향 tab from the tab prop, keeping the header", async () => {
+    const onTabChange = vi.fn();
+    const { user } = setup(<JobViewScreen id={1} {...viewProps} tab="trends" onTabChange={onTabChange} />);
+
+    expect(await screen.findByRole("tab", { name: "회사 동향" })).toHaveAttribute("aria-selected", "true");
+    // 머리, 확인 막대, 정보 칸, [편집]은 그대로다.
+    expect(screen.getByRole("heading", { name: "로봇 데이터 플랫폼 엔지니어" })).toBeInTheDocument();
+    expect(screen.getByRole("note").textContent).toContain("아직 사람이 확인하지 않은 분석이에요.");
+    expect(document.querySelector(".jmeta")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "편집" })).toBeInTheDocument();
+    // 공고 분석 탭의 내용은 없다.
+    expect(screen.queryByRole("region", { name: "기술 핏 요약" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "연결된 지원" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "공고 분석" }));
+    expect(onTabChange).toHaveBeenCalledWith("analysis");
+  });
+
+  it("shows sections in order with grouped labels, faint 자료 없음 and source chips", async () => {
+    setup(<JobViewScreen id={1} {...viewProps} tab="trends" />);
+
+    const intro = await screen.findByLabelText("조사");
+    expect(intro.textContent).toContain("조사일2026-10-12");
+    expect(intro.textContent).toContain("비상장사라 사업보고서가 없어");
+    const chips = screen.getByRole("navigation", { name: "회사 동향 섹션" });
+    expect(within(chips).getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "요즘 어디에 돈을 쓰는가",
+      "경쟁사 대비",
+      "실제 사용자 반응",
+      "회사가 가는 방향",
+      "어필 포인트",
+    ]);
+    expect([...document.querySelectorAll(".jsec h2")].map((h) => h.textContent)).toEqual([
+      "요즘 어디에 돈을 쓰는가",
+      "경쟁사 대비",
+      "실제 사용자 반응",
+      "회사가 가는 방향 — 이 포지션을 왜 지금 뽑는가",
+      "어필 포인트 — \"내가 필요하다\"",
+    ]);
+
+    const spend = screen.getByRole("region", { name: "요즘 어디에 돈을 쓰는가" });
+    const rows = [...spend.querySelectorAll(".trow")];
+    expect(rows.map((r) => [r.querySelector(".tl")?.textContent, r.classList.contains("cont")])).toEqual([
+      ["실적", false],
+      ["사업부별 손익", false],
+      ["물류", false],
+      ["", true],
+    ]);
+    expect(within(spend).getByText("+38%").tagName).toBe("STRONG");
+    expect(within(spend).getByText("자료 없음")).toHaveClass("nodata");
+
+    const fresh = within(spend).getAllByRole("link")[0];
+    expect(fresh.textContent).toBe("한빛경제 2026-03-30 ↗");
+    expect(fresh).toHaveAttribute("target", "_blank");
+    expect(fresh).toHaveAttribute("rel", "noopener noreferrer");
+    expect(fresh).not.toHaveClass("old");
+    const old = within(spend).getByRole("link", { name: /테크데일리/ });
+    expect(old.textContent).toBe("⚠ 테크데일리 2023-05-18 · 오래된 자료 ↗");
+    expect(old).toHaveClass("old");
+    // 날짜 없는 출처는 오래됐다고 하지 않는다.
+    const users = screen.getByRole("region", { name: "실제 사용자 반응" });
+    expect(within(users).getByRole("link").textContent).toBe("고객 사례집 ↗");
+
+    const direction = screen.getByRole("region", { name: "회사가 가는 방향" });
+    expect(direction.querySelectorAll(".quotes li")).toHaveLength(2);
+    expect(direction.querySelector(".reading")?.textContent).toMatch(/^해석 \(추정\)관제 센터가/);
+
+    const appeal = screen.getByRole("region", { name: "어필 포인트" });
+    const first = within(appeal).getByLabelText("어필 포인트 1");
+    expect(first.querySelector(".no")?.textContent).toBe("1");
+    expect([...first.querySelectorAll("dt")].map((d) => d.textContent)).toEqual(["회사 상황", "내 기여", "근거 경험"]);
+    expect(within(first).getByText("핫 파티션 장애").tagName).toBe("STRONG");
+    expect(within(appeal).getByText("어필 포인트로 쓰지 않은 것 (갭)")).toBeInTheDocument();
+    expect(within(appeal).getByText("로봇 센서 시계열 저장 → 실무 근거 없음")).toBeInTheDocument();
+    expect(screen.queryByText(/비어 있는 섹션/)).not.toBeInTheDocument();
+  });
+
+  it("links only http(s) sources and names the empty sections", async () => {
+    const service = createMockService({
+      jobs: [
+        {
+          analyzedAt: "2026-10-13",
+          application: null,
+          job: {
+            company: "작은회사",
+            trendsNote: "메모만 있다",
+            trends: [
+              {
+                kind: "spend",
+                label: "실적",
+                text: "매출",
+                sources: [
+                  { name: "사내 자료", date: "2025-10-12", url: "file:///c:/memo.pdf" },
+                  { name: "기사", date: "2025-10-13", url: "" },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    });
+    setup(<JobViewScreen id={1} {...viewProps} tab="trends" />, service);
+
+    const spend = await screen.findByRole("region", { name: "요즘 어디에 돈을 쓰는가" });
+    expect(within(spend).queryByRole("link")).not.toBeInTheDocument();
+    // 조사일이 없으면 분석일(2026-10-13)로 따진다: 딱 1년 전은 오래되지 않았다.
+    const chips = [...spend.querySelectorAll(".src")].map((c) => [c.tagName, c.textContent, c.classList.contains("old")]);
+    expect(chips).toEqual([
+      ["SPAN", "⚠ 사내 자료 2025-10-12 · 오래된 자료", true],
+      ["SPAN", "기사 2025-10-13", false],
+    ]);
+    const intro = screen.getByLabelText("조사");
+    expect(intro.textContent).toBe("메모만 있다");
+    expect(screen.getByText(/비어 있는 섹션/).textContent).toBe(
+      "비어 있는 섹션: 경쟁사 대비 · 실제 사용자 반응 · 회사가 가는 방향 · 어필 포인트 — [편집]에서 채울 수 있어요.",
+    );
+  });
+
+  it("says there are no company trends yet", async () => {
+    setup(<JobViewScreen id={11} {...viewProps} tab="trends" />);
+
+    const empty = await screen.findByText(/아직 회사 동향이 없어요./);
+    expect(empty).toHaveClass("tr-empty");
+    expect(empty.textContent).toBe("아직 회사 동향이 없어요.[편집]의 \"회사 동향\" 섹션에서 적을 수 있어요.");
+    expect(screen.queryByRole("navigation", { name: "회사 동향 섹션" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/비어 있는 섹션/)).not.toBeInTheDocument();
   });
 });
 
@@ -356,6 +505,96 @@ describe("JobEditScreen", () => {
     await user.click(screen.getByRole("button", { name: "← 한빛증권 지원 상세로" }));
     await user.click(screen.getByRole("button", { name: "취소" }));
     expect(onCancel).toHaveBeenCalledTimes(2);
+  });
+
+  it("edits 회사 동향: adds and removes trend cards and sources, drops blank rows", { timeout: 30_000 }, async () => {
+    const onSaved = vi.fn();
+    const { user, service } = setup(<JobEditScreen jobId={1} {...editProps} onSaved={onSaved} />, small());
+
+    const section = await screen.findByRole("region", { name: "회사 동향" });
+    expect(section.textContent).toContain(
+      "회사가 요즘 어디에 돈을 쓰는지, 경쟁사, 사용자 반응, 가는 방향. 상세의 [회사 동향] 탭에 보여요.",
+    );
+    // 섹션 칩: 회사 동향 다음에 기타 메모, 공고 원문이 마지막.
+    const chips = within(screen.getByRole("navigation", { name: "편집할 섹션" })).getAllByRole("button");
+    expect(chips.map((b) => b.textContent).slice(-3)).toEqual(["회사 동향", "기타 메모", "공고 원문"]);
+    expect(screen.getByText("다른 칸에 맞지 않는 내용 (전형 절차 등)")).toBeInTheDocument();
+
+    const field = (name: RegExp) => within(section).getByLabelText(name);
+    await user.type(field(/^조사일/), "2026-10-16");
+    await fill(user, field(/^조사 메모/), " 기사로 대신 ");
+
+    // 동향 1: 경쟁사 대비, 출처 둘 중 하나는 지운다. 동향 2: 빈 카드라 저장할 때 버린다. 동향 3은 지운다.
+    const add = within(section).getByRole("button", { name: "+ 동향 추가" });
+    await user.click(add);
+    const first = within(section).getByLabelText("동향 1");
+    expect(within(first).getByRole("radio", { name: "돈을 쓰는 곳" })).toBeChecked();
+    await waitFor(() => expect(within(first).getByLabelText(/^분류/)).toHaveFocus());
+    await user.click(within(first).getByRole("radio", { name: "경쟁사 대비" }));
+    await fill(user, within(first).getByLabelText(/^분류/), "한샘");
+    await fill(user, within(first).getByLabelText(/^내용/), "**시공** 성장");
+    await user.click(within(first).getByRole("button", { name: "+ 출처 추가" }));
+    await user.click(within(first).getByRole("button", { name: "+ 출처 추가" }));
+    await user.click(within(first).getByRole("button", { name: "+ 출처 추가" }));
+    const sources = within(first).getAllByRole("textbox", { name: "출처 이름" });
+    expect(sources).toHaveLength(3);
+    await fill(user, sources[0], "비즈워치");
+    await user.type(within(first).getAllByLabelText("출처 날짜")[0], "2026-05-25");
+    await fill(user, within(first).getAllByRole("textbox", { name: "출처 링크" })[0], "https://example.com/b");
+    await fill(user, sources[1], "지울 출처");
+    await user.click(within(within(first).getByLabelText("출처 2")).getByRole("button", { name: "출처 삭제" }));
+    expect(within(first).getAllByRole("textbox", { name: "출처 이름" })).toHaveLength(2);
+
+    await user.click(add);
+    await user.click(add);
+    await fill(user, within(within(section).getByLabelText("동향 3")).getByLabelText(/^분류/), "지울 동향");
+    await user.click(within(within(section).getByLabelText("동향 3")).getByRole("button", { name: "삭제" }));
+    expect(within(section).queryByLabelText("동향 3")).not.toBeInTheDocument();
+
+    await fill(user, field(/^회사가 가는 방향 · 공고 문구/), "\"SSOT\"\n\n\"SAP\"");
+    await fill(user, field(/^회사가 가는 방향 · 해석/), "추정");
+    const addAppeal = within(section).getByRole("button", { name: "+ 어필 포인트 추가" });
+    await user.click(addAppeal);
+    await user.click(addAppeal);
+    const appeal = within(section).getByLabelText("어필 포인트 1");
+    await fill(user, within(appeal).getByLabelText(/^회사 상황/), "상황");
+    await fill(user, within(appeal).getByLabelText(/^내 기여/), "기여");
+    await fill(user, within(appeal).getByLabelText(/^근거 경험/), "가, 나");
+    await fill(user, field(/^어필 포인트로 쓰지 않은 것/), "SAP\n");
+
+    await user.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    const saved = (await service.getJob(1))!;
+    expect(saved.trendsCheckedOn).toBe("2026-10-16");
+    expect(saved.trendsNote).toBe("기사로 대신");
+    expect(saved.trends).toEqual([
+      {
+        kind: "rival",
+        label: "한샘",
+        text: "**시공** 성장",
+        sources: [{ name: "비즈워치", date: "2026-05-25", url: "https://example.com/b" }],
+      },
+    ]);
+    expect(saved.directionQuotes).toEqual(["\"SSOT\"", "\"SAP\""]);
+    expect(saved.directionReading).toBe("추정");
+    expect(saved.appeals).toEqual([{ situation: "상황", contribution: "기여", evidence: ["가", "나"] }]);
+    expect(saved.appealGaps).toEqual(["SAP"]);
+  });
+
+  it("keeps existing 회사 동향 when saving other fields", { timeout: 15_000 }, async () => {
+    const onSaved = vi.fn();
+    const { user, service } = setup(<JobEditScreen jobId={1} {...editProps} onSaved={onSaved} />);
+    const before = (await service.getJob(1))!;
+
+    const section = await screen.findByRole("region", { name: "회사 동향" });
+    expect(within(section).getByLabelText(/^조사일/)).toHaveValue("2026-10-12");
+    expect(within(section).getAllByLabelText(/^동향 \d$/)).toHaveLength(before.trends.length);
+    await user.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    const saved = (await service.getJob(1))!;
+    for (const key of ["trendsCheckedOn", "trendsNote", "trends", "directionQuotes", "directionReading", "appeals", "appealGaps"] as const) {
+      expect(saved[key]).toEqual(before[key]);
+    }
   });
 
   it("deletes from the editor", async () => {

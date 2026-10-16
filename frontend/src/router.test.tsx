@@ -75,6 +75,24 @@ describe("job analysis routes", () => {
     await waitFor(() => expect(router.state.location.search).toEqual({ status: "skipped" }));
     expect(await screen.findByText("늘봄카드")).toBeInTheDocument();
   });
+
+  it("keeps the 회사 동향 tab in the address with the other search params", { timeout: 15_000 }, async () => {
+    const user = userEvent.setup();
+    await open("/jobs/2?from=detail");
+    await user.click(await screen.findByRole("tab", { name: "회사 동향" }));
+    await waitFor(() => expect(router.state.location.search).toEqual({ from: "detail", tab: "trends" }));
+    expect(await screen.findByText(/아직 회사 동향이 없어요/)).toBeInTheDocument();
+
+    // [편집]에서 돌아오면 보던 탭으로.
+    await user.click(screen.getByRole("button", { name: "편집" }));
+    expect(await screen.findByRole("heading", { name: "공고 분석 편집" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "취소" }));
+    expect(await screen.findByRole("tab", { name: "회사 동향" })).toHaveAttribute("aria-selected", "true");
+    expect(router.state.location.search).toEqual({ from: "detail", tab: "trends" });
+
+    await user.click(screen.getByRole("tab", { name: "공고 분석" }));
+    await waitFor(() => expect(router.state.location.search).toEqual({ from: "detail" }));
+  });
 });
 
 describe("experience routes", () => {

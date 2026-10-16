@@ -291,6 +291,50 @@ export interface JobFields {
   checks: string[];
   /** 이 순서로 저장된다. 저장하면 통째로 바뀐다. */
   requirements: Requirement[];
+  // ── 회사 동향 (상세의 [회사 동향] 탭) ──
+  /** 조사일 (YYYY-MM-DD). 출처가 오래됐는지 이 날로 따진다. */
+  trendsCheckedOn: string | null;
+  /** 조사 메모: 어떤 자료로 조사했는지. */
+  trendsNote: string;
+  /** 동향 줄. 이 순서로 저장되고, 상세는 구분별로 묶되 순서를 지킨다. */
+  trends: TrendItem[];
+  /** 회사가 가는 방향: 공고 문구, 하나에 한 줄. */
+  directionQuotes: string[];
+  /** 회사가 가는 방향: 해석 (추정). */
+  directionReading: string;
+  /** 어필 포인트. */
+  appeals: AppealPoint[];
+  /** 어필 포인트로 쓰지 않은 것 (갭). */
+  appealGaps: string[];
+}
+
+/** 회사 동향 구분: 돈을 쓰는 곳, 경쟁사 대비, 사용자 반응. */
+export type TrendKind = "spend" | "rival" | "users";
+
+export interface TrendSource {
+  name: string;
+  /** YYYY-MM-DD 또는 null. */
+  date: string | null;
+  /** http(s)일 때만 링크가 된다. */
+  url: string;
+}
+
+export interface TrendItem {
+  kind: TrendKind;
+  /** 분류 (왼쪽 칸, 굵게). */
+  label: string;
+  /** 내용 (**굵게** 가능, "자료 없음"은 흐리게). */
+  text: string;
+  sources: TrendSource[];
+}
+
+export interface AppealPoint {
+  /** 회사 상황. */
+  situation: string;
+  /** 내 기여. */
+  contribution: string;
+  /** 근거 경험 태그. */
+  evidence: string[];
 }
 
 export interface JobInput extends JobFields {

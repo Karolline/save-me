@@ -13,6 +13,8 @@ import type {
   LevelCounts,
   RequirementCategory,
   RequirementLevel,
+  TrendItem,
+  TrendKind,
 } from "@/services/types";
 
 export const JOB_STATUS: Record<JobStatus, { label: string; className: string }> = {
@@ -58,6 +60,55 @@ export function mustSummary(must: LevelCounts): string {
 export function gradeLabel(grade: CultureGrade, score: number | null, unit = ""): string {
   if (!grade) return "";
   return score === null ? grade : `${grade} · ${score}${unit}`;
+}
+
+// ── 회사 동향 ──
+
+/** 회사 동향 탭의 동향 섹션: 구분마다 제목, 섹션 칩 글, 편집 화면의 구분 버튼 글. 순서는 탭의 섹션 순서. */
+export const TREND_SECTIONS: { kind: TrendKind; title: string; button: string }[] = [
+  { kind: "spend", title: "요즘 어디에 돈을 쓰는가", button: "돈을 쓰는 곳" },
+  { kind: "rival", title: "경쟁사 대비", button: "경쟁사 대비" },
+  { kind: "users", title: "실제 사용자 반응", button: "사용자 반응" },
+];
+
+/** 내용이 이 글이면 흐리게 보인다. */
+export const NO_DATA = "자료 없음";
+
+/** 한 구분의 동향 줄. 바로 위 줄과 분류가 같으면 cont(분류 칸을 비우고 위 줄과 붙인다). */
+export function trendRows(trends: TrendItem[], kind: TrendKind): { item: TrendItem; cont: boolean }[] {
+  const items = trends.filter((t) => t.kind === kind);
+  return items.map((item, i) => ({ item, cont: i > 0 && items[i - 1].label.trim() === item.label.trim() }));
+}
+
+/** 회사 동향이 하나라도 적혀 있는지 (없으면 탭에 빈 안내만). */
+export function hasTrends(job: Job): boolean {
+  return Boolean(
+    job.trendsCheckedOn ||
+      job.trendsNote.trim() ||
+      job.trends.length ||
+      job.directionQuotes.length ||
+      job.directionReading.trim() ||
+      job.appeals.length ||
+      job.appealGaps.length,
+  );
+}
+
+/** http://, https:// 주소만 링크로 연다. */
+export function isWebUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url.trim());
+}
+
+/**
+ * 오래된 자료인지: 출처 날짜가 기준일(조사일, 없으면 분석일)에서 1년을 뺀 날보다 이르면 true.
+ * 딱 1년 전은 오래되지 않았다. 날짜가 없는 출처는 오래됐다고 하지 않는다.
+ */
+export function isOldSource(date: string | null, checkedOn: string | null, analyzedAt: string): boolean {
+  const base = checkedOn || analyzedAt;
+  if (!date || !base) return false;
+  const [y, m, d] = base.split("-");
+  // 2월 29일의 1년 전은 2월 28일.
+  const cutoff = `${String(Number(y) - 1).padStart(4, "0")}-${m}-${m === "02" && d === "29" ? "28" : d}`;
+  return date < cutoff;
 }
 
 // ── 편집 초안 ──
@@ -108,6 +159,28 @@ export interface QuestionDraft {
   answer: string;
 }
 
+export interface TrendSourceDraft {
+  key: number;
+  name: string;
+  /** YYYY-MM-DD 또는 "". */
+  date: string;
+  url: string;
+}
+export interface TrendDraft {
+  key: number;
+  kind: TrendKind;
+  label: string;
+  text: string;
+  sources: TrendSourceDraft[];
+}
+export interface AppealDraft {
+  key: number;
+  situation: string;
+  contribution: string;
+  /** 쉼표로 구분. */
+  evidence: string;
+}
+
 export interface JobDraft {
   company: string;
   team: string;
@@ -139,6 +212,17 @@ export interface JobDraft {
   expSuggestions: string;
   askBack: string;
   checks: string;
+  // 회사 동향
+  /** YYYY-MM-DD 또는 "". */
+  trendsCheckedOn: string;
+  trendsNote: string;
+  trends: TrendDraft[];
+  /** 한 줄에 하나. */
+  directionQuotes: string;
+  directionReading: string;
+  appeals: AppealDraft[];
+  /** 한 줄에 하나. */
+  appealGaps: string;
 }
 
 export const NEW_ROW = {
@@ -158,6 +242,10 @@ export const NEW_ROW = {
   highlight: (): HighlightDraft => ({ key: newKey(), exp: "", maps: "", why: "" }),
   excluded: (): ExcludedDraft => ({ key: newKey(), exp: "", where: "" }),
   questions: (): QuestionDraft => ({ key: newKey(), question: "", answer: "" }),
+  // 새 동향은 "돈을 쓰는 곳"으로 시작한다.
+  trends: (): TrendDraft => ({ key: newKey(), kind: "spend", label: "", text: "", sources: [] }),
+  sources: (): TrendSourceDraft => ({ key: newKey(), name: "", date: "", url: "" }),
+  appeals: (): AppealDraft => ({ key: newKey(), situation: "", contribution: "", evidence: "" }),
 };
 
 const lines = (list: string[]) => list.join("\n");
@@ -211,6 +299,13 @@ export function toDraft(job: Job | null, prefill: Partial<JobDraft> = {}): JobDr
       expSuggestions: "",
       askBack: "",
       checks: "",
+      trendsCheckedOn: "",
+      trendsNote: "",
+      trends: [],
+      directionQuotes: "",
+      directionReading: "",
+      appeals: [],
+      appealGaps: "",
       ...prefill,
     };
   }
@@ -244,8 +339,40 @@ export function toDraft(job: Job | null, prefill: Partial<JobDraft> = {}): JobDr
     expSuggestions: lines(job.expSuggestions),
     askBack: lines(job.askBack),
     checks: lines(job.checks),
+    trendsCheckedOn: job.trendsCheckedOn ?? "",
+    trendsNote: job.trendsNote,
+    trends: job.trends.map((t) => ({
+      key: newKey(),
+      ...t,
+      sources: t.sources.map((s) => ({ key: newKey(), ...s, date: s.date ?? "" })),
+    })),
+    directionQuotes: lines(job.directionQuotes),
+    directionReading: job.directionReading,
+    appeals: job.appeals.map((a) => ({ key: newKey(), ...a, evidence: a.evidence.join(", ") })),
+    appealGaps: lines(job.appealGaps),
     ...prefill,
   };
+}
+
+/** 쉼표로 이은 근거 경험 → 태그 목록. */
+const splitTags = (text: string) =>
+  text
+    .split(/[,，]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+/** 동향 초안 → 저장할 줄. 빈 출처(이름·날짜·링크가 모두 빈 것)와 빈 동향(분류·내용·출처가 없는 것)은 버린다. */
+function trendsFromDraft(trends: TrendDraft[]): TrendItem[] {
+  return trends
+    .map((t) => ({
+      kind: t.kind,
+      label: t.label.trim(),
+      text: t.text.trim(),
+      sources: t.sources
+        .map((s) => ({ name: s.name.trim(), date: s.date.trim() || null, url: s.url.trim() }))
+        .filter((s) => s.name || s.date || s.url),
+    }))
+    .filter((t) => t.label || t.text || t.sources.length);
 }
 
 /** 초안 → 저장할 값. 빈 줄(공고 문장·조건·항목·경험·질문이 빈 것)은 버린다. */
@@ -276,13 +403,7 @@ export function fromDraft(d: JobDraft): JobInput {
     conditions: d.conditions.filter((c) => c.label.trim()).map(drop),
     requirements: d.requirements
       .filter((r) => r.text.trim())
-      .map((r) => ({
-        ...drop(r),
-        evidence: r.evidence
-          .split(/[,，]/)
-          .map((s) => s.trim())
-          .filter(Boolean),
-      })),
+      .map((r) => ({ ...drop(r), evidence: splitTags(r.evidence) })),
     cultureItems: d.cultureItems
       .filter((c) => c.name.trim())
       .map((c) => ({ ...drop(c), score: toNumber(c.score), max: toNumber(c.max) })),
@@ -296,6 +417,20 @@ export function fromDraft(d: JobDraft): JobInput {
     expSuggestions: fromLines(d.expSuggestions),
     askBack: fromLines(d.askBack),
     checks: fromLines(d.checks),
+    // 조사일은 저장해도 바뀌지 않는다 (분석일과 다르다).
+    trendsCheckedOn: d.trendsCheckedOn.trim() || null,
+    trendsNote: d.trendsNote.trim(),
+    trends: trendsFromDraft(d.trends),
+    directionQuotes: fromLines(d.directionQuotes),
+    directionReading: d.directionReading.trim(),
+    appeals: d.appeals
+      .map((a) => ({
+        situation: a.situation.trim(),
+        contribution: a.contribution.trim(),
+        evidence: splitTags(a.evidence),
+      }))
+      .filter((a) => a.situation || a.contribution || a.evidence.length),
+    appealGaps: fromLines(d.appealGaps),
   };
 }
 

@@ -392,6 +392,7 @@ describe("JobViewScreen evidence tags", () => {
     const { user } = setup(
       <JobViewScreen
         id={1}
+        onTabChange={() => {}}
         fromDetail={false}
         onBack={() => {}}
         onEdit={() => {}}
@@ -420,12 +421,37 @@ describe("JobViewScreen evidence tags", () => {
     expect(onOpenExperience).toHaveBeenCalledWith(2);
   });
 
+  it("links the 근거 경험 of 어필 포인트 on the 회사 동향 tab", async () => {
+    const onOpenExperience = vi.fn();
+    const { user } = setup(
+      <JobViewScreen
+        id={1}
+        tab="trends"
+        onTabChange={() => {}}
+        fromDetail={false}
+        onBack={() => {}}
+        onEdit={() => {}}
+        onOpenApplication={() => {}}
+        onOpenExperience={onOpenExperience}
+        onDeleted={() => {}}
+        onHome={() => {}}
+      />,
+    );
+
+    const second = await screen.findByLabelText("어필 포인트 2");
+    expect(within(second).getByRole("button", { name: "2024-02 데이터품질-검사도입 ↗" })).toHaveClass("ev-link");
+    expect(within(second).getByText("고객 리포트 자동화").tagName).toBe("SPAN");
+    await user.click(within(screen.getByLabelText("어필 포인트 1")).getByRole("button", { name: "2023-04 주문이벤트-스트림재설계 ↗" }));
+    expect(onOpenExperience).toHaveBeenCalledWith(2);
+  });
+
   it("still shows the analysis with plain tags when the link keys fail to load", async () => {
     const service = samples();
     service.listExperienceLinks = () => Promise.reject(new TypeError("Failed to fetch"));
     setup(
       <JobViewScreen
         id={1}
+        onTabChange={() => {}}
         fromDetail={false}
         onBack={() => {}}
         onEdit={() => {}}

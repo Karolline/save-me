@@ -376,9 +376,12 @@ const jobsRoute = createRoute({
   },
 });
 
-/** 분석을 어디서 열었는지 (`from=detail`: 지원 상세). */
-const parseJobSearch = (search: Record<string, unknown>): { from?: "detail" } =>
-  search.from === "detail" ? { from: "detail" } : {};
+/** 분석을 어디서 열었는지 (`from=detail`: 지원 상세)와 고른 탭 (`tab=trends`: 회사 동향, 없으면 공고 분석). */
+type JobSearch = { from?: "detail"; tab?: "trends" };
+const parseJobSearch = (search: Record<string, unknown>): JobSearch => ({
+  ...(search.from === "detail" ? { from: "detail" as const } : {}),
+  ...(search.tab === "trends" ? { tab: "trends" as const } : {}),
+});
 
 /** 분석에서 돌아갈 곳: 지원 상세에서 왔고 연결된 지원 건이 있으면 그 상세, 아니면 목록. */
 function useJobBack(from: "detail" | undefined) {
@@ -425,17 +428,29 @@ const jobRoute = createRoute({
   validateSearch: parseJobSearch,
   component: function JobPage() {
     const { jobId } = jobRoute.useParams();
-    const { from } = jobRoute.useSearch();
+    const search = jobRoute.useSearch();
+    const { from, tab } = search;
     const navigate = useNavigate();
     const back = useJobBack(from);
     return (
       <JobViewScreen
         key={jobId}
         id={toId(jobId)}
+        tab={tab === "trends" ? "trends" : "analysis"}
+        onTabChange={(next) =>
+          navigate({
+            to: "/jobs/$jobId",
+            params: { jobId },
+            // 다른 search(from 등)는 그대로 두고 tab만 바꾼다.
+            search: { ...search, tab: next === "trends" ? "trends" : undefined },
+            replace: true,
+          })
+        }
         fromDetail={from === "detail"}
         onBack={back}
         onDeleted={back}
-        onEdit={() => navigate({ to: "/jobs/$jobId/edit", params: { jobId }, search: from ? { from } : {} })}
+        // 편집에서 돌아오면 보던 탭으로.
+        onEdit={() => navigate({ to: "/jobs/$jobId/edit", params: { jobId }, search })}
         onOpenApplication={(applicationId) =>
           navigate({ to: "/applications/$id", params: { id: String(applicationId) } })
         }
@@ -458,10 +473,10 @@ const editJobRoute = createRoute({
   validateSearch: parseJobSearch,
   component: function EditJobPage() {
     const { jobId } = editJobRoute.useParams();
-    const { from } = editJobRoute.useSearch();
+    const search = editJobRoute.useSearch();
     const navigate = useNavigate();
-    const back = useJobBack(from);
-    const toView = () => navigate({ to: "/jobs/$jobId", params: { jobId }, search: from ? { from } : {} });
+    const back = useJobBack(search.from);
+    const toView = () => navigate({ to: "/jobs/$jobId", params: { jobId }, search });
     return (
       <JobEditScreen
         key={jobId}

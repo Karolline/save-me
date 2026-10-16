@@ -1,7 +1,21 @@
 import { describe, expect, it } from "vitest";
-import type { Application, Job } from "@/services/types";
+import type { Application, Job, TrendItem } from "@/services/types";
 import { emptyJobFields } from "@/services/mockService";
-import { NEW_ROW, digitsOnly, fromDraft, gradeLabel, jobSaveHint, linkedElsewhere, mustSummary, prefillFrom, toDraft } from "./jobs";
+import {
+  NEW_ROW,
+  digitsOnly,
+  fromDraft,
+  gradeLabel,
+  hasTrends,
+  isOldSource,
+  isWebUrl,
+  jobSaveHint,
+  linkedElsewhere,
+  mustSummary,
+  prefillFrom,
+  toDraft,
+  trendRows,
+} from "./jobs";
 
 const counts = (full: number, part: number, none: number, unrated: number) => ({
   full,
@@ -141,5 +155,116 @@ describe("linkedElsewhere", () => {
     expect(linkedElsewhere(app(3), 3)).toBe(false);
     expect(linkedElsewhere(app(5), 3)).toBe(true);
     expect(linkedElsewhere(app(5), null)).toBe(true);
+  });
+});
+
+describe("isOldSource", () => {
+  it("is old only when more than one year before the 조사일", () => {
+    expect(isOldSource("2025-10-15", "2026-10-16", "2026-10-13")).toBe(true);
+    // 딱 1년 전은 오래되지 않았다.
+    expect(isOldSource("2025-10-16", "2026-10-16", "2026-10-13")).toBe(false);
+    expect(isOldSource("2026-04-14", "2026-10-16", "2026-10-13")).toBe(false);
+    expect(isOldSource("2021-06-29", "2026-10-16", "2026-10-13")).toBe(true);
+  });
+
+  it("uses the analysis date without a 조사일, and never marks a source without a date", () => {
+    expect(isOldSource("2025-10-12", null, "2026-10-13")).toBe(true);
+    expect(isOldSource("2025-10-13", null, "2026-10-13")).toBe(false);
+    expect(isOldSource(null, "2026-10-16", "2026-10-13")).toBe(false);
+  });
+
+  it("takes 2월 28일 as one year before 2월 29일", () => {
+    expect(isOldSource("2023-02-28", "2024-02-29", "2024-02-29")).toBe(false);
+    expect(isOldSource("2023-02-27", "2024-02-29", "2024-02-29")).toBe(true);
+  });
+});
+
+describe("trends helpers", () => {
+  const item = (kind: TrendItem["kind"], label: string): TrendItem => ({ kind, label, text: "", sources: [] });
+
+  it("groups rows by kind in order and marks a repeated label", () => {
+    const trends = [item("spend", "실적"), item("rival", "한샘"), item("spend", "물류"), item("spend", "물류"), item("spend", "AI")];
+    expect(trendRows(trends, "spend").map((r) => [r.item.label, r.cont])).toEqual([
+      ["실적", false],
+      ["물류", false],
+      ["물류", true],
+      ["AI", false],
+    ]);
+    expect(trendRows(trends, "rival").map((r) => r.cont)).toEqual([false]);
+    expect(trendRows(trends, "users")).toEqual([]);
+  });
+
+  it("knows web urls and whether anything is written", () => {
+    expect(isWebUrl("https://example.com")).toBe(true);
+    expect(isWebUrl("http://example.com")).toBe(true);
+    expect(isWebUrl("javascript:alert(1)")).toBe(false);
+    expect(isWebUrl("example.com")).toBe(false);
+    expect(hasTrends(job())).toBe(false);
+    expect(hasTrends(job({ trendsCheckedOn: "2026-10-16" }))).toBe(true);
+    expect(hasTrends(job({ appealGaps: ["SAP"] }))).toBe(true);
+  });
+});
+
+describe("company trends drafts", () => {
+  it("round trips every field", () => {
+    const original = job({
+      trendsCheckedOn: "2026-10-16",
+      trendsNote: "기사로 대신",
+      trends: [
+        {
+          kind: "rival",
+          label: "한샘",
+          text: "**시공** 성장",
+          sources: [
+            { name: "비즈워치", date: "2026-05-25", url: "https://example.com/b" },
+            { name: "App Store", date: null, url: "" },
+          ],
+        },
+      ],
+      directionQuotes: ['"SSOT"', '"SAP"'],
+      directionReading: "추정",
+      appeals: [{ situation: "상황", contribution: "기여", evidence: ["2021-11_UV", "2022-06_검색"] }],
+      appealGaps: ["SAP 연동"],
+    });
+    const draft = toDraft(original);
+    expect(draft.trends[0].sources[1].date).toBe("");
+    expect(draft.directionQuotes).toBe('"SSOT"\n"SAP"');
+    expect(draft.appeals[0].evidence).toBe("2021-11_UV, 2022-06_검색");
+
+    const input = fromDraft(draft);
+    for (const key of [
+      "trendsCheckedOn",
+      "trendsNote",
+      "trends",
+      "directionQuotes",
+      "directionReading",
+      "appeals",
+      "appealGaps",
+    ] as const) {
+      expect(input[key]).toEqual(original[key]);
+    }
+  });
+
+  it("drops blank sources, trend cards and appeal cards, and trims", () => {
+    const draft = toDraft(job());
+    expect(draft.trendsCheckedOn).toBe("");
+    const blankSource = NEW_ROW.sources();
+    const kept = { ...NEW_ROW.trends(), label: " 물류 ", sources: [blankSource, { ...NEW_ROW.sources(), name: " 기사 " }] };
+    const onlySource = { ...NEW_ROW.trends(), sources: [{ ...NEW_ROW.sources(), url: "https://example.com" }] };
+    draft.trends = [NEW_ROW.trends(), kept, { ...NEW_ROW.trends(), sources: [NEW_ROW.sources()] }, onlySource];
+    draft.appeals = [NEW_ROW.appeals(), { ...NEW_ROW.appeals(), evidence: " , 2021-11_UV ," }];
+    draft.directionQuotes = "\n 문구 \n\n";
+    draft.trendsNote = "  메모 ";
+
+    const input = fromDraft(draft);
+    expect(NEW_ROW.trends().kind).toBe("spend");
+    expect(input.trends).toEqual([
+      { kind: "spend", label: "물류", text: "", sources: [{ name: "기사", date: null, url: "" }] },
+      { kind: "spend", label: "", text: "", sources: [{ name: "", date: null, url: "https://example.com" }] },
+    ]);
+    expect(input.appeals).toEqual([{ situation: "", contribution: "", evidence: ["2021-11_UV"] }]);
+    expect(input.directionQuotes).toEqual(["문구"]);
+    expect(input.trendsNote).toBe("메모");
+    expect(input.trendsCheckedOn).toBeNull();
   });
 });
