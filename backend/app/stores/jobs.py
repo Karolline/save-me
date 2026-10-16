@@ -46,7 +46,12 @@ JSON_FIELDS = (
     "exp_suggestions",
     "ask_back",
     "checks",
+    "trends",
+    "direction_quotes",
+    "appeals",
+    "appeal_gaps",
 )
+# 글과 날짜 칸 (JSON이 아닌 칸).
 TEXT_FIELDS = (
     "company",
     "team",
@@ -63,6 +68,9 @@ TEXT_FIELDS = (
     "culture_read_between",
     "notes",
     "raw_text",
+    "trends_checked_on",
+    "trends_note",
+    "direction_reading",
 )
 
 
@@ -366,8 +374,12 @@ class JobStore(BaseStore):
                 raise ApplicationAlreadyLinkedError(data.application_id)
 
         dumped = data.model_dump()
-        for name in TEXT_FIELDS + JSON_FIELDS:
+        # JSON 칸 안의 날짜(출처 날짜)는 글("YYYY-MM-DD")로 저장한다.
+        dumped_json = data.model_dump(mode="json")
+        for name in TEXT_FIELDS:
             setattr(row, name, dumped[name])
+        for name in JSON_FIELDS:
+            setattr(row, name, dumped_json[name])
         if application is not None:
             # 지원 기록과 연결되면 지원 여부는 늘 "지원함".
             row.status = "applied"

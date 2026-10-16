@@ -151,6 +151,42 @@ def test_job_analyses_downgrade_with_linked_rows_and_upgrade_again(url):
     engine.dispose()
 
 
+def test_company_trends_migration_gives_old_analyses_empty_trends(url):
+    # 이력까지 올린 DB에 분석 하나를 넣고 회사 동향 마이그레이션을 돌린다.
+    config = alembic_config(url)
+    command.upgrade(config, "8bca33ed6431")
+    engine = create_engine(normalize_url(url))
+    with engine.begin() as c:
+        c.execute(text("INSERT INTO users (id, nickname, status, created_at) VALUES (1, '나', 'active', '2026-10-01')"))
+        c.execute(
+            text(
+                "INSERT INTO job_analyses (id, user_id, company, analyzed_at, created_at, updated_at)"
+                " VALUES (1, 1, '회사', '2026-10-01', '2026-10-01', '2026-10-01')"
+            )
+        )
+
+    command.upgrade(config, "head")
+
+    with engine.begin() as c:
+        row = c.execute(
+            text(
+                "SELECT company, trends_checked_on, trends_note, trends, direction_quotes,"
+                " direction_reading, appeals, appeal_gaps FROM job_analyses"
+            )
+        ).one()
+    assert row.company == "회사"
+    assert row.trends_checked_on is None
+    assert (row.trends_note, row.direction_reading) == ("", "")
+    for value in (row.trends, row.direction_quotes, row.appeals, row.appeal_gaps):
+        assert value in ([], "[]")
+    assert differences_from_models(engine) == []
+
+    command.downgrade(config, "8bca33ed6431")
+    with engine.begin() as c:
+        assert c.execute(text("SELECT COUNT(*) FROM job_analyses")).scalar() == 1
+    engine.dispose()
+
+
 def test_experiences_migration_foreign_keys(url):
     # 후기를 지우면 받은 질문의 연결만 풀리고, 경험을 지우면 그것을 가리키던 관련 경험 줄이 지워진다.
     command.upgrade(alembic_config(url), "head")

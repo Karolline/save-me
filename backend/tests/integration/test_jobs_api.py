@@ -245,3 +245,59 @@ def test_writes_need_the_csrf_header(client: TestClient):
 
 def test_response_matches_the_model(client: TestClient):
     Job.model_validate(create(client))
+
+
+TRENDS = {
+    "trendsCheckedOn": "2026-10-16",
+    "trendsNote": "감사보고서 기사로 대신했다",
+    "trends": [
+        {
+            "kind": "spend",
+            "label": "물류",
+            "text": "**여주** 물류센터 증설",
+            "sources": [
+                {"name": "벤처스퀘어", "date": "2026-04-14", "url": "https://example.com/a"},
+                {"name": "App Store", "date": None, "url": ""},
+            ],
+        },
+        {"kind": "rival", "label": "물류 비교", "text": "자료 없음", "sources": []},
+        {"kind": "users", "label": "App Store", "text": "평점 4.8", "sources": []},
+    ],
+    "directionQuotes": ['"SSOT를 구축"'],
+    "directionReading": "지표를 숫자로 관리하려는 것으로 보인다",
+    "appeals": [{"situation": "단일 지표", "contribution": "표준 식별자", "evidence": ["2021-11_UV지표"]}],
+    "appealGaps": ["SAP 연동 → 근거 없음"],
+}
+
+
+def test_company_trends_round_trip(client: TestClient):
+    created = create(client, **TRENDS)
+    for key, value in TRENDS.items():
+        assert created[key] == value, key
+    assert client.get(f"/api/jobs/{created['id']}").json()["trends"] == TRENDS["trends"]
+
+    changed = {**TRENDS, "trends": [{"kind": "users", "label": "리뷰", "text": "좋음", "sources": []}]}
+    updated = client.put(f"/api/jobs/{created['id']}", json=body(**changed)).json()
+    assert updated["trends"] == changed["trends"]
+    assert updated["trendsCheckedOn"] == "2026-10-16"
+
+    # 빼고 보내면 빈 값이 된다.
+    cleared = client.put(f"/api/jobs/{created['id']}", json=body()).json()
+    assert cleared["trendsCheckedOn"] is None
+    assert (cleared["trendsNote"], cleared["directionReading"]) == ("", "")
+    assert cleared["trends"] == cleared["directionQuotes"] == cleared["appeals"] == cleared["appealGaps"] == []
+
+
+def test_company_trends_values_are_checked(client: TestClient):
+    bad_kind = [{"kind": "money", "label": "가", "text": "", "sources": []}]
+    assert client.post("/api/jobs", json=body(trends=bad_kind)).status_code == 422
+    bad_date = [{"kind": "spend", "label": "가", "text": "", "sources": [{"name": "a", "date": "2026-13-01", "url": ""}]}]
+    assert client.post("/api/jobs", json=body(trends=bad_date)).status_code == 422
+    assert client.post("/api/jobs", json=body(trendsCheckedOn="어제")).status_code == 422
+
+
+def test_another_users_get_of_my_analysis_with_trends_is_404(client: TestClient, other_client: TestClient):
+    mine = create(client, **TRENDS)
+    assert other_client.get(f"/api/jobs/{mine['id']}").status_code == 404
+    assert other_client.put(f"/api/jobs/{mine['id']}", json=body()).status_code == 404
+    assert client.get(f"/api/jobs/{mine['id']}").json()["appeals"] == TRENDS["appeals"]

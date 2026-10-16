@@ -300,6 +300,15 @@ class JobAnalysisRow(Base):
     exp_suggestions: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
     ask_back: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
     checks: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    # 회사 동향 (상세의 [회사 동향] 탭): 조사일, 조사 메모, 동향 줄(구분·분류·내용·출처),
+    # 회사가 가는 방향(공고 문구, 해석), 어필 포인트와 쓰지 않은 것.
+    trends_checked_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    trends_note: Mapped[str] = mapped_column(Text, default="", server_default="")
+    trends: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    direction_quotes: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    direction_reading: Mapped[str] = mapped_column(Text, default="", server_default="")
+    appeals: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    appeal_gaps: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
 
     requirements: Mapped[list["JobRequirementRow"]] = relationship(
         order_by=lambda: JobRequirementRow.position,
