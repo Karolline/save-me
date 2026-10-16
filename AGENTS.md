@@ -52,6 +52,7 @@ SaveMe: 취업 준비생이 지원 현황, 공고 분석, 지원 서류, 면접 
 - 아직 병합하지 않은 브랜치 미리 보기: `scripts/preview.ps1 -Branch <브랜치>` (그 브랜치의 worktree로 이미지 `saveme-preview`를 빌드해 compose 프로젝트 `saveme-preview`로 띄운다: 앱 http://localhost:8200, DB `127.0.0.1:5452`, 볼륨 `saveme-preview-pgdata`. DB에는 `saveme`를 읽기만 해서 복사한다. 끄기: `-Stop`). 개발자 에이전트가 끝나면 병합 전에 사용자가 이것으로 화면을 본다. `APP_PORT`, `DB_PORT`, `PGDATA_VOLUME`을 셸에 남기지 않는다: 진짜 스택의 `docker compose`도 그 값을 읽어 db를 다른 볼륨으로 옮긴다.
 - 백업: `scripts/backup.ps1` (`saveme`를 pg_dump해 백업 폴더로, 사용자가 네이버 MYBOX로 동기화), `scripts/register-backup-task.ps1` (매일 예약 작업), `scripts/restore.ps1` (기본은 복원 연습). 이 스크립트들은 ASCII만 쓴다 (Windows PowerShell 5.1이 시스템 코드 페이지로 읽는다).
 - 사용자의 기존 데이터 가져오기 (기획안 7, "내 기존 데이터 넣기"): 메뉴마다, 그 만드는 단계의 마지막 작업으로. 가져오기 코드는 `backend/app/importers/`에 있고 JSON 파일을 읽는다 (`applications.py`: 지원 건, `reviews.py`: 면접 후기, `jobs.py`: 공고분석). 진짜 데이터가 든 JSON은 `private/`(git이 무시)에 쓰고 커밋하지 않는다. 먼저 `saveme_dev`에 넣고, 사용자가 확인하고, 백업한 뒤 `saveme`에 넣는다. 가져오기는 두 번 돌려도 안전해야 한다.
+- 새 공고분석 받기: 다른 프로젝트의 Claude가 [`docs/job-inbox.md`](docs/job-inbox.md) 형식으로 `private/inbox/jobs/`에 둔 파일을 `/import-jobs`로 넣는다. 위의 첫 가져오기와 달리 `saveme_dev`를 거치지 않는다: 시험 실행(`--dry-run`), 백업, `saveme`에 넣기. 가져온 분석은 사람 확인이 N이라 사용자가 앱에서 확인한다. 이미 있는 (회사, 직무)는 건너뛴다 (사용자 결정, 2026-10-16).
 
 ## 프런트엔드 구조
 
@@ -84,6 +85,7 @@ SaveMe: 취업 준비생이 지원 현황, 공고 분석, 지원 서류, 면접 
 - `.claude/skills/plan-task/`: `/plan-task <만들 것>`. 메인 대화에서 사용자와 기획하고, 기획안과 확정 목업으로 작업 지시서를 써서, 개발자 에이전트에게 백그라운드로 넘긴 뒤 리뷰하고 병합한다.
 - `.claude/agents/developer.md`: 지시서 하나를 git worktree의 자기 브랜치에서 테스트와 작은 커밋으로 만든다. `main`에 커밋하지 않는다.
 - `.claude/agents/reviewer.md`: 브랜치나 커밋 안 한 변경을 이 파일, 명세, 지시서에 비춰 읽기만 하며 리뷰한다.
+- `.claude/skills/import-jobs/`: `/import-jobs`. 공고분석 받은편지함(`private/inbox/jobs/`)의 파일을 시험하고, 백업하고, `saveme`에 넣고, `done/`으로 옮긴다.
 
 ## 규칙
 
@@ -152,6 +154,7 @@ Until deployment the compose stack on the user's PC is production: `saveme` hold
 - Previewing a branch that isn't merged: `scripts/preview.ps1 -Branch <branch>` (builds the image `saveme-preview` from the branch's worktree and runs it as the compose project `saveme-preview`: app on http://localhost:8200, database on `127.0.0.1:5452`, volume `saveme-preview-pgdata`, with a copy of `saveme` read by pg_dump; `-Stop` stops it). When the developer agent finishes, the user looks at the screens here before merging. Never leave `APP_PORT`, `DB_PORT` or `PGDATA_VOLUME` set in a shell: the real stack's `docker compose` reads them too and would move its db onto another volume.
 - Backups: `scripts/backup.ps1` (pg_dump of `saveme` into the backup folder, which the user syncs to Naver MYBOX), `scripts/register-backup-task.ps1` (daily scheduled task), `scripts/restore.ps1` (a restore drill by default). Keep these scripts ASCII-only (Windows PowerShell 5.1 reads them in the system code page).
 - Importing the user's existing data (tech plan 7, "내 기존 데이터 넣기"): per menu, as the last task of its build step. Import code goes in `backend/app/importers/` and reads a JSON file (`applications.py`: applications, `reviews.py`: interview reviews, `jobs.py`: job analyses); the JSON with real data is written to `private/` (git-ignored) and never committed. Import into `saveme_dev` first, have the user check it, back up, then import into `saveme`. Imports must be safe to run twice.
+- Receiving new job analyses: another project's Claude drops files in the [`docs/job-inbox.md`](docs/job-inbox.md) format into `private/inbox/jobs/`; import them with `/import-jobs`. Unlike the first import above, this skips `saveme_dev`: dry run (`--dry-run`), back up, import into `saveme`. Imported analyses have human check N, so the user confirms them in the app. Existing (company, title) pairs are skipped (the user's decision, 2026-10-16).
 
 ## Frontend structure
 
@@ -184,6 +187,7 @@ Until deployment the compose stack on the user's PC is production: `saveme` hold
 - `.claude/skills/plan-task/`: `/plan-task <what to build>`. Plans with the user in the main conversation, writes a task brief from the tech plan and the confirmed mockup, hands it to the developer agent in the background, then reviews and merges.
 - `.claude/agents/developer.md`: builds one brief in a git worktree on its own branch, with tests and small commits. Never commits to `main`.
 - `.claude/agents/reviewer.md`: read-only review of a branch or uncommitted changes against this file, the spec and the brief.
+- `.claude/skills/import-jobs/`: `/import-jobs`. Dry-runs the files in the job analysis inbox (`private/inbox/jobs/`), backs up, imports them into `saveme` and moves them to `done/`.
 
 ## Rules
 
