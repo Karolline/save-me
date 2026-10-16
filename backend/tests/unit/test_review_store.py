@@ -246,3 +246,27 @@ def test_marking_verified_keeps_updated_at_and_is_per_user(stores: Stores, user_
     assert marked is not None and marked.verified is True
     assert marked.updated_at == before.updated_at
     assert stores.reviews.set_verified(user_id, unverified.id, False).verified is False
+
+
+def test_match_finds_my_reviews_by_company_and_round(stores: Stores, user_id: int, other_user_id: int):
+    first = stores.applications.create(user_id, application("누리커머스", date(2026, 2, 27)))
+    second = stores.applications.create(user_id, application("누리커머스", date(2026, 8, 1)))
+    one = stores.reviews.create(user_id, review(first.id)).id
+    stores.reviews.create(user_id, review(first.id, round="2차 면접"))
+    # 남의 같은 회사·차수 후기는 맞지 않는다.
+    theirs = stores.applications.create(other_user_id, application("누리커머스", date(2026, 2, 27)))
+    stores.reviews.create(other_user_id, review(theirs.id))
+
+    # 꼭 하나: 회사와 차수가 같은 내 후기, 앞뒤 공백은 무시.
+    assert stores.reviews.match(user_id, " 누리커머스 ", "1차 면접 ") == [one]
+    # 남은 자기 것만 본다.
+    their_one = stores.reviews.match(other_user_id, "누리커머스", "1차 면접")
+    assert len(their_one) == 1 and their_one != [one]
+    # 없는 차수.
+    assert stores.reviews.match(user_id, "누리커머스", "3차 면접") == []
+
+    # 둘이면 둘 다 (옛것부터), 서류 제출일로 좁힐 수 있다.
+    two = stores.reviews.create(user_id, review(second.id)).id
+    assert stores.reviews.match(user_id, "누리커머스", "1차 면접") == [one, two]
+    assert stores.reviews.match(user_id, "누리커머스", "1차 면접", date(2026, 8, 1)) == [two]
+    assert stores.reviews.match(user_id, "누리커머스", "1차 면접", date(2026, 1, 1)) == []
