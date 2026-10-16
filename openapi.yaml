@@ -9,7 +9,7 @@ info:
     Every endpoint except `GET /auth/config` and `POST /auth/dev-login` needs a
     session (the `saveme_session` HttpOnly cookie); without one it returns 401.
     Requests other than GET must send `X-Requested-With: SaveMe` (403 otherwise).
-    Another user's application, review, question or job analysis is a 404, as if it didn't exist.
+    Another user's application, review, question, job analysis or experience is a 404, as if it didn't exist.
 servers:
   - url: /api
 
@@ -344,6 +344,109 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Job" }
+        "404": { description: Not found (or another user's) }
+
+  /experiences:
+    get:
+      summary: The user's experiences, most recently started first (no start last; ties by id, newest first)
+      parameters:
+        - name: view
+          in: query
+          schema: { type: string, enum: [all, unv, need], default: all }
+          description: all, unv (not verified) or need (with something to 보완). Counts ignore it.
+        - name: q
+          in: query
+          schema: { type: string, default: "" }
+          description: Case-insensitive search over name, summary, org, project and tags. Counts ignore it.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExperienceList" }
+    post:
+      summary: Add an experience (verified)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExperienceInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Experience" }
+        "404": { description: An interviewReviewId or related experienceId is missing or another user's }
+        "422": { description: Invalid input (empty name, bad month, ...) }
+  /experiences/links:
+    get:
+      summary: The user's experiences with a 공고분석 연결 이름 (for linking job evidence tags), by id
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  required: [id, linkKey]
+                  properties:
+                    id: { type: integer }
+                    linkKey: { type: string }
+  /experiences/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      summary: One experience with its actions, questions, related experiences and needs
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Experience" }
+        "404": { description: Not found (or another user's) }
+    put:
+      summary: Replace an experience (child rows replaced; verified becomes true)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExperienceInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Experience" }
+        "404": { description: The experience, an interviewReviewId or a related experienceId is missing or another user's }
+        "422": { description: Invalid input, or the experience is related to itself }
+    delete:
+      summary: Delete an experience (other experiences' related rows pointing at it go too)
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found (or another user's) }
+  /experiences/{id}/verified:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    put:
+      summary: Mark an experience as checked by a person, or not (updatedAt stays)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [verified]
+              properties:
+                verified: { type: boolean }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Experience" }
         "404": { description: Not found (or another user's) }
 
 components:
@@ -724,3 +827,131 @@ components:
             undecided: { type: integer }
             applied: { type: integer }
             skipped: { type: integer }
+    Month:
+      type: [string, "null"]
+      pattern: "^\\d{4}-(0[1-9]|1[0-2])$"
+      description: "YYYY-MM, or null when unknown. An empty string is read as null."
+    ExperienceAction:
+      type: object
+      properties:
+        title: { type: string, default: "" }
+        points: { type: array, items: { type: string }, default: [] }
+        note: { type: string, default: "", description: 회고 · 메모 }
+        source: { type: string, default: "", description: 출처 }
+    ExperienceAsked:
+      type: object
+      required: [question]
+      properties:
+        question: { type: string }
+        where: { type: string, default: "", description: 어디서 }
+        interviewReviewId:
+          type: [integer, "null"]
+          description: The user's interview review this question came from; null again when that review is deleted
+    ExperienceQa:
+      type: object
+      required: [question]
+      properties:
+        question: { type: string }
+        answer: { type: string, default: "", description: Empty means "답변 작성 필요" }
+        caution: { type: string, default: "" }
+    ExperienceNeed:
+      type: object
+      required: [label, detail]
+      description: One 보완할 것, computed by the server (결과 수치 없음, 비어 있음 n, 답변 작성 필요 n, 보완 필요 n)
+      properties:
+        label: { type: string }
+        detail: { type: string }
+    ExperienceFields:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, description: Required, trimmed }
+        project: { type: string, default: "" }
+        linkKey: { type: string, default: "", description: 공고분석 연결 이름 (an evidence tag containing it links here) }
+        startedOn: { $ref: "#/components/schemas/Month" }
+        endedOn: { $ref: "#/components/schemas/Month", description: null means 진행 중 }
+        org: { type: string, default: "" }
+        role: { type: string, default: "" }
+        tags: { type: array, items: { type: string }, default: [] }
+        summary: { type: string, default: "" }
+        situation: { type: string, default: "" }
+        scope: { type: string, default: "", description: 본인 담당 범위 }
+        task: { type: string, default: "" }
+        actionsIntro: { type: string, default: "" }
+        actions: { type: array, items: { $ref: "#/components/schemas/ExperienceAction" }, default: [] }
+        resultMine: { type: array, items: { type: string }, default: [] }
+        resultTeam: { type: array, items: { type: string }, default: [] }
+        numbers: { type: string, default: "", description: Empty means "결과 수치 없음" }
+        appealMainUse: { type: string, default: "" }
+        appealQuestions: { type: array, items: { type: string }, default: [] }
+        appealStrength: { type: string, default: "" }
+        framing: { type: array, items: { type: string }, default: [] }
+        asked: { type: array, items: { $ref: "#/components/schemas/ExperienceAsked" }, default: [] }
+        qas: { type: array, items: { $ref: "#/components/schemas/ExperienceQa" }, default: [] }
+        missing: { type: array, items: { type: string }, default: [], description: 보완 필요 }
+    ExperienceInput:
+      allOf:
+        - $ref: "#/components/schemas/ExperienceFields"
+        - type: object
+          properties:
+            related:
+              type: array
+              default: []
+              description: The user's other experiences (not this one). Saving replaces actions, asked, qas and related.
+              items:
+                type: object
+                required: [experienceId]
+                properties:
+                  experienceId: { type: integer }
+                  note: { type: string, default: "", description: 어떻게 이어지나 }
+    ExperienceSummary:
+      type: object
+      required: [id, name, summary, project, org, startedOn, endedOn, verified, needs]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        summary: { type: string }
+        project: { type: string }
+        org: { type: string }
+        startedOn: { $ref: "#/components/schemas/Month" }
+        endedOn: { $ref: "#/components/schemas/Month" }
+        verified: { type: boolean }
+        needs: { type: array, items: { $ref: "#/components/schemas/ExperienceNeed" } }
+    Experience:
+      allOf:
+        - $ref: "#/components/schemas/ExperienceFields"
+        - type: object
+          required: [id, verified, related, needs, createdAt, updatedAt]
+          properties:
+            id: { type: integer }
+            verified: { type: boolean, description: "false for imported experiences, true once created or saved on screen or marked with PUT /experiences/{id}/verified" }
+            related:
+              type: array
+              items:
+                type: object
+                required: [experienceId, note, name, startedOn, endedOn, verified]
+                properties:
+                  experienceId: { type: integer }
+                  note: { type: string }
+                  name: { type: string }
+                  startedOn: { $ref: "#/components/schemas/Month" }
+                  endedOn: { $ref: "#/components/schemas/Month" }
+                  verified: { type: boolean }
+            needs: { type: array, items: { $ref: "#/components/schemas/ExperienceNeed" } }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    ExperienceList:
+      type: object
+      required: [items, counts]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/ExperienceSummary" }
+        counts:
+          type: object
+          description: Over all of the user's experiences, whatever the view and the search.
+          required: [all, unv, need]
+          properties:
+            all: { type: integer }
+            unv: { type: integer, description: Not verified }
+            need: { type: integer, description: With at least one 보완할 것 }

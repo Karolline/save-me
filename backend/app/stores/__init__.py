@@ -8,6 +8,13 @@ from sqlalchemy import Connection, Engine
 from app.db import make_engine
 from app.stores.applications import ApplicationStore, DuplicateApplicationError
 from app.stores.base import Clock, utc_now
+from app.stores.experiences import (
+    ExperienceStore,
+    RelatedExperienceNotFoundError,
+    ReviewNotFoundError,
+    SelfRelatedError,
+    UnknownRelatedNameError,
+)
 from app.stores.jobs import (
     ApplicationAlreadyLinkedError,
     ApplicationNotFoundError,
@@ -25,11 +32,16 @@ __all__ = [
     "Clock",
     "DEV_IDENTITY",
     "DuplicateApplicationError",
+    "ExperienceStore",
     "ImportAction",
     "JobStore",
+    "RelatedExperienceNotFoundError",
+    "ReviewNotFoundError",
     "ReviewStore",
+    "SelfRelatedError",
     "SharedApplicationError",
     "Stores",
+    "UnknownRelatedNameError",
     "UserStore",
     "utc_now",
 ]
@@ -41,6 +53,7 @@ class Stores:
     applications: ApplicationStore
     reviews: ReviewStore
     jobs: JobStore
+    experiences: ExperienceStore
 
     @classmethod
     def create(cls, engine: Engine | Connection | None = None, clock: Clock = utc_now) -> "Stores":
@@ -50,4 +63,5 @@ class Stores:
             applications=ApplicationStore(engine, clock),
             reviews=ReviewStore(engine, clock),
             jobs=JobStore(engine, clock),
+            experiences=ExperienceStore(engine, clock),
         )

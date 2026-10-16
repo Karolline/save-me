@@ -445,3 +445,165 @@ class JobStatusCounts(ApiModel):
 class JobList(ApiModel):
     items: list[JobSummary]
     counts: JobStatusCounts
+
+
+# ── 경험 ──────────────────────────────────────────────────────────────
+
+# 목록 보기: 전체 / 미확인 / 보완 필요.
+ExperienceView = Literal["all", "unv", "need"]
+# 시작·끝 달: "YYYY-MM". DB에는 그달 1일로 저장한다.
+MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
+Month = Annotated[str, Field(pattern=MONTH_PATTERN)] | None
+
+
+class ExperienceAction(ApiModel):
+    """행동 항목 하나. 입력과 출력이 같은 모양이다."""
+
+    title: str = ""
+    points: list[str] = []
+    # 회고 · 메모 (하지 않은 것, 다시 한다면).
+    note: str = ""
+    # 출처 (예: 면접 답변을 정리하며 추가).
+    source: str = ""
+
+
+class ExperienceAsked(ApiModel):
+    """면접에서 실제로 받은 질문. 면접후기와 이으면 `interviewReviewId` (후기를 지우면 null)."""
+
+    question: str
+    where: str = ""
+    interview_review_id: int | None = None
+
+
+class ExperienceQa(ApiModel):
+    """예상 질문과 답하는 방식. 답이 비어 있으면 "답변 작성 필요"."""
+
+    question: str
+    answer: str = ""
+    caution: str = ""
+
+
+class ExperienceLinkInput(ApiModel):
+    """관련 경험 하나: 이어지는 내 다른 경험과 어떻게 이어지는지."""
+
+    experience_id: int
+    note: str = ""
+
+
+class ExperienceFields(ApiModel):
+    """경험에서 사용자가 고치는 칸 (API 입력과 가져오기가 같이 쓴다)."""
+
+    name: str
+    project: str = ""
+    link_key: str = ""
+    started_on: Month = None
+    ended_on: Month = None
+    org: str = ""
+    role: str = ""
+    tags: list[str] = []
+    summary: str = ""
+    situation: str = ""
+    scope: str = ""
+    task: str = ""
+    actions_intro: str = ""
+    actions: list[ExperienceAction] = []
+    result_mine: list[str] = []
+    result_team: list[str] = []
+    numbers: str = ""
+    appeal_main_use: str = ""
+    appeal_questions: list[str] = []
+    appeal_strength: str = ""
+    framing: list[str] = []
+    asked: list[ExperienceAsked] = []
+    qas: list[ExperienceQa] = []
+    missing: list[str] = []
+
+    @field_validator("name", "project", "link_key", "org", "role")
+    @classmethod
+    def strip(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("name")
+    @classmethod
+    def name_required(cls, value: str) -> str:
+        if not value:
+            raise ValueError("name is required")
+        return value
+
+    @field_validator("started_on", "ended_on", mode="before")
+    @classmethod
+    def empty_month_is_none(cls, value: object) -> object:
+        return None if value == "" else value
+
+    @field_validator("tags")
+    @classmethod
+    def clean_tags(cls, value: list[str]) -> list[str]:
+        return [t.strip() for t in value if t.strip()]
+
+
+class ExperienceInput(ExperienceFields):
+    """경험 저장. 하위 줄(행동·받은 질문·예상 질문·관련 경험)은 받은 것으로 통째로 바뀌고,
+    사람 확인은 True가 된다. 후기와 관련 경험은 내 것이어야 하고, 자기 자신은 관련 경험이 될 수 없다."""
+
+    related: list[ExperienceLinkInput] = []
+
+
+class ExperienceNeed(ApiModel):
+    """보완할 것 하나: 목록의 이름표와 상세의 설명 (서버가 계산)."""
+
+    label: str
+    detail: str
+
+
+class RelatedExperience(ExperienceLinkInput):
+    """관련 경험 한 줄 (상세): 가리키는 경험의 이름, 기간, 확인 상태."""
+
+    name: str
+    started_on: str | None
+    ended_on: str | None
+    verified: bool
+
+
+class ExperienceSummary(ApiModel):
+    """목록의 경험 한 줄."""
+
+    id: int
+    name: str
+    summary: str
+    project: str
+    org: str
+    started_on: str | None
+    ended_on: str | None
+    verified: bool
+    needs: list[ExperienceNeed]
+
+
+class Experience(ExperienceFields):
+    """경험 하나 전체 (상세, 편집)."""
+
+    id: int
+    verified: bool
+    related: list[RelatedExperience]
+    needs: list[ExperienceNeed]
+    created_at: datetime
+    updated_at: datetime
+
+
+class ExperienceCounts(ApiModel):
+    """보기 버튼마다 보이는 수 (검색과 상관없이 모든 경험에 대한 수)."""
+
+    all: int = 0
+    unv: int = 0
+    need: int = 0
+
+
+class ExperienceList(ApiModel):
+    items: list[ExperienceSummary]
+    counts: ExperienceCounts
+
+
+class ExperienceLinkKey(ApiModel):
+    """공고분석의 근거 경험 태그를 경험으로 잇는 이름 (비어 있지 않은 것만)."""
+
+    id: int
+    link_key: str

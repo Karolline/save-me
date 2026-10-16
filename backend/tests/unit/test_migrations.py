@@ -151,6 +151,57 @@ def test_job_analyses_downgrade_with_linked_rows_and_upgrade_again(url):
     engine.dispose()
 
 
+def test_experiences_migration_foreign_keys(url):
+    # 후기를 지우면 받은 질문의 연결만 풀리고, 경험을 지우면 그것을 가리키던 관련 경험 줄이 지워진다.
+    command.upgrade(alembic_config(url), "head")
+    engine = create_engine(normalize_url(url))
+    with engine.begin() as c:
+        if engine.dialect.name == "sqlite":
+            c.exec_driver_sql("PRAGMA foreign_keys=ON")
+        c.execute(text("INSERT INTO users (id, nickname, status, created_at) VALUES (1, '나', 'active', '2026-10-01')"))
+        c.execute(
+            text(
+                "INSERT INTO applications (id, user_id, company, applied_at, result, created_at, updated_at)"
+                " VALUES (1, 1, '회사', '2026-09-07', 'ing', '2026-10-01', '2026-10-01')"
+            )
+        )
+        c.execute(
+            text(
+                "INSERT INTO interview_reviews (id, user_id, application_id, round, created_at, updated_at)"
+                " VALUES (1, 1, 1, '1차 면접', '2026-10-01', '2026-10-01')"
+            )
+        )
+        for exp_id in (1, 2):
+            c.execute(
+                text(
+                    "INSERT INTO experiences (id, user_id, name, created_at, updated_at)"
+                    " VALUES (:id, 1, :name, '2026-10-01', '2026-10-01')"
+                ),
+                {"id": exp_id, "name": f"경험{exp_id}"},
+            )
+        c.execute(
+            text(
+                "INSERT INTO experience_asked (user_id, experience_id, position, question, interview_review_id)"
+                " VALUES (1, 1, 0, '질문', 1)"
+            )
+        )
+        c.execute(
+            text(
+                "INSERT INTO experience_links (user_id, experience_id, position, related_experience_id)"
+                " VALUES (1, 1, 0, 2)"
+            )
+        )
+        row = c.execute(text("SELECT verified, tags, link_key FROM experiences WHERE id = 1")).one()
+        assert not row.verified and row.tags in ([], "[]") and row.link_key == ""
+
+        c.execute(text("DELETE FROM interview_reviews WHERE id = 1"))
+        assert c.execute(text("SELECT interview_review_id FROM experience_asked")).scalar() is None
+        c.execute(text("DELETE FROM experiences WHERE id = 2"))
+        assert c.execute(text("SELECT COUNT(*) FROM experience_links")).scalar() == 0
+        assert c.execute(text("SELECT COUNT(*) FROM experience_asked")).scalar() == 1
+    engine.dispose()
+
+
 def test_upgrade_reads_database_url(tmp_path, monkeypatch):
     url = f"sqlite:///{tmp_path / 'from-env.db'}"
     monkeypatch.setenv("DATABASE_URL", url)

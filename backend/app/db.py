@@ -338,6 +338,146 @@ class JobRequirementRow(Base):
     caution: Mapped[str] = mapped_column(Text, default="", server_default="")
 
 
+class ExperienceRow(Base):
+    """경험 하나 (기획안 S2 11번, 5.13). 상황·과제·행동·결과(STAR)로 적은 근거.
+
+    행동·받은 질문·예상 질문·관련 경험은 순서가 있는 하위 행이고, 나머지 목록은
+    이 경험 안에서만 보여서 JSON 칸이다. 태그도 JSON 목록으로 둔다 (검색은 store가 거른다).
+    시작·끝은 달까지만 쓰고 그달 1일로 저장한다.
+    """
+
+    __tablename__ = "experiences"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    # 제목 (목록에 보이는 이름).
+    name: Mapped[str] = mapped_column(Text)
+    # 이 경험이 속한 큰 프로젝트.
+    project: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 공고분석 연결 이름: 근거 경험 태그에 이 글자가 들어 있으면 이 경험으로 잇는다.
+    link_key: Mapped[str] = mapped_column(Text, default="", server_default="")
+    started_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # 비어 있으면 진행 중.
+    ended_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    org: Mapped[str] = mapped_column(Text, default="", server_default="")
+    role: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 사람이 확인했는지: 가져온 경험은 False, 화면에서 저장하면 True.
+    verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    summary: Mapped[str] = mapped_column(Text, default="", server_default="")
+    situation: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 본인 담당 범위.
+    scope: Mapped[str] = mapped_column(Text, default="", server_default="")
+    task: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 행동 머리말 (항목이 어떻게 나뉘는지).
+    actions_intro: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 결과 수치. 비어 있으면 "결과 수치 없음".
+    numbers: Mapped[str] = mapped_column(Text, default="", server_default="")
+    appeal_main_use: Mapped[str] = mapped_column(Text, default="", server_default="")
+    appeal_strength: Mapped[str] = mapped_column(Text, default="", server_default="")
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    # 글 목록 (한 줄 하나).
+    result_mine: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    result_team: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    appeal_questions: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    framing: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    # 보완 필요: 아직 기록이 없는 것.
+    missing: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    tags: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+
+    actions: Mapped[list["ExperienceActionRow"]] = relationship(
+        order_by=lambda: ExperienceActionRow.position,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+    asked: Mapped[list["ExperienceAskedRow"]] = relationship(
+        order_by=lambda: ExperienceAskedRow.position,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+    qas: Mapped[list["ExperienceQaRow"]] = relationship(
+        order_by=lambda: ExperienceQaRow.position,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+    links: Mapped[list["ExperienceLinkRow"]] = relationship(
+        order_by=lambda: ExperienceLinkRow.position,
+        foreign_keys=lambda: [ExperienceLinkRow.experience_id],
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        lazy="selectin",
+    )
+
+
+class ExperienceActionRow(Base):
+    """행동 항목 하나: 제목, 세부 내용(목록), 회고·메모, 출처."""
+
+    __tablename__ = "experience_actions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    experience_id: Mapped[int] = mapped_column(ForeignKey("experiences.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(Text, default="", server_default="")
+    points: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    note: Mapped[str] = mapped_column(Text, default="", server_default="")
+    source: Mapped[str] = mapped_column(Text, default="", server_default="")
+
+
+class ExperienceAskedRow(Base):
+    """면접에서 실제로 받은 질문 하나. 면접후기와 이을 수 있고, 후기를 지우면 연결만 풀린다."""
+
+    __tablename__ = "experience_asked"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    experience_id: Mapped[int] = mapped_column(ForeignKey("experiences.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    question: Mapped[str] = mapped_column(Text)
+    # 어디서 받은 질문인지 (예: "파랑모빌리티 1차 면접").
+    where_text: Mapped[str] = mapped_column(Text, default="", server_default="")
+    interview_review_id: Mapped[int | None] = mapped_column(
+        ForeignKey("interview_reviews.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+
+
+class ExperienceQaRow(Base):
+    """예상 질문과 답하는 방식, 주의."""
+
+    __tablename__ = "experience_qas"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    experience_id: Mapped[int] = mapped_column(ForeignKey("experiences.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    question: Mapped[str] = mapped_column(Text)
+    answer: Mapped[str] = mapped_column(Text, default="", server_default="")
+    caution: Mapped[str] = mapped_column(Text, default="", server_default="")
+
+
+class ExperienceLinkRow(Base):
+    """관련 경험 하나. 가리키는 경험을 지우면 이 줄도 지워진다."""
+
+    __tablename__ = "experience_links"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    experience_id: Mapped[int] = mapped_column(ForeignKey("experiences.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    related_experience_id: Mapped[int] = mapped_column(
+        ForeignKey("experiences.id", ondelete="CASCADE"), index=True
+    )
+    # 어떻게 이어지나.
+    note: Mapped[str] = mapped_column(Text, default="", server_default="")
+
+    related: Mapped[ExperienceRow] = relationship(
+        foreign_keys=[related_experience_id], lazy="selectin", viewonly=True
+    )
+
+
 def database_url() -> str:
     return os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
 
