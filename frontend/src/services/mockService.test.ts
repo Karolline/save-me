@@ -361,6 +361,23 @@ describe("mockService experiences", () => {
     expect((await service.getExperience(2))!.asked[0].interviewReviewId).toBeNull();
   });
 
+  it("keeps only the first of the same related experience", async () => {
+    const service = withExperiences();
+    const saved = await service.createExperience(
+      input({
+        related: [
+          { experienceId: 4, note: "처음" },
+          { experienceId: 2, note: "" },
+          { experienceId: 4, note: "두 번째" },
+        ],
+      }),
+    );
+    expect(saved.related.map((r) => [r.experienceId, r.note])).toEqual([
+      [4, "처음"],
+      [2, ""],
+    ]);
+  });
+
   it("removes related rows pointing at a deleted experience", async () => {
     const service = withExperiences();
     await service.deleteExperience(4);

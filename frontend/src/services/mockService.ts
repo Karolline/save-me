@@ -448,7 +448,9 @@ export function createMockService(options: MockOptions = {}): MockService {
     input: ExperienceInput,
     base: Pick<StoredExperience, "id" | "createdAt" | "verified">,
   ): StoredExperience {
-    const { related, ...fields } = validateExperience(input);
+    const { related: given, ...fields } = validateExperience(input);
+    // 같은 경험이 두 번 오면 처음 것만 남긴다 (백엔드와 같음).
+    const related = given.filter((r, i) => given.findIndex((o) => o.experienceId === r.experienceId) === i);
     if (fields.asked.some((a) => a.interviewReviewId !== null && !reviews.has(a.interviewReviewId))) {
       throw notFound("Interview review");
     }

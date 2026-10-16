@@ -389,8 +389,16 @@ class ExperienceStore(BaseStore):
 
     @staticmethod
     def _set_links(db: Session, row: ExperienceRow, user_id: int, related: list[tuple[int, str]]) -> None:
-        """관련 경험 줄을 통째로 바꾼다. 가리키는 경험은 내 다른 경험이어야 한다."""
-        ids = {experience_id for experience_id, _ in related}
+        """관련 경험 줄을 통째로 바꾼다. 가리키는 경험은 내 다른 경험이어야 한다.
+        같은 경험이 두 번 오면 처음 것만 남긴다."""
+        seen: set[int] = set()
+        unique = []
+        for experience_id, note in related:
+            if experience_id not in seen:
+                seen.add(experience_id)
+                unique.append((experience_id, note))
+        related = unique
+        ids = set(seen)
         if row.id in ids:
             raise SelfRelatedError(row.id)
         if ids:

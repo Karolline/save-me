@@ -347,8 +347,8 @@ export function ExperienceViewScreen({
       show: x.related.length > 0,
       body: (
         <div className="rlist">
-          {x.related.map((r) => (
-            <button key={r.experienceId} type="button" className="rrow" onClick={() => onOpenExperience(r.experienceId)}>
+          {x.related.map((r, i) => (
+            <button key={i} type="button" className="rrow" onClick={() => onOpenExperience(r.experienceId)}>
               <span className="mono rdate">{experiencePeriod(r)}</span>
               <span className="rmain">
                 <b>{r.name}</b>
@@ -436,8 +436,8 @@ export function ExperienceViewScreen({
           <span className="k">태그</span>
           <span className="xchips">
             {x.tags.length
-              ? x.tags.map((t) => (
-                  <span key={t} className="tag sm">
+              ? x.tags.map((t, i) => (
+                  <span key={i} className="tag sm">
                     {t}
                   </span>
                 ))

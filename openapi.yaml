@@ -897,7 +897,7 @@ components:
             related:
               type: array
               default: []
-              description: The user's other experiences (not this one). Saving replaces actions, asked, qas and related.
+              description: The user's other experiences (not this one); the same experience twice keeps the first. Saving replaces actions, asked, qas and related.
               items:
                 type: object
                 required: [experienceId]

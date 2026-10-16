@@ -257,6 +257,30 @@ def test_related_experiences(stores: Stores, user_id: int, other_user_id: int):
     assert len(stores.experiences.list(user_id).items) == 3
 
 
+def test_the_same_related_experience_twice_keeps_the_first(stores: Stores, user_id: int, engine):
+    a = stores.experiences.create(user_id, full("A"))
+    b = stores.experiences.create(user_id, full("B"))
+
+    main = stores.experiences.create(
+        user_id,
+        full(
+            "본",
+            related=[
+                ExperienceLinkInput(experience_id=a.id, note="처음"),
+                ExperienceLinkInput(experience_id=b.id, note="비"),
+                ExperienceLinkInput(experience_id=a.id, note="두 번째"),
+            ],
+        ),
+    )
+
+    assert [(r.experience_id, r.note) for r in main.related] == [(a.id, "처음"), (b.id, "비")]
+    assert count(engine, "experience_links") == 2
+    updated = stores.experiences.update(
+        user_id, main.id, full("본", related=[ExperienceLinkInput(experience_id=b.id), ExperienceLinkInput(experience_id=b.id)])
+    )
+    assert [r.experience_id for r in updated.related] == [b.id]
+
+
 def test_deleting_an_experience_removes_rows_pointing_at_it(stores: Stores, user_id: int, engine):
     target = stores.experiences.create(user_id, full("대상", actions=[ExperienceAction(title="a")]))
     other = stores.experiences.create(user_id, full("다른"))
