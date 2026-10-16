@@ -55,7 +55,7 @@ export const SAMPLE_RESUME: Resume = {
     { category: "언어", items: "Python, SQL, Scala", memo: "" },
     { category: "분산처리", items: "Spark, Kafka, Flink (공부)", memo: "Spark 2→3 업그레이드 직접 함. AQE는 써 본 적 없음" },
     { category: "워크플로", items: "Airflow", memo: "" },
-    { category: "클라우드", items: "AWS (S3, EMR, MSK)", memo: "" },
+    { category: "클라우드", items: "AWS S3, AWS EMR, AWS MSK", memo: "" },
     { category: "컨테이너", items: "Kubernetes", memo: '입문 수준. "운영 n년" 요건 근거로 쓰지 않음' },
   ],
   personality: [
