@@ -10,6 +10,7 @@ info:
     session (the `saveme_session` HttpOnly cookie); without one it returns 401.
     Requests other than GET must send `X-Requested-With: SaveMe` (403 otherwise).
     Another user's application, review, question, job analysis or experience is a 404, as if it didn't exist.
+    The resume has no ids: `/resume` always reads and writes the logged-in user's own.
 servers:
   - url: /api
 
@@ -448,8 +449,103 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Experience" }
         "404": { description: Not found (or another user's) }
+  /resume:
+    get:
+      summary: The logged-in user's resume, every card (empty strings and lists before anything is written)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Resume" }
+  /resume/basics:
+    put:
+      summary: Replace 기본 정보 (커리어 방향 stays)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResumeBasics" }
+      responses:
+        "200": { $ref: "#/components/responses/Resume" }
+        "422": { description: Invalid input }
+  /resume/direction:
+    put:
+      summary: Replace 커리어 방향 (기본 정보 stays)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                direction: { type: string, default: "", description: Long text, line breaks kept }
+      responses:
+        "200": { $ref: "#/components/responses/Resume" }
+        "422": { description: Invalid input }
+  /resume/careers:
+    put:
+      summary: Replace all 경력 rows (the body's order breaks ties when sorting)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: array, items: { $ref: "#/components/schemas/Career" } }
+      responses:
+        "200": { $ref: "#/components/responses/Resume" }
+        "422": { description: "A row without company, endedOn before startedOn, leaveEndedOn without or before leaveStartedOn, or a malformed month; nothing is written" }
+  /resume/educations:
+    put:
+      summary: Replace all 학력 rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: array, items: { $ref: "#/components/schemas/Education" } }
+      responses:
+        "200": { $ref: "#/components/responses/Resume" }
+        "422": { description: "A row without school, endedOn before startedOn, or a malformed month; nothing is written" }
+  /resume/certificates:
+    put:
+      summary: Replace all 자격증 rows
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: array, items: { $ref: "#/components/schemas/Certificate" } }
+      responses:
+        "200": { $ref: "#/components/responses/Resume" }
+        "422": { description: "A row without name, or a malformed month; nothing is written" }
+  /resume/skills:
+    put:
+      summary: Replace all 기술 스택 groups (kept in the body's order)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: array, items: { $ref: "#/components/schemas/SkillGroup" } }
+      responses:
+        "200": { $ref: "#/components/responses/Resume" }
+        "422": { description: "A group without category; nothing is written" }
+  /resume/personality:
+    put:
+      summary: Replace all 인성 답변 rows (kept in the body's order)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: array, items: { $ref: "#/components/schemas/PersonalityAnswer" } }
+      responses:
+        "200": { $ref: "#/components/responses/Resume" }
+        "422": { description: "A row without question; nothing is written" }
 
 components:
+  responses:
+    Resume:
+      description: The whole resume after the change, as GET /resume returns it
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Resume" }
   schemas:
     AuthConfig:
       type: object
@@ -955,3 +1051,71 @@ components:
             all: { type: integer }
             unv: { type: integer, description: Not verified }
             need: { type: integer, description: With at least one 보완할 것 }
+    ResumeBasics:
+      type: object
+      description: 기본 정보. Every field is optional; all but summary are trimmed.
+      properties:
+        name: { type: string, default: "" }
+        email: { type: string, default: "" }
+        phone: { type: string, default: "" }
+        status: { type: string, default: "", description: 현재 상태 (구직 중·재직 중·휴직 중 등) }
+        want: { type: string, default: "", description: 희망 직무 }
+        summary: { type: string, default: "", description: 이력서 요약문, line breaks kept }
+    Career:
+      type: object
+      required: [company]
+      properties:
+        company: { type: string, description: "Required, trimmed. The same name experiences use as 소속" }
+        team: { type: string, default: "", description: 부서 }
+        role: { type: string, default: "", description: 직무·직급 }
+        startedOn: { $ref: "#/components/schemas/Month", description: 입사 }
+        endedOn: { $ref: "#/components/schemas/Month", description: "퇴사; null means 재직 중. Not before startedOn" }
+        leaveStartedOn: { $ref: "#/components/schemas/Month", description: 휴직 시작 }
+        leaveEndedOn: { $ref: "#/components/schemas/Month", description: "휴직 끝 (복직 예정 달). Needs leaveStartedOn and is not before it" }
+        duties: { type: string, default: "", description: 주요 업무, one per line }
+    Education:
+      type: object
+      required: [school]
+      properties:
+        school: { type: string, description: Required, trimmed }
+        major: { type: string, default: "" }
+        startedOn: { $ref: "#/components/schemas/Month", description: 입학 }
+        endedOn: { $ref: "#/components/schemas/Month", description: "졸업. Not before startedOn" }
+        status: { type: string, default: "", description: 졸업·재학·수료 등 }
+    Certificate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, description: Required, trimmed }
+        acquiredOn: { $ref: "#/components/schemas/Month", description: 취득 }
+        issuer: { type: string, default: "", description: 발급 기관 }
+        number: { type: string, default: "", description: 자격번호 }
+    SkillGroup:
+      type: object
+      required: [category]
+      properties:
+        category: { type: string, description: "분류, required, trimmed" }
+        items: { type: string, default: "", description: Comma-separated, as entered }
+        memo: { type: string, default: "", description: 근거나 숙련도, line breaks kept }
+    PersonalityAnswer:
+      type: object
+      required: [question]
+      properties:
+        topic: { type: string, default: "", description: 주제 (answers with the same topic are shown together) }
+        question: { type: string, description: Required, trimmed }
+        answer: { type: string, default: "", description: 실제로 한 답; empty means "답변 작성 필요" }
+        lesson: { type: string, default: "", description: 교훈 }
+    Resume:
+      type: object
+      required: [basics, direction, careers, educations, certificates, skills, personality]
+      description: >
+        careers newest 입사 first, educations newest 입학 first, certificates newest 취득 first
+        (no month last, ties in saved order); skills and personality in saved order.
+      properties:
+        basics: { $ref: "#/components/schemas/ResumeBasics" }
+        direction: { type: string, description: 커리어 방향 }
+        careers: { type: array, items: { $ref: "#/components/schemas/Career" } }
+        educations: { type: array, items: { $ref: "#/components/schemas/Education" } }
+        certificates: { type: array, items: { $ref: "#/components/schemas/Certificate" } }
+        skills: { type: array, items: { $ref: "#/components/schemas/SkillGroup" } }
+        personality: { type: array, items: { $ref: "#/components/schemas/PersonalityAnswer" } }
