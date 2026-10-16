@@ -8,8 +8,14 @@
 같은 분석인지는 로컬 사용자의 (회사, 직무)로 정한다. 새 분석은 사람 확인 N으로
 만든다. 이미 있는 분석은 기본으로 건너뛴다 (내용, 사람 확인, 분석일, 지원 건
 연결 모두 그대로). --replace를 주면 사람 확인이 N인 것만 통째로 바꾸고 (다시 N),
-사람이 확인한(Y) 것은 그래도 건너뛴다. 건너뛴 항목은 쓰지 않으므로 지원 건도 잇지
+사람이 확인한(Y) 것은 그래도 건너뛴다. --replace-verified는 --replace에 더해 사람이
+확인한 것도 바꾼다 (다시 N): 사용자가 확인한 분석을 바꿔 달라고 할 때만 쓴다.
+바꾸는 항목의 application이 null이면 기존 분석의 지원 건 연결을 그대로 둔다
+(null이 아니면 그 지원 건에 잇는다). 건너뛴 항목은 쓰지 않으므로 지원 건도 잇지
 않는다. 같은 파일을 두 번 돌리면 두 번째는 모두 건너뛴다.
+
+회사 동향(trendsCheckedOn, trendsNote, trends, directionQuotes, directionReading,
+appeals, appealGaps)도 API처럼 받는다.
 
 지원 건은 (company, appliedAt)으로 찾고, 하나라도 못 찾으면 (건너뛸 항목이라도)
 그 지원 건을 알려 주고 아무것도 쓰지 않는다. 한 파일에 같은 (회사, 직무)가 두 번
@@ -22,6 +28,7 @@
 사용법 (backend/ 안에서):
     uv run python -m app.importers.jobs ../private/jobs.json
     uv run python -m app.importers.jobs FILE --database-url postgresql://... [--dry-run] [--replace]
+    uv run python -m app.importers.jobs FILE --replace-verified   (확인된 분석까지 바꾸기)
 """
 
 import argparse
@@ -40,7 +47,10 @@ from app.stores import ApplicationAlreadyLinkedError, SharedApplicationError, St
 
 NOT_AT_HEAD = "DB가 최신 버전이 아니에요. 앱을 먼저 업데이트하세요."
 DRY_RUN_NOTE = "시험이라 아무것도 쓰지 않았어요."
+# 경험 가져오기도 쓴다.
 SKIP_REASONS = {"exists": "이미 있음", "verified": "확인됨이라 바꾸지 않음"}
+# 공고분석은 확인된 것도 --replace-verified로 바꿀 수 있어서 그 방법을 알려 준다.
+JOB_SKIP_REASONS = {**SKIP_REASONS, "verified": "확인됨이라 바꾸지 않음, 바꾸려면 --replace-verified"}
 
 
 class ApplicationRef(ApiModel):
@@ -110,7 +120,13 @@ def label(fields: JobFields) -> str:
     return f"{fields.company} · {fields.title}"
 
 
-def import_jobs(stores: Stores, user_id: int, items: list[ImportItem], replace: bool = False) -> ImportResult:
+def import_jobs(
+    stores: Stores,
+    user_id: int,
+    items: list[ImportItem],
+    replace: bool = False,
+    replace_verified: bool = False,
+) -> ImportResult:
     # 먼저 모든 지원 건을 찾고 입력을 검증한 뒤에 쓴다: 하나라도 틀리면 아무것도 쓰지 않는다.
     # 건너뛸 항목의 지원 건도 찾는다: 없으면 파일이 틀린 것이다.
     ready: list[tuple[JobFields, date, int | None]] = []
@@ -141,7 +157,7 @@ def import_jobs(stores: Stores, user_id: int, items: list[ImportItem], replace: 
 
     # 트랜잭션 하나로 쓴다: 무엇을 건너뛸지 store가 정하고, 중간에 실패하면 아무것도 남지 않는다.
     try:
-        actions = stores.jobs.save_imported(user_id, ready, replace=replace)
+        actions = stores.jobs.save_imported(user_id, ready, replace=replace, replace_verified=replace_verified)
     except SharedApplicationError as error:
         shared = [f"{label(ready[a][0])}, {label(ready[b][0])}" for a, b in error.pairs]
         raise LinkConflictError("같은 지원 건에 분석이 둘 연결돼요: " + "; ".join(shared)) from error
@@ -155,14 +171,14 @@ def import_jobs(stores: Stores, user_id: int, items: list[ImportItem], replace: 
         elif action == "replaced":
             result.replaced += 1
         else:
-            result.skipped.append((label(fields), SKIP_REASONS[action]))
+            result.skipped.append((label(fields), JOB_SKIP_REASONS[action]))
     return result
 
 
-def run(stores: Stores, items: list[ImportItem], replace: bool) -> ImportResult:
+def run(stores: Stores, items: list[ImportItem], replace: bool, replace_verified: bool = False) -> ImportResult:
     user = stores.users.dev_user()
     try:
-        return import_jobs(stores, user.id, items, replace=replace)
+        return import_jobs(stores, user.id, items, replace=replace, replace_verified=replace_verified)
     except ImportFileError as error:
         raise SystemExit(str(error)) from error
 
@@ -173,7 +189,13 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--database-url", default=None, help="기본값: DATABASE_URL, 없으면 saveme_dev")
     parser.add_argument("--dry-run", action="store_true", help="검사하고 요약만 보이고 아무것도 쓰지 않는다")
     parser.add_argument("--replace", action="store_true", help="사람 확인이 N인 기존 분석을 바꾼다")
+    parser.add_argument(
+        "--replace-verified",
+        action="store_true",
+        help="--replace에 더해 사람 확인이 Y인 분석도 바꾼다 (다시 N). 사용자가 부탁할 때만",
+    )
     args = parser.parse_args(argv)
+    replace = args.replace or args.replace_verified
 
     url = args.database_url or database_url()
     try:
@@ -193,11 +215,11 @@ def main(argv: list[str] | None = None) -> None:
                 try:
                     if not is_at_head(connection):
                         raise SystemExit(NOT_AT_HEAD)
-                    result = run(Stores.create(connection), items, args.replace)
+                    result = run(Stores.create(connection), items, replace, args.replace_verified)
                 finally:
                     connection.rollback()
         else:
-            result = run(Stores.create(engine), items, args.replace)
+            result = run(Stores.create(engine), items, replace, args.replace_verified)
     finally:
         engine.dispose()
     # 요약 첫 줄의 DB 이름: PostgreSQL은 DB 이름, SQLite는 파일 이름.

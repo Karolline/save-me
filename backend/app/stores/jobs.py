@@ -249,7 +249,11 @@ class JobStore(BaseStore):
             return True
 
     def save_imported(
-        self, user_id: int, items: list[tuple[JobFields, date, int | None]], replace: bool = False
+        self,
+        user_id: int,
+        items: list[tuple[JobFields, date, int | None]],
+        replace: bool = False,
+        replace_verified: bool = False,
     ) -> list[ImportAction]:
         """여러 분석을 트랜잭션 하나로 저장한다 (가져오기). 항목은 (내용, 분석일,
         연결할 지원 건 id). 항목마다 한 일을 같은 순서로 돌려준다:
@@ -258,17 +262,20 @@ class JobStore(BaseStore):
         - 있고 replace가 아니면 건너뛴다 ("exists").
         - 있고 replace면, 사람 확인이 False인 것만 통째로 바꾼다 ("replaced").
           사람이 확인한 것은 건너뛴다 ("verified").
+        - replace_verified면 (replace도 하는 것으로 본다) 사람이 확인한 것도 바꾼다 ("replaced").
 
+        바꾸는 항목의 지원 건 id가 None이면 기존 분석의 연결을 그대로 둔다 (풀지 않는다).
         건너뛴 항목은 아무것도 쓰지 않는다 (지원 건도 잇지 않는다). 쓰는 항목은
         분석일을 받은 날짜 그대로 쓰고 사람 확인을 False로 둔다. 쓰는 항목 둘이
         한 지원 건을 가리키면 SharedApplicationError, 지원 건이 이미 다른 분석과
         연결되어 있으면 ApplicationAlreadyLinkedError. 하나라도 실패하면 아무것도
         쓰지 않는다."""
+        replace = replace or replace_verified
         now = self.clock()
         with self.session() as db, db.begin():
-            # 먼저 항목마다 할 일을 정한다 (아직 쓰지 않는다).
-            plan: list[tuple[ImportAction, JobAnalysisRow | None]] = []
-            for fields, _, _ in items:
+            # 먼저 항목마다 할 일과 연결할 지원 건을 정한다 (아직 쓰지 않는다).
+            plan: list[tuple[ImportAction, JobAnalysisRow | None, int | None]] = []
+            for fields, _, application_id in items:
                 row = db.scalar(
                     select(JobAnalysisRow)
                     .where(
@@ -280,18 +287,21 @@ class JobStore(BaseStore):
                     .limit(1)
                 )
                 if row is None:
-                    plan.append(("created", None))
+                    plan.append(("created", None, application_id))
                 elif not replace:
-                    plan.append(("exists", row))
-                elif row.verified:
-                    plan.append(("verified", row))
+                    plan.append(("exists", row, application_id))
+                elif row.verified and not replace_verified:
+                    plan.append(("verified", row, application_id))
                 else:
-                    plan.append(("replaced", row))
+                    if application_id is None and row.application is not None:
+                        # 파일에 지원 건이 없으면 지금 연결을 지킨다.
+                        application_id = row.application.id
+                    plan.append(("replaced", row, application_id))
 
             # 쓰는 항목끼리 한 지원 건을 나눠 가지면 거절한다 (건너뛴 항목은 세지 않는다).
             first_by_application: dict[int, int] = {}
             pairs: list[tuple[int, int]] = []
-            for index, ((_, _, application_id), (action, _)) in enumerate(zip(items, plan, strict=True)):
+            for index, (action, _, application_id) in enumerate(plan):
                 if application_id is None or action not in WRITTEN:
                     continue
                 if application_id in first_by_application:
@@ -301,7 +311,7 @@ class JobStore(BaseStore):
             if pairs:
                 raise SharedApplicationError(pairs)
 
-            for (fields, analyzed_at, application_id), (action, row) in zip(items, plan, strict=True):
+            for (fields, analyzed_at, _), (action, row, application_id) in zip(items, plan, strict=True):
                 if action not in WRITTEN:
                     continue
                 if row is None:
@@ -310,7 +320,7 @@ class JobStore(BaseStore):
                 # 가져온 내용은 아직 사람이 보지 않았다 (바꿔 넣어도 다시 N).
                 row.verified = False
                 self._fill(db, row, user_id, data, analyzed_at, now)
-        return [action for action, _ in plan]
+        return [action for action, _, _ in plan]
 
     def find(self, user_id: int, company: str, title: str) -> Job | None:
         """같은 (회사, 직무) 분석 (가져오기에서 쓴다)."""

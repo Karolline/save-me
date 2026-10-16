@@ -133,11 +133,73 @@ def test_replace_skips_a_verified_analysis_and_writes_the_rest(stores: Stores, u
     result = import_jobs(stores, user_id, load(write(tmp_path, changed(fit="중"))), replace=True)
 
     assert (result.created, result.replaced) == (1, 1)
-    assert result.skipped == [("바른정보 · 데이터 파이프라인 엔지니어", "확인됨이라 바꾸지 않음")]
+    assert result.skipped == [
+        ("바른정보 · 데이터 파이프라인 엔지니어", "확인됨이라 바꾸지 않음, 바꾸려면 --replace-verified")
+    ]
     after = jobs_by_company(stores, user_id)
     assert after["바른정보"] == verified
     assert after["마루증권"].fit == "하"
     assert "가람소프트" in after
+
+
+def test_replace_verified_replaces_a_verified_analysis_as_unverified(stores: Stores, user_id: int, baron, tmp_path):
+    import_jobs(stores, user_id, load(write(tmp_path)))
+    first = jobs_by_company(stores, user_id)["바른정보"]
+    stores.jobs.set_verified(user_id, first.id, True)
+
+    result = import_jobs(stores, user_id, load(write(tmp_path, changed(fit="중"))), replace_verified=True)
+
+    assert (result.created, result.replaced, result.skipped) == (1, 2, [])
+    again = jobs_by_company(stores, user_id)["바른정보"]
+    assert again.id == first.id and again.fit == "중"
+    assert again.verified is False and again.application_id == baron.id
+
+
+def test_replace_keeps_the_existing_link_when_the_file_has_no_application(
+    stores: Stores, user_id: int, baron, tmp_path
+):
+    import_jobs(stores, user_id, load(write(tmp_path)))
+    first = jobs_by_company(stores, user_id)["바른정보"]
+    assert first.application_id == baron.id
+
+    result = import_jobs(stores, user_id, load(write(tmp_path, changed(fit="중", application=None))), replace=True)
+
+    assert result.replaced == 2
+    again = jobs_by_company(stores, user_id)["바른정보"]
+    assert again.fit == "중" and again.application_id == baron.id and again.status == "applied"
+    assert stores.applications.get(user_id, baron.id).job_id == first.id
+
+
+def test_imports_company_trends(stores: Stores, user_id: int, baron, tmp_path):
+    data = json.loads(json.dumps(FILE))
+    data["jobs"][1].update(
+        trendsCheckedOn="2026-10-16",
+        trendsNote="기사로 대신했다",
+        trends=[
+            {
+                "kind": "rival",
+                "label": "한샘",
+                "text": "**시공** 성장",
+                "sources": [{"name": "비즈워치", "date": "2026-05-25", "url": "https://example.com/b"}],
+            },
+            {"kind": "users", "label": "리뷰", "text": "자료 없음", "sources": [{"name": "App Store", "date": None, "url": ""}]},
+        ],
+        directionQuotes=['"SSOT를 구축"'],
+        directionReading="추정",
+        appeals=[{"situation": "상황", "contribution": "기여", "evidence": ["2021-11_UV", "2022-06_검색"]}],
+        appealGaps=["SAP"],
+    )
+
+    import_jobs(stores, user_id, load(write(tmp_path, data)))
+
+    job = jobs_by_company(stores, user_id)["마루증권"]
+    assert job.trends_checked_on == date(2026, 10, 16) and job.trends_note == "기사로 대신했다"
+    assert [(t.kind, t.label) for t in job.trends] == [("rival", "한샘"), ("users", "리뷰")]
+    assert job.trends[0].sources[0].date == date(2026, 5, 25) and job.trends[1].sources[0].date is None
+    assert job.direction_quotes == ['"SSOT를 구축"'] and job.direction_reading == "추정"
+    assert job.appeals[0].evidence == ["2021-11_UV", "2022-06_검색"] and job.appeal_gaps == ["SAP"]
+    # 다른 분석은 빈 값.
+    assert jobs_by_company(stores, user_id)["바른정보"].trends == []
 
 
 def test_skipped_items_neither_link_nor_conflict(stores: Stores, user_id: int, baron, tmp_path):
@@ -344,9 +406,16 @@ def test_main_replace_skips_verified(db_file, tmp_path, capsys):
 
     assert output(capsys) == [
         f"{db_name(url)}: 추가 1, 바꿈 1, 건너뜀 1 (파일 3건)",
-        "건너뜀: 바른정보 · 데이터 파이프라인 엔지니어 (확인됨이라 바꾸지 않음)",
+        "건너뜀: 바른정보 · 데이터 파이프라인 엔지니어 (확인됨이라 바꾸지 않음, 바꾸려면 --replace-verified)",
     ]
     assert stores.jobs.get(user.id, first.id).fit == "상"
+
+    # --replace-verified는 확인된 것도 바꾸고 다시 N으로 둔다 (--replace 없이도).
+    main([str(write(tmp_path, changed(fit="중"))), "--database-url", url, "--replace-verified"])
+
+    assert output(capsys) == [f"{db_name(url)}: 추가 0, 바꿈 3, 건너뜀 0 (파일 3건)"]
+    again = stores.jobs.get(user.id, first.id)
+    assert again.fit == "중" and again.verified is False
 
 
 def test_dry_run_reports_the_same_and_writes_nothing(db_file, tmp_path, capsys):
@@ -364,7 +433,7 @@ def test_dry_run_reports_the_same_and_writes_nothing(db_file, tmp_path, capsys):
 
     assert output(capsys) == [
         f"[시험] {db_name(url)}: 추가 1, 바꿈 1, 건너뜀 1 (파일 3건)",
-        "건너뜀: 바른정보 · 데이터 파이프라인 엔지니어 (확인됨이라 바꾸지 않음)",
+        "건너뜀: 바른정보 · 데이터 파이프라인 엔지니어 (확인됨이라 바꾸지 않음, 바꾸려면 --replace-verified)",
         DRY_RUN_NOTE,
     ]
     assert snapshot(engine) == before
