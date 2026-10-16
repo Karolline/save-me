@@ -19,7 +19,7 @@
                        "answer": "", "lesson": ""}]
     }
 
-(예는 지어낸 것이다.) 경력의 회사 이름은 경험의 소속과 같은 이름으로 적는다.
+(예는 지어낸 것이다.) 모르는 키(예: "education", 칸 이름 오타)가 있으면 아무것도 쓰지 않고 멈춘다. 경력의 회사 이름은 경험의 소속과 같은 이름으로 적는다.
 
 카드마다 로컬 사용자의 카드가 비어 있으면 채우고, 이미 적은 것이 있으면 건너뛴다
 ("건너뜀"). --replace를 주면 그 카드를 통째로 바꾼다. 파일에서 비어 있는 카드(빈 목록,
@@ -40,6 +40,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pydantic import ConfigDict
 from sqlalchemy import make_url
 
 from app.db import database_url, make_engine
@@ -59,14 +60,45 @@ CARD_LABELS: dict[Card, str] = {
 }
 
 
+# 가져오기 파일은 모르는 키를 거절한다: "education"·"certs" 같은 오타가 카드를 말없이
+# 건너뛰지 않고 오류로 드러나게 (API 모델은 그대로 둔다).
+FORBID = ConfigDict(**ApiModel.model_config, extra="forbid")
+
+
+class ImportBasics(ResumeBasics):
+    model_config = FORBID
+
+
+class ImportCareer(Career):
+    model_config = FORBID
+
+
+class ImportEducation(Education):
+    model_config = FORBID
+
+
+class ImportCertificate(Certificate):
+    model_config = FORBID
+
+
+class ImportSkillGroup(SkillGroup):
+    model_config = FORBID
+
+
+class ImportPersonalityAnswer(PersonalityAnswer):
+    model_config = FORBID
+
+
 class ImportFile(ApiModel):
-    basics: ResumeBasics | None = None
+    model_config = FORBID
+
+    basics: ImportBasics | None = None
     direction: str | None = None
-    careers: list[Career] = []
-    educations: list[Education] = []
-    certificates: list[Certificate] = []
-    skills: list[SkillGroup] = []
-    personality: list[PersonalityAnswer] = []
+    careers: list[ImportCareer] = []
+    educations: list[ImportEducation] = []
+    certificates: list[ImportCertificate] = []
+    skills: list[ImportSkillGroup] = []
+    personality: list[ImportPersonalityAnswer] = []
 
     def cards(self) -> dict[Card, Any]:
         """파일에 내용이 있는 카드만, 화면 순서대로."""

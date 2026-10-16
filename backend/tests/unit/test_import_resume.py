@@ -102,6 +102,11 @@ def test_the_summary_lines():
         ('{"careers": [{"team": "회사 없음"}]}', "careers.0.company"),
         ('{"careers": [{"company": "가", "startedOn": "2022-05", "endedOn": "2022-04"}]}', "endedOn is before"),
         ('{"certificates": [{"name": "가", "acquiredOn": "2020-9"}]}', "acquiredOn"),
+        # 모르는 키는 카드를 말없이 건너뛰지 않고 오류다.
+        ('{"education": [{"school": "가"}]}', "education"),
+        ('{"certs": []}', "certs"),
+        ('{"careers": [{"company": "가", "teem": "오타"}]}', "careers.0.teem"),
+        ('{"basics": {"nmae": "김"}}', "basics.nmae"),
     ],
 )
 def test_a_malformed_file_fails_in_one_line_without_writing(tmp_path, content, message):

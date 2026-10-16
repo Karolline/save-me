@@ -249,7 +249,7 @@ uv run python -m app.importers.experiences ../private/experiences.json --replace
   saveme_dev: 채움 6, 바꿈 0, 건너뜀 1 (파일 카드 7개)
   건너뜀: 기본 정보 (이미 있음)
   ```
-- 트랜잭션 하나로 쓰고, `--dry-run`은 다른 가져오기와 같다. 망가진 파일(필수 칸 없음, 날짜 순서·형식이 틀림)은 한 줄로 알리고 아무것도 쓰지 않는다.
+- 트랜잭션 하나로 쓰고, `--dry-run`은 다른 가져오기와 같다. 망가진 파일(모르는 키나 칸 이름 오타, 필수 칸 없음, 날짜 순서·형식이 틀림)은 한 줄로 알리고 아무것도 쓰지 않는다.
 
 ```
 cd backend
@@ -405,7 +405,7 @@ The file has one key per card (`basics`, `direction`, `careers`, `educations`, `
 - Write a career's company with the same name the experiences use as 소속 (the experience calendar compares names).
 - Per card: when the local user's card is empty it is filled; when it already has something it is skipped. `--replace` replaces that card entirely. A card that is empty in the file (empty list, blank text, basics with every field blank) is treated as missing (`--replace` never clears with it). Running a file twice skips everything the second time.
 - Output: `saveme_dev: 채움 6, 바꿈 0, 건너뜀 1 (파일 카드 7개)`, then `건너뜀: 기본 정보 (이미 있음)` per skipped card.
-- One transaction; `--dry-run` works as for the other importers. A malformed file (a missing required field, dates out of order or malformed) prints one line and writes nothing.
+- One transaction; `--dry-run` works as for the other importers. A malformed file (an unknown key or a misspelled field, a missing required field, dates out of order or malformed) prints one line and writes nothing.
 
 ```
 cd backend
