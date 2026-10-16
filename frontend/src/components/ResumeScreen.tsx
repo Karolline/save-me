@@ -16,7 +16,17 @@ import {
   toRowDrafts,
   type RowDraft,
 } from "@/lib/resume";
-import { useService, type Resume, type ResumeBasics, type ResumeListCard } from "@/services";
+import {
+  useService,
+  type Career,
+  type Certificate,
+  type Education,
+  type PersonalityAnswer,
+  type Resume,
+  type ResumeBasics,
+  type ResumeListCard,
+  type SkillGroup,
+} from "@/services";
 import { useToast } from "./feedback";
 import { Field } from "./JobEditScreen";
 import { useSessionErrors } from "./session";
@@ -215,14 +225,15 @@ export function ResumeScreen({ today: given }: { /** 테스트에서 정하는 �
       if (editing.key === "basics") next = await service.saveResumeBasics(editing.basics);
       else if (editing.key === "direction") next = await service.saveResumeDirection(editing.direction);
       else {
-        const savers = {
-          careers: service.saveCareers,
-          educations: service.saveEducations,
-          certificates: service.saveCertificates,
-          skills: service.saveSkills,
-          personality: service.savePersonality,
-        } as unknown as Record<ResumeListCard, (list: unknown[]) => Promise<Resume>>;
-        next = await savers[editing.key](fromRowDrafts(editing.key, editing.rows));
+        // 카드마다 초안을 그 카드의 타입으로 바꿔 서비스 메서드를 부른다.
+        const savers: Record<ResumeListCard, (rows: RowDraft[]) => Promise<Resume>> = {
+          careers: (rows) => service.saveCareers(fromRowDrafts<Career>("careers", rows)),
+          educations: (rows) => service.saveEducations(fromRowDrafts<Education>("educations", rows)),
+          certificates: (rows) => service.saveCertificates(fromRowDrafts<Certificate>("certificates", rows)),
+          skills: (rows) => service.saveSkills(fromRowDrafts<SkillGroup>("skills", rows)),
+          personality: (rows) => service.savePersonality(fromRowDrafts<PersonalityAnswer>("personality", rows)),
+        };
+        next = await savers[editing.key](editing.rows);
       }
       setResume(next);
       setEditing(null);
@@ -477,8 +488,9 @@ export function ResumeScreen({ today: given }: { /** 테스트에서 정하는 �
 
   function personalityView(): ReactNode {
     if (!r.personality.length) return empty("비어 있음");
-    return groupPersonality(r.personality).map((g) => (
-      <div key={g.topic || "-"} className="pgroup">
+    // 묶음 순서는 그리는 동안 바뀌지 않으므로 자리를 key로 쓴다 (주제 글자는 "-" 같은 값과 겹칠 수 있다).
+    return groupPersonality(r.personality).map((g, gi) => (
+      <div key={gi} className="pgroup">
         {g.topic && <div className="ptopic">{g.topic}</div>}
         {g.items.map(({ index, answer: p }) => (
           <details key={index} className="racc">

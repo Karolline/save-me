@@ -157,6 +157,29 @@ describe("ResumeScreen view", () => {
   });
 });
 
+describe("ResumeScreen personality groups", () => {
+  it("keeps a topic named '-' apart from answers without a topic", async () => {
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    const personality = [
+      { topic: "", question: "주제 없음", answer: "", lesson: "" },
+      { topic: "-", question: "빼기 주제", answer: "", lesson: "" },
+    ];
+    setup(createMockService({ resume: { ...SAMPLE_RESUME, personality } }));
+    const card = await screen.findByRole("region", { name: "인성 답변" });
+
+    const groups = [...card.querySelectorAll(".pgroup")].map((g) => [
+      g.querySelector(".ptopic")?.textContent ?? "",
+      [...g.querySelectorAll("summary")].map((s) => s.firstChild!.textContent),
+    ]);
+    expect(groups).toEqual([
+      ["", ["주제 없음"]],
+      ["-", ["빼기 주제"]],
+    ]);
+    expect(errors.mock.calls.flat().join(" ")).not.toMatch(/same key/);
+    errors.mockRestore();
+  });
+});
+
 describe("ResumeScreen editing", () => {
   it("edits one card in place and disables the other cards' [편집]", async () => {
     const { user } = setup();
