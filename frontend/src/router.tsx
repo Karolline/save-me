@@ -11,6 +11,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { ApplicationDetailPanel } from "@/components/ApplicationDetailPanel";
 import { ApplicationFormPanel } from "@/components/ApplicationFormPanel";
 import { ApplicationsScreen } from "@/components/ApplicationsScreen";
+import { ExperienceEditScreen } from "@/components/ExperienceEditScreen";
+import { ExperiencesScreen } from "@/components/ExperiencesScreen";
+import { ExperienceViewScreen } from "@/components/ExperienceViewScreen";
 import { JobEditScreen } from "@/components/JobEditScreen";
 import { JobsScreen } from "@/components/JobsScreen";
 import { JobViewScreen } from "@/components/JobViewScreen";
@@ -22,7 +25,7 @@ import { LoginScreen } from "@/components/LoginScreen";
 import { SESSION_EXPIRED, SessionContext, useSession } from "@/components/session";
 import { NotFoundScreen, SettingsScreen } from "@/components/SettingsScreen";
 import { Shell } from "@/components/Shell";
-import { useService, type JobStatusFilter, type User } from "@/services";
+import { useService, type ExperienceView, type JobStatusFilter, type User } from "@/services";
 
 // 이동은 라우트 컴포넌트가 맡고, 화면은 콜백만 받는다.
 // 그래서 화면은 라우터 없이 테스트할 수 있다.
@@ -435,6 +438,13 @@ const jobRoute = createRoute({
         onOpenApplication={(applicationId) =>
           navigate({ to: "/applications/$id", params: { id: String(applicationId) } })
         }
+        onOpenExperience={(experienceId) =>
+          navigate({
+            to: "/experiences/$experienceId",
+            params: { experienceId: String(experienceId) },
+            search: { from: "job", jobId: toId(jobId) },
+          })
+        }
         onHome={() => navigate({ to: "/applications" })}
       />
     );
@@ -458,6 +468,125 @@ const editJobRoute = createRoute({
         onSaved={toView}
         onCancel={toView}
         onDeleted={back}
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
+// ── 경험 (기획안 S2 11번) ──
+
+const experiencesRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/experiences",
+  validateSearch: (search: Record<string, unknown>): { view?: "unv" | "need"; q?: string } => {
+    const out: { view?: "unv" | "need"; q?: string } = {};
+    if (search.view === "unv" || search.view === "need") out.view = search.view;
+    if (typeof search.q === "string" && search.q) out.q = search.q;
+    return out;
+  },
+  component: function ExperiencesPage() {
+    const { view, q } = experiencesRoute.useSearch();
+    const navigate = useNavigate();
+    const go = (next: { view?: ExperienceView; q?: string }) =>
+      navigate({
+        to: "/experiences",
+        search: {
+          ...(next.view && next.view !== "all" ? { view: next.view } : {}),
+          ...(next.q ? { q: next.q } : {}),
+        },
+        replace: true,
+      });
+    return (
+      <ExperiencesScreen
+        view={view ?? "all"}
+        q={q ?? ""}
+        onViewChange={(next) => go({ view: next, q })}
+        onQueryChange={(next) => go({ view, q: next })}
+        onOpen={(experienceId) =>
+          navigate({ to: "/experiences/$experienceId", params: { experienceId: String(experienceId) } })
+        }
+        onAdd={() => navigate({ to: "/experiences/new" })}
+      />
+    );
+  },
+});
+
+/** 경험을 어디서 열었는지 (`from=job`과 그 분석 `jobId`: 공고분석의 근거 경험 태그). */
+interface ExperienceSearch {
+  from?: "job";
+  jobId?: number;
+}
+
+function parseExperienceSearch(search: Record<string, unknown>): ExperienceSearch {
+  const jobId = Number(search.jobId);
+  return search.from === "job" && search.jobId !== undefined && Number.isInteger(jobId) ? { from: "job", jobId } : {};
+}
+
+const newExperienceRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/experiences/new",
+  component: function NewExperiencePage() {
+    const navigate = useNavigate();
+    return (
+      <ExperienceEditScreen
+        onSaved={(experienceId) =>
+          navigate({ to: "/experiences/$experienceId", params: { experienceId: String(experienceId) } })
+        }
+        onCancel={() => navigate({ to: "/experiences" })}
+        onDeleted={() => navigate({ to: "/experiences" })}
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
+const experienceRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/experiences/$experienceId",
+  validateSearch: parseExperienceSearch,
+  component: function ExperiencePage() {
+    const { experienceId } = experienceRoute.useParams();
+    const search = experienceRoute.useSearch();
+    const navigate = useNavigate();
+    return (
+      <ExperienceViewScreen
+        key={experienceId}
+        id={toId(experienceId)}
+        fromJob={search.from === "job"}
+        onBack={() =>
+          search.jobId !== undefined
+            ? navigate({ to: "/jobs/$jobId", params: { jobId: String(search.jobId) } })
+            : navigate({ to: "/experiences" })
+        }
+        onEdit={() => navigate({ to: "/experiences/$experienceId/edit", params: { experienceId }, search })}
+        onOpenReview={(reviewId) => navigate({ to: "/reviews/$reviewId", params: { reviewId: String(reviewId) } })}
+        onOpenExperience={(other) =>
+          navigate({ to: "/experiences/$experienceId", params: { experienceId: String(other) }, search })
+        }
+        onDeleted={() => navigate({ to: "/experiences" })}
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
+const editExperienceRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/experiences/$experienceId/edit",
+  validateSearch: parseExperienceSearch,
+  component: function EditExperiencePage() {
+    const { experienceId } = editExperienceRoute.useParams();
+    const search = editExperienceRoute.useSearch();
+    const navigate = useNavigate();
+    const toView = () => navigate({ to: "/experiences/$experienceId", params: { experienceId }, search });
+    return (
+      <ExperienceEditScreen
+        key={experienceId}
+        experienceId={toId(experienceId)}
+        onSaved={toView}
+        onCancel={toView}
+        onDeleted={() => navigate({ to: "/experiences" })}
         onHome={() => navigate({ to: "/applications" })}
       />
     );
@@ -506,6 +635,10 @@ const routeTree = rootRoute.addChildren([
     newJobRoute,
     jobRoute,
     editJobRoute,
+    experiencesRoute,
+    newExperienceRoute,
+    experienceRoute,
+    editExperienceRoute,
     settingsRoute,
     notFoundRoute,
   ]),

@@ -28,7 +28,7 @@ import { NotFoundScreen } from "./SettingsScreen";
 // ── 칸 ──
 // 모든 칸에 보이는 라벨과 한 줄 설명을 붙인다 (무엇을 적는지, 상세 화면 어디에 보이는지).
 
-function Field({
+export function Field({
   id,
   label,
   help,

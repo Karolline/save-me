@@ -1,5 +1,5 @@
 import { RouterProvider } from "@tanstack/react-router";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { router } from "./router";
@@ -74,5 +74,41 @@ describe("job analysis routes", () => {
     await user.click(await screen.findByRole("button", { name: /^지원 안 함\s*\d/ }));
     await waitFor(() => expect(router.state.location.search).toEqual({ status: "skipped" }));
     expect(await screen.findByText("늘봄카드")).toBeInTheDocument();
+  });
+});
+
+describe("experience routes", () => {
+  it("goes from a job's evidence tag ↗ to the experience and back to that job", { timeout: 15_000 }, async () => {
+    const user = userEvent.setup();
+    await open("/jobs/1");
+    const duty = await screen.findByRole("region", { name: "주요업무" });
+    await user.click((await within(duty).findAllByRole("button", { name: "2023-04 주문이벤트-스트림재설계 ↗" }))[0]);
+
+    expect(await screen.findByRole("heading", { name: "주문 이벤트 스트림 재설계" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/experiences/2");
+    expect(router.state.location.search).toEqual({ from: "job", jobId: 1 });
+
+    // 관련 경험으로 가도 공고분석에서 온 것은 그대로.
+    await user.click(screen.getByRole("button", { name: /수집 지연 알림 도입/ }));
+    expect(await screen.findByRole("heading", { name: "수집 지연 알림 도입" })).toBeInTheDocument();
+    expect(router.state.location.search).toEqual({ from: "job", jobId: 1 });
+
+    await user.click(screen.getByRole("button", { name: "← 공고분석으로" }));
+    expect(await screen.findByRole("heading", { name: "로봇 데이터 플랫폼 엔지니어" })).toBeInTheDocument();
+  });
+
+  it("keeps the view and the search in the address and opens the add page", { timeout: 15_000 }, async () => {
+    const user = userEvent.setup();
+    await open("/experiences?view=unv");
+    expect(await screen.findByRole("button", { name: /^미확인\s*\d/ })).toHaveAttribute("aria-pressed", "true");
+
+    await user.type(screen.getByRole("searchbox", { name: "경험 검색" }), "알림");
+    await waitFor(() => expect(router.state.location.search).toEqual({ view: "unv", q: "알림" }));
+    const list = await screen.findByLabelText("경험 목록");
+    await waitFor(() => expect(within(list).getAllByRole("button")).toHaveLength(1));
+
+    await user.click(screen.getAllByRole("button", { name: "+ 경험 추가" })[0]);
+    expect(await screen.findByRole("heading", { name: "경험 추가" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/experiences/new");
   });
 });

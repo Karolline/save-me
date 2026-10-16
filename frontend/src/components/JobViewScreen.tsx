@@ -9,7 +9,8 @@ import {
   gradeLabel,
   mustSummary,
 } from "@/lib/jobs";
-import { RESULTS, useService, type Job, type LevelCounts, type RequirementLevel } from "@/services";
+import { experienceForTag } from "@/lib/experiences";
+import { RESULTS, useService, type ExperienceLinkKey, type Job, type LevelCounts, type RequirementLevel } from "@/services";
 import { ConfirmDialog, useEscape, useToast } from "./feedback";
 import { icons } from "./icons";
 import { useSessionErrors } from "./session";
@@ -37,9 +38,28 @@ export function CountTag({ counts }: { counts: LevelCounts }) {
   );
 }
 
-/** 근거 경험 태그. 경험(다음 단계)이 생기기 전까지는 링크 없는 글자다. */
-export function EvidenceTag({ text }: { text: string }) {
-  return <span className="ev">{text}</span>;
+/** 근거 경험 태그. 경험과 이어지면 그 경험으로 가는 "태그 ↗" 버튼, 아니면 그냥 글자. */
+export function EvidenceTag({
+  text,
+  experienceId = null,
+  onOpen,
+}: {
+  text: string;
+  experienceId?: number | null;
+  onOpen?: (experienceId: number) => void;
+}) {
+  if (experienceId !== null && onOpen) {
+    return (
+      <button type="button" className="ev ev-link" title="경험 보기" onClick={() => onOpen(experienceId)}>
+        {text} ↗
+      </button>
+    );
+  }
+  return (
+    <span className="ev" title="경험과 연결되지 않음">
+      {text}
+    </span>
+  );
 }
 
 interface Section {
@@ -69,6 +89,7 @@ export function JobViewScreen({
   onBack,
   onEdit,
   onOpenApplication,
+  onOpenExperience,
   onDeleted,
   onHome,
 }: {
@@ -79,6 +100,8 @@ export function JobViewScreen({
   onBack: (applicationId: number | null) => void;
   onEdit: () => void;
   onOpenApplication: (applicationId: number) => void;
+  /** 근거 경험 태그 ↗로 그 경험을 연다. */
+  onOpenExperience: (experienceId: number) => void;
   /** 지운 뒤 온 곳으로 (지운 분석에 연결되어 있던 지원 건 id). */
   onDeleted: (applicationId: number | null) => void;
   onHome: () => void;
@@ -87,6 +110,7 @@ export function JobViewScreen({
   const handleSessionError = useSessionErrors();
   const toast = useToast();
   const [job, setJob] = useState<Job | null | undefined>(undefined);
+  const [links, setLinks] = useState<ExperienceLinkKey[]>([]);
   const [failed, setFailed] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -95,9 +119,12 @@ export function JobViewScreen({
 
   useEffect(() => {
     let live = true;
-    service
-      .getJob(id)
-      .then((found) => live && setJob(found))
+    Promise.all([service.getJob(id), service.listExperienceLinks()])
+      .then(([found, keys]) => {
+        if (!live) return;
+        setLinks(keys);
+        setJob(found);
+      })
       .catch((error) => {
         if (live && !handleSessionError(error)) setFailed(true);
       });
@@ -150,6 +177,9 @@ export function JobViewScreen({
 
   const app = job.application;
   const st = JOB_STATUS[job.status];
+  const ev = (text: string, key?: number) => (
+    <EvidenceTag key={key} text={text} experienceId={experienceForTag(text, links)} onOpen={onOpenExperience} />
+  );
   const grade = gradeLabel(job.cultureGrade, job.cultureScore);
   const hasUnrated = CATEGORIES.some((c) => job.counts[c].unrated > 0);
   const cultureEmpty = !(
@@ -180,9 +210,7 @@ export function JobViewScreen({
                 {r.description && <p>{r.description}</p>}
                 {r.evidence.length > 0 && (
                   <div className="evs">
-                    {r.evidence.map((e, k) => (
-                      <EvidenceTag key={k} text={e} />
-                    ))}
+                    {r.evidence.map((e, k) => ev(e, k))}
                   </div>
                 )}
                 {r.noEvidence && <p className="nodb">근거 없음 · {r.noEvidence}</p>}
@@ -281,7 +309,7 @@ export function JobViewScreen({
                     <tr key={i}>
                       <td className="mono">{i + 1}</td>
                       <td>
-                        <EvidenceTag text={h.exp} />
+                        {ev(h.exp)}
                       </td>
                       <td>{h.maps}</td>
                       <td className="hint">{h.why}</td>
@@ -297,7 +325,7 @@ export function JobViewScreen({
               <ul className="jlist">
                 {job.excluded.map((x, i) => (
                   <li key={i}>
-                    <EvidenceTag text={x.exp} /> {x.where}
+                    {ev(x.exp)} {x.where}
                   </li>
                 ))}
               </ul>

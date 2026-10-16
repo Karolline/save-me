@@ -62,6 +62,7 @@ const viewProps = {
   onBack: () => {},
   onEdit: () => {},
   onOpenApplication: () => {},
+  onOpenExperience: () => {},
   onDeleted: () => {},
   onHome: () => {},
 };
