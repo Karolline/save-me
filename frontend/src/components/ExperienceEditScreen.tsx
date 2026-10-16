@@ -3,12 +3,13 @@ import {
   NEW_EXPERIENCE_ROW,
   experienceSaveHint,
   fromExperienceDraft,
+  relatedOptions,
   reviewOptionLabel,
   toExperienceDraft,
   whereFromReview,
   type ExperienceDraft,
 } from "@/lib/experiences";
-import { useService, type ExperienceSummary, type ReviewSummary } from "@/services";
+import { useService, type ReviewSummary } from "@/services";
 import { ConfirmDialog, useToast } from "./feedback";
 import { Field } from "./JobEditScreen";
 import { useSessionErrors } from "./session";
@@ -135,7 +136,7 @@ export function ExperienceEditScreen({
   const isNew = experienceId === undefined;
   const [draft, setDraft] = useState<ExperienceDraft | null>(null);
   const [reviews, setReviews] = useState<ReviewSummary[]>([]);
-  const [others, setOthers] = useState<ExperienceSummary[]>([]);
+  const [relatedChoices, setRelatedChoices] = useState<[string, string][]>([]);
   const [missing, setMissing] = useState(false);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -156,7 +157,7 @@ export function ExperienceEditScreen({
           return;
         }
         setReviews(reviewList.groups.flatMap((g) => g.reviews));
-        setOthers(experienceList.items.filter((o) => o.id !== experienceId));
+        setRelatedChoices(relatedOptions(experienceList.items, experienceId));
         setDraft(toExperienceDraft(x));
       })
       .catch((error) => {
@@ -461,7 +462,7 @@ export function ExperienceEditScreen({
         "related",
         "관련 경험",
         [
-          { k: "experienceId", label: "경험", options: others.map((o) => [String(o.id), o.name]) },
+          { k: "experienceId", label: "경험", options: relatedChoices },
           { k: "note", label: "어떻게 이어지나", wide: true },
         ],
         "관련 경험 추가",

@@ -7,6 +7,7 @@ import {
   experienceSaveHint,
   fromExperienceDraft,
   inlineParts,
+  relatedOptions,
   reviewOptionLabel,
   toExperienceDraft,
   whereFromReview,
@@ -114,6 +115,23 @@ const saved: Experience = {
   createdAt: "2026-10-01T00:00:00Z",
   updatedAt: "2026-10-01T00:00:00Z",
 };
+
+describe("relatedOptions", () => {
+  const list = [
+    { id: 7, name: "Iceberg" },
+    { id: 3, name: "수집 지연" },
+    { id: 4, name: "정산 배치" },
+  ];
+
+  it("offers my other experiences in the given order, never the one being edited", () => {
+    expect(relatedOptions(list, 3)).toEqual([
+      ["7", "Iceberg"],
+      ["4", "정산 배치"],
+    ]);
+    expect(relatedOptions(list, undefined)).toHaveLength(3);
+    expect(relatedOptions([], 1)).toEqual([]);
+  });
+});
 
 describe("experience drafts", () => {
   it("round-trips: lists one item per line, tags by commas, ids as text", () => {

@@ -68,6 +68,16 @@ export function whereFromReview(r: ReviewSummary): string {
   return `${r.company} ${reviewTitle(r)}`;
 }
 
+// ── 관련 경험 고르기 ──
+
+/** 관련 경험으로 고를 수 있는 것: 편집 중인 경험을 뺀 내 경험, [id, 제목] (받은 순서대로). */
+export function relatedOptions(
+  experiences: { id: number; name: string }[],
+  editingId: number | undefined,
+): [string, string][] {
+  return experiences.filter((x) => x.id !== editingId).map((x) => [String(x.id), x.name]);
+}
+
 // ── 편집 초안 ──
 // 목록 칸은 "한 줄에 하나" 글로, 태그는 쉼표로 이은 글로, 고르는 칸은 글(id)로 다룬다.
 
