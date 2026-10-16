@@ -265,6 +265,23 @@ class ReviewStore(BaseStore):
             row = self._row(db, user_id, review_id)
             return to_review(row) if row else None
 
+    def match(self, user_id: int, company: str, round: str, applied_at: date | None = None) -> list[int]:
+        """회사와 차수 이름(주면 서류 제출일도)이 같은 후기 id들, 옛것부터 (경험 가져오기에서 쓴다)."""
+        with self.session() as db:
+            query = (
+                select(InterviewReviewRow.id)
+                .join(ApplicationRow, ApplicationRow.id == InterviewReviewRow.application_id)
+                .where(
+                    InterviewReviewRow.user_id == user_id,
+                    ApplicationRow.company == company.strip(),
+                    InterviewReviewRow.round == round.strip(),
+                )
+                .order_by(InterviewReviewRow.id)
+            )
+            if applied_at is not None:
+                query = query.where(ApplicationRow.applied_at == applied_at)
+            return list(db.scalars(query).all())
+
     # ── 도우미 ──
 
     @staticmethod

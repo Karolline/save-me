@@ -172,6 +172,58 @@ uv run python -m app.importers.jobs ../private/jobs.json --database-url postgres
 uv run python -m app.importers.jobs ../private/jobs.json --replace
 ```
 
+### 경험 (`app.importers.experiences`)
+
+받은 질문을 면접후기와 이으려면 후기를 먼저 가져온 뒤에 돌린다. 파일은 `{"experiences": [...]}`이고, 항목마다 API의 `POST /api/experiences` 본문(`openapi.yaml`의 `ExperienceFields`)과 같되 두 곳이 다르다: 받은 질문은 `interviewReviewId` 대신 `review`, 관련 경험은 id 대신 `name`.
+
+```json
+{
+  "experiences": [
+    {
+      "name": "클라우드 이전 · 로그 수집 파트",
+      "project": "사내 하둡 → AWS 데이터 플랫폼 전환",
+      "linkKey": "클라우드이전-로그수집",
+      "startedOn": "2021-07",
+      "endedOn": "2022-02",
+      "org": "다올커머스 · 데이터팀",
+      "tags": ["AWS", "로그 수집"],
+      "summary": "로그 수집 경로를 끊김 없이 옮겼다.",
+      "situation": "하루 2억 건의 앱 로그가 하둡으로 들어오고 있었다.",
+      "actions": [{ "title": "옛 경로와 새 경로를 2주 동안 같이 돌리기", "points": ["양쪽에 동시에 적재"], "note": "", "source": "" }],
+      "resultMine": ["이관 기간 동안 로그 유실 0건"],
+      "asked": [
+        { "question": "정합성은 어떻게 확인했나요?", "where": "누리커머스 1차 면접", "review": { "company": "누리커머스", "round": "1차 면접" } }
+      ],
+      "qas": [{ "question": "공통 모듈을 팀원들이 실제로 잘 썼나요?", "answer": "", "caution": "" }],
+      "related": [{ "name": "정산 배치 튜닝", "note": "이관 뒤 정산 배치를 새 환경에서 튜닝" }],
+      "missing": ["공통 모듈로 줄어든 팀 공수 (수치)"]
+    }
+  ]
+}
+```
+
+- `name`만 꼭 있어야 한다. 시작·끝은 `YYYY-MM` (모르면 `null`이나 빈 글자, 끝이 비면 "진행 중"). 시작 달을 모르면 비우고 `missing`에 적어 둔다.
+- 같은 경험인지는 로컬 사용자의 경험 제목(`name`)으로 정한다. 새 경험은 사람 확인 N으로 만든다 (앱에서 [읽고 확인했어요]나 편집해 저장하면 Y). 한 파일에 같은 제목이 두 번 있으면 알려 주고 아무것도 쓰지 않는다.
+- 건너뛰기, `--replace`, `--dry-run`은 공고분석 가져오기와 같다: 이미 있는 경험은 기본으로 건너뛰고 (그대로), `--replace`는 N인 것만 통째로 바꾸고 Y인 것은 건너뛴다. 같은 파일을 두 번 돌려도 두 번째는 모두 건너뛴다.
+- `review`: `company`와 `round`(면접 차수 이름), 선택으로 `appliedAt`(서류 제출일). 로컬 사용자의 면접후기 중 이것과 맞는 것이 **꼭 하나**면 잇고, 없거나 둘 이상이면 잇지 않는다 (질문과 `where`는 그대로 들어간다). 잇지 못한 것은 요약에 한 줄씩 알린다. 파일에 후기 id를 적어도 쓰지 않는다.
+- `related`: 다른 경험의 제목. 이미 있는 경험이나 이 파일에서 만드는 경험이어야 하고, 못 찾으면 (자기 자신도) 알려 주고 아무것도 쓰지 않는다.
+- 출력: 공고분석과 같은 첫 줄과 건너뜀 줄, 그 아래 잇지 못한 후기마다 한 줄 (쓴 항목만):
+
+  ```
+  saveme_dev: 추가 17, 바꿈 0, 건너뜀 1 (파일 18건)
+  건너뜀: 정산 배치 튜닝 (이미 있음)
+  후기와 잇지 않음: 클라우드 이전 · 로그 수집 파트 · 누리커머스 1차 면접 (후기 2개가 맞음)
+  ```
+- 파일 전체를 트랜잭션 하나로 쓴다. 망가진 파일과 다른 오류는 한 줄로 알리고 아무것도 쓰지 않는다.
+
+```
+cd backend
+uv run python -m app.importers.experiences ../private/experiences.json
+uv run python -m app.importers.experiences ../private/experiences.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme --dry-run
+uv run python -m app.importers.experiences ../private/experiences.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
+uv run python -m app.importers.experiences ../private/experiences.json --replace
+```
+
 ---
 
 # Local operations (English)
@@ -289,4 +341,24 @@ uv run python -m app.importers.jobs ../private/jobs.json
 uv run python -m app.importers.jobs ../private/jobs.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme --dry-run
 uv run python -m app.importers.jobs ../private/jobs.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
 uv run python -m app.importers.jobs ../private/jobs.json --replace
+```
+
+### Experiences (`app.importers.experiences`)
+
+Run it after the interview reviews are imported when asked questions should link to them. The file is `{"experiences": [...]}`; each item is the `POST /api/experiences` body (`ExperienceFields` in `openapi.yaml`) with two differences: an asked question names its review with `review` instead of `interviewReviewId`, and a related experience is named by `name` instead of an id (example in the Korean section above).
+
+- Only `name` is required. Start and end are `YYYY-MM` (`null` or an empty string when unknown; an empty end means 진행 중). When the start month is unknown, leave it empty and write it in `missing`.
+- The same experience is the same `name` for the local user. New experiences are created unverified (N; the user marks them Y in the app with [읽고 확인했어요] or by saving an edit). The same name twice in the file is named and nothing is written.
+- Skipping, `--replace` and `--dry-run` work as for job analyses: an existing experience is skipped by default (unchanged), `--replace` replaces only unverified ones and skips verified ones. Running a file twice skips everything the second time.
+- `review`: `company` and `round` (the interview round name), optionally `appliedAt` (the application date). When **exactly one** of the local user's interview reviews matches, the question links to it; with none or several it stays unlinked (the question and `where` still go in) and the summary names it. Review ids in the file are not used.
+- `related`: another experience's name, existing or created by this file. A name that isn't found (or the experience itself) is named and nothing is written.
+- Output: the same first line and skipped lines as for job analyses, then one line per question that could not be linked to a review (written items only), as shown in the Korean section above.
+- The whole file is written in one transaction. A malformed file and other errors print one line and write nothing.
+
+```
+cd backend
+uv run python -m app.importers.experiences ../private/experiences.json
+uv run python -m app.importers.experiences ../private/experiences.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme --dry-run
+uv run python -m app.importers.experiences ../private/experiences.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
+uv run python -m app.importers.experiences ../private/experiences.json --replace
 ```
