@@ -499,3 +499,39 @@ td.mono { white-space: nowrap; }
 .xqa-item p { margin: 4px 0 0; color: #3C4456; line-height: 1.6; }
 .ev-link { border: 0; cursor: pointer; font: inherit; font-size: 12px; }
 .ev-link:hover { background: var(--accent); color: #fff; }
+
+/* ── 이력 (목업 viewResume, resEditor와 바뀐 곳 목업. @container app → @media) ── */
+.rgrid { display: flex; flex-direction: column; gap: 12px; max-width: 900px; }
+.rcard { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; scroll-margin-top: 16px; }
+.rcard.editing { border-color: var(--d2); box-shadow: 0 0 0 3px var(--accent-weak); }
+.rcard .jsec-h h2 { margin: 0; font-size: 16px; }
+.rbasic { display: flex; gap: 14px; align-items: center; }
+.avatar.lg { width: 52px; height: 52px; font-size: 20px; }
+.rname { font-size: 18px; }
+.rtags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.rtags .pill .nw { font-weight: 400; color: var(--muted); margin-left: 4px; }
+.rsum .k, .rskill .k, .racc-b .k { display: block; font-size: 12px; color: var(--muted); font-weight: 600; }
+.rsum .k { margin-bottom: 4px; }
+.rtimeline { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 2px solid var(--d1); display: flex; flex-direction: column; gap: 14px; }
+.rtimeline > li { position: relative; display: flex; flex-direction: column; gap: 4px; }
+.rtimeline > li::before { content: ""; position: absolute; left: -22px; top: 6px; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--surface); }
+.rt-h { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.leave { font-size: 12px; color: var(--muted); }
+.rline { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--grid); align-items: baseline; }
+.rline:last-child { border-bottom: 0; }
+.rskill { display: grid; grid-template-columns: 110px minmax(0,1fr); gap: 8px; align-items: baseline; padding: 4px 0; }
+.smemo { display: block; font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.pgroup { display: flex; flex-direction: column; }
+.ptopic { font-size: 13px; font-weight: 600; color: var(--accent); margin: 4px 0 6px; }
+.racc { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+.racc + .racc { margin-top: 6px; }
+.racc summary { cursor: pointer; font-weight: 500; }
+.racc summary .need { margin-left: 6px; font-size: 12px; font-weight: 500; }
+.racc-b { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 12px; margin-top: 10px; }
+.racc-b p { margin: 4px 0 0; line-height: 1.6; word-break: break-word; }
+@media (max-width: 640px) { .racc-b { grid-template-columns: minmax(0,1fr); } }
+@media (max-width: 520px) {
+  .rline { grid-template-columns: minmax(0,1fr); gap: 2px; }
+  .rskill { grid-template-columns: minmax(0,1fr); gap: 2px; }
+  .rcard { padding: 14px; }
+}

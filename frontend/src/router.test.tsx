@@ -112,3 +112,16 @@ describe("experience routes", () => {
     expect(router.state.location.pathname).toBe("/experiences/new");
   });
 });
+
+describe("resume route", () => {
+  it("opens 이력 from the menu", { timeout: 15_000 }, async () => {
+    const user = userEvent.setup();
+    await open("/applications");
+    const nav = (await screen.findAllByRole("navigation", { name: "메뉴" }))[0];
+    await user.click(within(nav).getByRole("button", { name: "이력" }));
+
+    expect(await screen.findByRole("heading", { level: 1, name: "이력" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/resume");
+    expect(await screen.findByRole("region", { name: "경력" })).toBeInTheDocument();
+  });
+});

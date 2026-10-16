@@ -19,7 +19,7 @@ export const MENU: MenuItem[] = [
   { name: "면접후기", path: "/reviews", icon: "chat", on: true, group: "flow" },
   { name: "빈출질문", path: "/questions", icon: "question", on: false, group: "flow" },
   { name: "경험", path: "/experiences", icon: "star", on: true, group: "base" },
-  { name: "이력", path: "/resume", icon: "user", on: false, group: "base" },
+  { name: "이력", path: "/resume", icon: "user", on: true, group: "base" },
 ];
 
 /** 경로가 속한 메뉴 (예: /applications/3/edit는 지원현황). */

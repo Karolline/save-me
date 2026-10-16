@@ -318,7 +318,7 @@ describe("Shell", () => {
     const names = within(nav)
       .getAllByRole("button")
       .map((b) => b.textContent);
-    expect(names).toEqual(["지원현황", "공고분석", "지원서류준비 중", "면접후기", "빈출질문준비 중", "경험", "이력준비 중"]);
+    expect(names).toEqual(["지원현황", "공고분석", "지원서류준비 중", "면접후기", "빈출질문준비 중", "경험", "이력"]);
     expect(within(nav).getByText("내 재료")).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: "지원현황" })).toHaveAttribute("aria-current", "page");
 
@@ -328,6 +328,8 @@ describe("Shell", () => {
     expect(onNavigate).toHaveBeenCalledWith("/jobs");
     await user.click(within(nav).getByRole("button", { name: "경험" }));
     expect(onNavigate).toHaveBeenCalledWith("/experiences");
+    await user.click(within(nav).getByRole("button", { name: "이력" }));
+    expect(onNavigate).toHaveBeenCalledWith("/resume");
     await user.click(within(nav).getByRole("button", { name: "지원현황" }));
     expect(onNavigate).toHaveBeenCalledWith("/applications");
   });

@@ -17,6 +17,7 @@ import { ExperienceViewScreen } from "@/components/ExperienceViewScreen";
 import { JobEditScreen } from "@/components/JobEditScreen";
 import { JobsScreen } from "@/components/JobsScreen";
 import { JobViewScreen } from "@/components/JobViewScreen";
+import { ResumeScreen } from "@/components/ResumeScreen";
 import { ReviewEditScreen } from "@/components/ReviewEditScreen";
 import { ReviewsScreen } from "@/components/ReviewsScreen";
 import { ReviewViewScreen } from "@/components/ReviewViewScreen";
@@ -593,6 +594,15 @@ const editExperienceRoute = createRoute({
   },
 });
 
+/** 이력: 카드 한 페이지. 편집도 이 페이지 안에서 한다. */
+const resumeRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/resume",
+  component: function ResumePage() {
+    return <ResumeScreen />;
+  },
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/settings",
@@ -639,6 +649,7 @@ const routeTree = rootRoute.addChildren([
     newExperienceRoute,
     experienceRoute,
     editExperienceRoute,
+    resumeRoute,
     settingsRoute,
     notFoundRoute,
   ]),
