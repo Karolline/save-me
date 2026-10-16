@@ -11,6 +11,7 @@ from app.stores import (
     ApplicationAlreadyLinkedError,
     ApplicationNotFoundError,
     JobStore,
+    SharedApplicationError,
     Stores,
 )
 from tests.conftest import application
@@ -138,18 +139,87 @@ def test_saving_replaces_requirements(stores: Stores, user_id: int, engine):
     assert count(engine, "job_requirements") == 1
 
 
-def test_saving_on_screen_marks_verified_and_importing_clears_it(stores: Stores, user_id: int):
-    fields = JobFields(**job().model_dump(exclude={"application_id"}))
-    stores.jobs.save_imported(user_id, [(fields, date(2026, 10, 13), None)])
+def imported(company: str = "한결로보틱스", title: str = "데이터 엔지니어", **extra) -> JobFields:
+    return JobFields(**job(company, title, **extra).model_dump(exclude={"application_id"}))
+
+
+def test_saving_on_screen_marks_verified_and_importing_leaves_it_unverified(stores: Stores, user_id: int):
+    assert stores.jobs.save_imported(user_id, [(imported(), date(2026, 10, 13), None)]) == ["created"]
     found = stores.jobs.find(user_id, "한결로보틱스", "데이터 엔지니어")
     assert found.verified is False
 
     assert stores.jobs.update(user_id, found.id, job()).verified is True
     assert stores.jobs.create(user_id, job(company="마루증권")).verified is True
 
-    # 다시 가져오면 사람이 아직 안 본 내용이라 N으로 돌아간다.
-    stores.jobs.save_imported(user_id, [(fields, date(2026, 10, 14), None)])
-    assert stores.jobs.get(user_id, found.id).verified is False
+
+def test_importing_skips_existing_analyses_unless_replacing(stores: Stores, user_id: int):
+    stores.jobs.save_imported(user_id, [(imported(fit="상"), date(2026, 10, 13), None)])
+    before = stores.jobs.find(user_id, "한결로보틱스", "데이터 엔지니어")
+
+    actions = stores.jobs.save_imported(user_id, [(imported(fit="하"), date(2026, 10, 14), None)])
+
+    assert actions == ["exists"]
+    assert stores.jobs.get(user_id, before.id) == before
+
+    actions = stores.jobs.save_imported(user_id, [(imported(fit="하"), date(2026, 10, 14), None)], replace=True)
+
+    assert actions == ["replaced"]
+    after = stores.jobs.get(user_id, before.id)
+    assert (after.fit, after.analyzed_at, after.verified) == ("하", date(2026, 10, 14), False)
+
+
+def test_replacing_never_touches_a_verified_analysis(stores: Stores, user_id: int):
+    stores.jobs.save_imported(user_id, [(imported(), date(2026, 10, 13), None)])
+    mine = stores.jobs.find(user_id, "한결로보틱스", "데이터 엔지니어")
+    verified = stores.jobs.set_verified(user_id, mine.id, True)
+
+    actions = stores.jobs.save_imported(
+        user_id,
+        [(imported(fit="하"), date(2026, 10, 14), None), (imported("마루증권"), date(2026, 10, 14), None)],
+        replace=True,
+    )
+
+    assert actions == ["verified", "created"]
+    assert stores.jobs.get(user_id, mine.id) == verified
+    assert stores.jobs.find(user_id, "마루증권", "데이터 엔지니어").verified is False
+
+
+def test_importing_only_looks_at_the_users_own_analyses(stores: Stores, user_id: int, other_user_id: int):
+    stores.jobs.save_imported(user_id, [(imported(), date(2026, 10, 13), None)])
+
+    assert stores.jobs.save_imported(other_user_id, [(imported(), date(2026, 10, 13), None)]) == ["created"]
+    assert len(stores.jobs.list(user_id).items) == 1
+
+
+def test_skipped_imports_neither_link_nor_conflict(stores: Stores, user_id: int):
+    app = stores.applications.create(user_id, application("한결로보틱스", date(2026, 10, 20)))
+    existing = stores.jobs.create(user_id, job())
+
+    actions = stores.jobs.save_imported(
+        user_id,
+        [(imported(), date(2026, 10, 13), app.id), (imported("마루증권"), date(2026, 10, 13), app.id)],
+    )
+
+    assert actions == ["exists", "created"]
+    assert stores.jobs.get(user_id, existing.id).application_id is None
+    assert stores.applications.get(user_id, app.id).job_id == stores.jobs.find(user_id, "마루증권", "데이터 엔지니어").id
+
+
+def test_two_written_imports_for_one_application_fail_without_writing(stores: Stores, user_id: int):
+    app = stores.applications.create(user_id, application("한결로보틱스", date(2026, 10, 20)))
+
+    with pytest.raises(SharedApplicationError) as error:
+        stores.jobs.save_imported(
+            user_id,
+            [
+                (imported(), date(2026, 10, 13), app.id),
+                (imported("가람"), date(2026, 10, 13), None),
+                (imported("마루증권"), date(2026, 10, 13), app.id),
+            ],
+        )
+
+    assert error.value.pairs == [(0, 2)]
+    assert stores.jobs.list(user_id).items == []
 
 
 def test_marking_verified_keeps_the_dates(engine, user_id: int, other_user_id: int):

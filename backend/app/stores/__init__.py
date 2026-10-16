@@ -3,12 +3,18 @@
 
 from dataclasses import dataclass
 
-from sqlalchemy import Engine
+from sqlalchemy import Connection, Engine
 
 from app.db import make_engine
 from app.stores.applications import ApplicationStore, DuplicateApplicationError
 from app.stores.base import Clock, utc_now
-from app.stores.jobs import ApplicationAlreadyLinkedError, ApplicationNotFoundError, JobStore
+from app.stores.jobs import (
+    ApplicationAlreadyLinkedError,
+    ApplicationNotFoundError,
+    ImportAction,
+    JobStore,
+    SharedApplicationError,
+)
 from app.stores.reviews import ReviewStore
 from app.stores.users import DEV_IDENTITY, UserStore
 
@@ -19,8 +25,10 @@ __all__ = [
     "Clock",
     "DEV_IDENTITY",
     "DuplicateApplicationError",
+    "ImportAction",
     "JobStore",
     "ReviewStore",
+    "SharedApplicationError",
     "Stores",
     "UserStore",
     "utc_now",
@@ -35,7 +43,7 @@ class Stores:
     jobs: JobStore
 
     @classmethod
-    def create(cls, engine: Engine | None = None, clock: Clock = utc_now) -> "Stores":
+    def create(cls, engine: Engine | Connection | None = None, clock: Clock = utc_now) -> "Stores":
         engine = engine or make_engine()
         return cls(
             users=UserStore(engine, clock),

@@ -6,6 +6,7 @@
 """
 
 from datetime import date, datetime
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import or_, select, update
@@ -71,6 +72,19 @@ class ApplicationNotFoundError(LookupError):
 
 class ApplicationAlreadyLinkedError(ValueError):
     """연결하려는 지원 건에 이미 다른 분석이 연결되어 있다."""
+
+
+class SharedApplicationError(ValueError):
+    """가져오며 쓰는 항목 둘 이상이 한 지원 건을 가리킨다. pairs는 (먼저 나온 항목, 겹친 항목)의 순번."""
+
+    def __init__(self, pairs: list[tuple[int, int]]) -> None:
+        super().__init__(pairs)
+        self.pairs = pairs
+
+
+# 가져오기에서 항목마다 한 일: 만듦, 바꿈, 이미 있어 건너뜀, 사람이 확인해서 건너뜀.
+ImportAction = Literal["created", "replaced", "exists", "verified"]
+WRITTEN: tuple[ImportAction, ...] = ("created", "replaced")
 
 
 def seoul_today(now: datetime) -> date:
@@ -227,16 +241,26 @@ class JobStore(BaseStore):
             return True
 
     def save_imported(
-        self, user_id: int, items: list[tuple[JobFields, date, int | None]]
-    ) -> tuple[int, int]:
+        self, user_id: int, items: list[tuple[JobFields, date, int | None]], replace: bool = False
+    ) -> list[ImportAction]:
         """여러 분석을 트랜잭션 하나로 저장한다 (가져오기). 항목은 (내용, 분석일,
-        연결할 지원 건 id). 같은 (회사, 직무) 분석이 있으면 통째로 바꾸고 없으면
-        만든다. 분석일은 받은 날짜를 그대로 쓰고, 사람 확인은 False가 된다. 하나라도 실패하면 아무것도 쓰지
-        않는다. (만든 수, 바꾼 수)를 돌려준다."""
-        created = replaced = 0
+        연결할 지원 건 id). 항목마다 한 일을 같은 순서로 돌려준다:
+
+        - 같은 (회사, 직무) 분석이 없으면 만든다 ("created").
+        - 있고 replace가 아니면 건너뛴다 ("exists").
+        - 있고 replace면, 사람 확인이 False인 것만 통째로 바꾼다 ("replaced").
+          사람이 확인한 것은 건너뛴다 ("verified").
+
+        건너뛴 항목은 아무것도 쓰지 않는다 (지원 건도 잇지 않는다). 쓰는 항목은
+        분석일을 받은 날짜 그대로 쓰고 사람 확인을 False로 둔다. 쓰는 항목 둘이
+        한 지원 건을 가리키면 SharedApplicationError, 지원 건이 이미 다른 분석과
+        연결되어 있으면 ApplicationAlreadyLinkedError. 하나라도 실패하면 아무것도
+        쓰지 않는다."""
         now = self.clock()
         with self.session() as db, db.begin():
-            for fields, analyzed_at, application_id in items:
+            # 먼저 항목마다 할 일을 정한다 (아직 쓰지 않는다).
+            plan: list[tuple[ImportAction, JobAnalysisRow | None]] = []
+            for fields, _, _ in items:
                 row = db.scalar(
                     select(JobAnalysisRow)
                     .where(
@@ -248,15 +272,37 @@ class JobStore(BaseStore):
                     .limit(1)
                 )
                 if row is None:
-                    row = JobAnalysisRow(user_id=user_id, created_at=now)
-                    created += 1
+                    plan.append(("created", None))
+                elif not replace:
+                    plan.append(("exists", row))
+                elif row.verified:
+                    plan.append(("verified", row))
                 else:
-                    replaced += 1
+                    plan.append(("replaced", row))
+
+            # 쓰는 항목끼리 한 지원 건을 나눠 가지면 거절한다 (건너뛴 항목은 세지 않는다).
+            first_by_application: dict[int, int] = {}
+            pairs: list[tuple[int, int]] = []
+            for index, ((_, _, application_id), (action, _)) in enumerate(zip(items, plan, strict=True)):
+                if application_id is None or action not in WRITTEN:
+                    continue
+                if application_id in first_by_application:
+                    pairs.append((first_by_application[application_id], index))
+                else:
+                    first_by_application[application_id] = index
+            if pairs:
+                raise SharedApplicationError(pairs)
+
+            for (fields, analyzed_at, application_id), (action, row) in zip(items, plan, strict=True):
+                if action not in WRITTEN:
+                    continue
+                if row is None:
+                    row = JobAnalysisRow(user_id=user_id, created_at=now)
                 data = JobInput(**fields.model_dump(), application_id=application_id)
                 # 가져온 내용은 아직 사람이 보지 않았다 (바꿔 넣어도 다시 N).
                 row.verified = False
                 self._fill(db, row, user_id, data, analyzed_at, now)
-        return created, replaced
+        return [action for action, _ in plan]
 
     def find(self, user_id: int, company: str, title: str) -> Job | None:
         """같은 (회사, 직무) 분석 (가져오기에서 쓴다)."""
