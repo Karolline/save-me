@@ -119,10 +119,12 @@ export function JobViewScreen({
 
   useEffect(() => {
     let live = true;
-    Promise.all([service.getJob(id), service.listExperienceLinks()])
-      .then(([found, keys]) => {
+    // 경험 연결 이름을 못 받아도 분석은 보인다: 태그가 그냥 글자로 남을 뿐이다.
+    const keys = service.listExperienceLinks().catch(() => [] as ExperienceLinkKey[]);
+    Promise.all([service.getJob(id), keys])
+      .then(([found, linkKeys]) => {
         if (!live) return;
-        setLinks(keys);
+        setLinks(linkKeys);
         setJob(found);
       })
       .catch((error) => {
@@ -325,7 +327,7 @@ export function JobViewScreen({
               <ul className="jlist">
                 {job.excluded.map((x, i) => (
                   <li key={i}>
-                    {ev(x.exp)} {x.where}
+                    <span className="ev">{x.exp}</span> {x.where}
                   </li>
                 ))}
               </ul>

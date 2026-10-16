@@ -410,7 +410,36 @@ describe("JobViewScreen evidence tags", () => {
     expect(plain.tagName).toBe("SPAN");
     expect(plain).toHaveAttribute("title", "경험과 연결되지 않음");
 
+    // 부각할 경험 표도 잇고, 서류에서 뺀 경험은 목업처럼 그냥 글자다.
+    const highlight = screen.getByRole("region", { name: "부각할 경험" });
+    expect(within(highlight).getByRole("button", { name: "데이터품질-검사도입 ↗" })).toBeInTheDocument();
+    expect(within(highlight).queryByRole("button", { name: /Airflow-DAG정리/ })).not.toBeInTheDocument();
+    expect(within(highlight).getByText("Airflow-DAG정리")).toHaveClass("ev");
+
     await user.click(linked);
     expect(onOpenExperience).toHaveBeenCalledWith(2);
+  });
+
+  it("still shows the analysis with plain tags when the link keys fail to load", async () => {
+    const service = samples();
+    service.listExperienceLinks = () => Promise.reject(new TypeError("Failed to fetch"));
+    setup(
+      <JobViewScreen
+        id={1}
+        fromDetail={false}
+        onBack={() => {}}
+        onEdit={() => {}}
+        onOpenApplication={() => {}}
+        onOpenExperience={() => {}}
+        onDeleted={() => {}}
+        onHome={() => {}}
+      />,
+      service,
+    );
+
+    const duty = await screen.findByRole("region", { name: "주요업무" });
+    expect(within(duty).queryByRole("button", { name: /↗/ })).not.toBeInTheDocument();
+    expect(within(duty).getAllByText("2023-04 주문이벤트-스트림재설계")[0]).toHaveClass("ev");
+    expect(screen.queryByText("불러오지 못했어요")).not.toBeInTheDocument();
   });
 });
