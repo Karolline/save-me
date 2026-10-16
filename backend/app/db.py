@@ -478,6 +478,111 @@ class ExperienceLinkRow(Base):
     )
 
 
+class ResumeBasicsRow(Base):
+    """이력의 기본 정보와 커리어 방향 (기획안 S2 12번). 사용자마다 한 줄."""
+
+    __tablename__ = "resume_basics"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
+    name: Mapped[str] = mapped_column(Text, default="", server_default="")
+    email: Mapped[str] = mapped_column(Text, default="", server_default="")
+    phone: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 현재 상태 (구직 중·재직 중·휴직 중 등).
+    status: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 희망 직무.
+    want: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 이력서 요약문: 서류 맨 위에 쓰는 소개 글.
+    summary: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 커리어 방향 (긴 글).
+    direction: Mapped[str] = mapped_column(Text, default="", server_default="")
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class CareerRow(Base):
+    """경력 하나. 달은 그달 1일로 저장한다 (경험과 같다). 퇴사가 비어 있으면 재직 중."""
+
+    __tablename__ = "careers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    # 저장할 때 받은 순서.
+    position: Mapped[int] = mapped_column(Integer)
+    # 경험의 소속과 같은 이름으로 적는다 (경험 캘린더가 이름으로 비교).
+    company: Mapped[str] = mapped_column(Text)
+    team: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 직무·직급.
+    role: Mapped[str] = mapped_column(Text, default="", server_default="")
+    started_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    ended_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    leave_started_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # 휴직 끝 (복직 예정 달).
+    leave_ended_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # 주요 업무, 적은 그대로 (한 줄에 하나).
+    duties: Mapped[str] = mapped_column(Text, default="", server_default="")
+
+
+class EducationRow(Base):
+    """학력 하나."""
+
+    __tablename__ = "educations"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    school: Mapped[str] = mapped_column(Text)
+    major: Mapped[str] = mapped_column(Text, default="", server_default="")
+    started_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    ended_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # 졸업·재학·수료 등.
+    status: Mapped[str] = mapped_column(Text, default="", server_default="")
+
+
+class CertificateRow(Base):
+    """자격증 하나."""
+
+    __tablename__ = "certificates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    name: Mapped[str] = mapped_column(Text)
+    acquired_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    issuer: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 자격번호.
+    number: Mapped[str] = mapped_column(Text, default="", server_default="")
+
+
+class SkillGroupRow(Base):
+    """기술 스택의 분류 하나 (예: 언어). 기술은 적은 그대로 쉼표로 나눈 글."""
+
+    __tablename__ = "skill_groups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    category: Mapped[str] = mapped_column(Text)
+    items: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 근거나 숙련도.
+    memo: Mapped[str] = mapped_column(Text, default="", server_default="")
+
+
+class PersonalityAnswerRow(Base):
+    """인성 답변 하나: 주제, 질문, 실제로 한 답, 교훈."""
+
+    __tablename__ = "personality_answers"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    # 같은 주제끼리 묶여 보인다.
+    topic: Mapped[str] = mapped_column(Text, default="", server_default="")
+    question: Mapped[str] = mapped_column(Text)
+    # 비어 있으면 "답변 작성 필요".
+    answer: Mapped[str] = mapped_column(Text, default="", server_default="")
+    lesson: Mapped[str] = mapped_column(Text, default="", server_default="")
+
+
 def database_url() -> str:
     return os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
 

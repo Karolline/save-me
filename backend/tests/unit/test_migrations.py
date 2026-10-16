@@ -202,6 +202,34 @@ def test_experiences_migration_foreign_keys(url):
     engine.dispose()
 
 
+def test_resume_migration_one_basics_row_per_user_and_cascades(url):
+    # 기본 정보는 사용자마다 한 줄이고, 사용자를 지우면 이력 테이블의 줄이 모두 지워진다.
+    command.upgrade(alembic_config(url), "head")
+    engine = create_engine(normalize_url(url))
+    tables = ("careers", "educations", "certificates", "skill_groups", "personality_answers")
+    with engine.begin() as c:
+        if engine.dialect.name == "sqlite":
+            c.exec_driver_sql("PRAGMA foreign_keys=ON")
+        c.execute(text("INSERT INTO users (id, nickname, status, created_at) VALUES (1, '나', 'active', '2026-10-01')"))
+        c.execute(text("INSERT INTO resume_basics (user_id, updated_at) VALUES (1, '2026-10-01')"))
+        row = c.execute(text("SELECT name, summary, direction FROM resume_basics")).one()
+        assert tuple(row) == ("", "", "")
+        c.execute(text("INSERT INTO careers (user_id, position, company) VALUES (1, 0, '회사')"))
+        c.execute(text("INSERT INTO educations (user_id, position, school) VALUES (1, 0, '학교')"))
+        c.execute(text("INSERT INTO certificates (user_id, position, name) VALUES (1, 0, '자격증')"))
+        c.execute(text("INSERT INTO skill_groups (user_id, position, category) VALUES (1, 0, '언어')"))
+        c.execute(text("INSERT INTO personality_answers (user_id, position, question) VALUES (1, 0, '질문')"))
+    with pytest.raises(IntegrityError), engine.begin() as c:
+        c.execute(text("INSERT INTO resume_basics (user_id, updated_at) VALUES (1, '2026-10-02')"))
+    with engine.begin() as c:
+        if engine.dialect.name == "sqlite":
+            c.exec_driver_sql("PRAGMA foreign_keys=ON")
+        c.execute(text("DELETE FROM users WHERE id = 1"))
+        for table in ("resume_basics", *tables):
+            assert c.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() == 0
+    engine.dispose()
+
+
 def test_upgrade_reads_database_url(tmp_path, monkeypatch):
     url = f"sqlite:///{tmp_path / 'from-env.db'}"
     monkeypatch.setenv("DATABASE_URL", url)

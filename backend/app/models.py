@@ -607,3 +607,195 @@ class ExperienceLinkKey(ApiModel):
 
     id: int
     link_key: str
+
+
+# ── 이력 ──────────────────────────────────────────────────────────────
+
+
+def _blank_month(value: object) -> object:
+    """빈 글자는 달 없음."""
+    return None if value == "" else value
+
+
+class ResumeBasics(ApiModel):
+    """기본 정보. 모두 비워도 된다. 입력과 출력이 같은 모양이다."""
+
+    name: str = ""
+    email: str = ""
+    phone: str = ""
+    # 현재 상태 (구직 중·재직 중·휴직 중 등).
+    status: str = ""
+    # 희망 직무.
+    want: str = ""
+    # 이력서 요약문 (줄바꿈을 지킨다).
+    summary: str = ""
+
+    @field_validator("name", "email", "phone", "status", "want")
+    @classmethod
+    def strip(cls, value: str) -> str:
+        return value.strip()
+
+
+class DirectionInput(ApiModel):
+    direction: str = ""
+
+
+class Career(ApiModel):
+    """경력 하나. 회사만 필수. 퇴사가 비면 재직 중, 휴직은 선택."""
+
+    company: str
+    team: str = ""
+    role: str = ""
+    started_on: Month = None
+    ended_on: Month = None
+    leave_started_on: Month = None
+    # 휴직 끝 (복직 예정 달).
+    leave_ended_on: Month = None
+    # 주요 업무, 한 줄에 하나.
+    duties: str = ""
+
+    @field_validator("company", "team", "role")
+    @classmethod
+    def strip(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("company")
+    @classmethod
+    def company_required(cls, value: str) -> str:
+        if not value:
+            raise ValueError("company is required")
+        return value
+
+    @field_validator("started_on", "ended_on", "leave_started_on", "leave_ended_on", mode="before")
+    @classmethod
+    def empty_month_is_none(cls, value: object) -> object:
+        return _blank_month(value)
+
+    @model_validator(mode="after")
+    def check_months(self) -> "Career":
+        if self.started_on and self.ended_on and self.ended_on < self.started_on:
+            raise ValueError("endedOn is before startedOn")
+        if self.leave_ended_on and not self.leave_started_on:
+            raise ValueError("leaveEndedOn needs leaveStartedOn")
+        if self.leave_started_on and self.leave_ended_on and self.leave_ended_on < self.leave_started_on:
+            raise ValueError("leaveEndedOn is before leaveStartedOn")
+        return self
+
+
+class Education(ApiModel):
+    """학력 하나. 학교만 필수."""
+
+    school: str
+    major: str = ""
+    started_on: Month = None
+    ended_on: Month = None
+    # 졸업·재학·수료 등.
+    status: str = ""
+
+    @field_validator("school", "major", "status")
+    @classmethod
+    def strip(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("school")
+    @classmethod
+    def school_required(cls, value: str) -> str:
+        if not value:
+            raise ValueError("school is required")
+        return value
+
+    @field_validator("started_on", "ended_on", mode="before")
+    @classmethod
+    def empty_month_is_none(cls, value: object) -> object:
+        return _blank_month(value)
+
+    @model_validator(mode="after")
+    def check_months(self) -> "Education":
+        if self.started_on and self.ended_on and self.ended_on < self.started_on:
+            raise ValueError("endedOn is before startedOn")
+        return self
+
+
+class Certificate(ApiModel):
+    """자격증 하나. 이름만 필수."""
+
+    name: str
+    acquired_on: Month = None
+    issuer: str = ""
+    # 자격번호.
+    number: str = ""
+
+    @field_validator("name", "issuer", "number")
+    @classmethod
+    def strip(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("name")
+    @classmethod
+    def name_required(cls, value: str) -> str:
+        if not value:
+            raise ValueError("name is required")
+        return value
+
+    @field_validator("acquired_on", mode="before")
+    @classmethod
+    def empty_month_is_none(cls, value: object) -> object:
+        return _blank_month(value)
+
+
+class SkillGroup(ApiModel):
+    """기술 스택의 분류 하나. 기술은 쉼표로 나눈 글 그대로."""
+
+    category: str
+    items: str = ""
+    # 근거나 숙련도 (줄바꿈을 지킨다).
+    memo: str = ""
+
+    @field_validator("category", "items")
+    @classmethod
+    def strip(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("category")
+    @classmethod
+    def category_required(cls, value: str) -> str:
+        if not value:
+            raise ValueError("category is required")
+        return value
+
+
+class PersonalityAnswer(ApiModel):
+    """인성 답변 하나. 질문만 필수. 답이 비면 "답변 작성 필요"."""
+
+    topic: str = ""
+    question: str
+    answer: str = ""
+    lesson: str = ""
+
+    @field_validator("topic", "question")
+    @classmethod
+    def strip(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("question")
+    @classmethod
+    def question_required(cls, value: str) -> str:
+        if not value:
+            raise ValueError("question is required")
+        return value
+
+
+class Resume(ApiModel):
+    """이력 전체 (GET /api/resume, 그리고 모든 PUT의 응답).
+
+    경력은 입사, 학력은 입학, 자격증은 취득이 최근인 것부터 (비어 있으면 맨 뒤, 같으면
+    저장한 순서). 기술 스택과 인성 답변은 저장한 순서.
+    """
+
+    basics: ResumeBasics
+    direction: str
+    careers: list[Career]
+    educations: list[Education]
+    certificates: list[Certificate]
+    skills: list[SkillGroup]
+    personality: list[PersonalityAnswer]

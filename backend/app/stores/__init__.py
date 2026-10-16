@@ -22,6 +22,7 @@ from app.stores.jobs import (
     JobStore,
     SharedApplicationError,
 )
+from app.stores.resume import CARDS, Card, ListCard, ResumeImportAction, ResumeStore
 from app.stores.reviews import ReviewStore
 from app.stores.users import DEV_IDENTITY, UserStore
 
@@ -29,13 +30,18 @@ __all__ = [
     "ApplicationAlreadyLinkedError",
     "ApplicationNotFoundError",
     "ApplicationStore",
+    "CARDS",
+    "Card",
     "Clock",
     "DEV_IDENTITY",
     "DuplicateApplicationError",
     "ExperienceStore",
     "ImportAction",
     "JobStore",
+    "ListCard",
     "RelatedExperienceNotFoundError",
+    "ResumeImportAction",
+    "ResumeStore",
     "ReviewNotFoundError",
     "ReviewStore",
     "SelfRelatedError",
@@ -54,6 +60,7 @@ class Stores:
     reviews: ReviewStore
     jobs: JobStore
     experiences: ExperienceStore
+    resume: ResumeStore
 
     @classmethod
     def create(cls, engine: Engine | Connection | None = None, clock: Clock = utc_now) -> "Stores":
@@ -64,4 +71,5 @@ class Stores:
             reviews=ReviewStore(engine, clock),
             jobs=JobStore(engine, clock),
             experiences=ExperienceStore(engine, clock),
+            resume=ResumeStore(engine, clock),
         )
