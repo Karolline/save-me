@@ -4,13 +4,15 @@ import {
   createMockService,
   emptyExperienceFields,
   emptyJobFields,
+  emptyResume,
   formatPeriod,
   SAMPLE_APPLICATIONS,
   SAMPLE_REVIEWS,
 } from "./mockService";
 import { SAMPLE_EXPERIENCES } from "./sampleExperiences";
 import { SAMPLE_JOBS } from "./sampleJobs";
-import type { ApplicationInput, ExperienceInput, JobInput, ReviewInput } from "./types";
+import { SAMPLE_RESUME } from "./sampleResume";
+import type { ApplicationInput, Career, ExperienceInput, JobInput, ReviewInput } from "./types";
 
 const INPUT: ApplicationInput = {
   company: "누리커머스",
@@ -407,5 +409,72 @@ describe("mockService experiences", () => {
     expect(status(await service.updateExperience(2, itself).catch((e: unknown) => e))).toBe(422);
     expect(status(await service.createExperience(input({ name: " " })).catch((e: unknown) => e))).toBe(422);
     expect(status(await service.createExperience(input({ startedOn: "2021-13" })).catch((e: unknown) => e))).toBe(422);
+  });
+});
+
+describe("mockService resume", () => {
+  const status = (error: unknown) => (error as { status?: number }).status;
+  const career = (c: Partial<Career>): Career => ({
+    company: "회사",
+    team: "",
+    role: "",
+    startedOn: null,
+    endedOn: null,
+    leaveStartedOn: null,
+    leaveEndedOn: null,
+    duties: "",
+    ...c,
+  });
+
+  it("starts empty and saves one card at a time", async () => {
+    const service = createMockService();
+    expect(await service.getResume()).toEqual(emptyResume());
+
+    await service.saveResumeBasics({ ...emptyResume().basics, name: " 김지원 ", summary: "요약\n" });
+    const got = await service.saveResumeDirection("방향");
+    expect(got.basics.name).toBe("김지원");
+    expect(got.basics.summary).toBe("요약\n");
+    expect(got.direction).toBe("방향");
+  });
+
+  it("sorts careers, educations and certificates newest first like the store", async () => {
+    const service = createMockService();
+    const got = await service.saveCareers([
+      career({ company: "옛", startedOn: "2020-03", endedOn: "" as unknown as null }),
+      career({ company: "모름" }),
+      career({ company: "새", startedOn: "2023-01" }),
+      career({ company: "새 둘째", startedOn: "2023-01" }),
+    ]);
+    expect(got.careers.map((c) => c.company)).toEqual(["새", "새 둘째", "옛", "모름"]);
+    expect(got.careers[2].endedOn).toBeNull();
+
+    const certs = await service.saveCertificates([
+      { name: "가", acquiredOn: "2019-05", issuer: "", number: "" },
+      { name: "나", acquiredOn: "2020-09", issuer: "", number: " 1 " },
+    ]);
+    expect(certs.certificates.map((c) => [c.name, c.number])).toEqual([["나", "1"], ["가", ""]]);
+    // 기술 스택과 인성 답변은 받은 순서.
+    const skills = await service.saveSkills([
+      { category: "나", items: "", memo: "" },
+      { category: "가", items: "", memo: "" },
+    ]);
+    expect(skills.skills.map((s) => s.category)).toEqual(["나", "가"]);
+  });
+
+  it("refuses the same rows as the server and keeps the card", async () => {
+    const service = createMockService({ resume: SAMPLE_RESUME });
+    const bad = [
+      service.saveCareers([career({ company: " " })]),
+      service.saveCareers([career({ startedOn: "2022-05", endedOn: "2022-04" })]),
+      service.saveCareers([career({ leaveEndedOn: "2025-01" })]),
+      service.saveCareers([career({ leaveStartedOn: "2025-05", leaveEndedOn: "2025-04" })]),
+      service.saveCareers([career({ startedOn: "2022-13" })]),
+      service.saveEducations([{ school: "가", major: "", startedOn: "2011-03", endedOn: "2010-02", status: "" }]),
+      service.saveCertificates([{ name: "", acquiredOn: null, issuer: "", number: "" }]),
+      service.saveSkills([{ category: "", items: "", memo: "" }]),
+      service.savePersonality([{ topic: "주제", question: " ", answer: "", lesson: "" }]),
+    ];
+    for (const call of bad) expect(status(await call.catch((e: unknown) => e))).toBe(422);
+    expect(await service.getResume()).toEqual(SAMPLE_RESUME);
   });
 });

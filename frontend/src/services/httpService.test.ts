@@ -164,6 +164,44 @@ describe("httpService", () => {
     expect(deleting.mock.calls[0]).toMatchObject(["/api/experiences/4", { method: "DELETE" }]);
   });
 
+  it("calls the resume endpoints, one PUT per card", async () => {
+    const fetch = stubFetch(200, {});
+    const service = createHttpService("/api", fetch);
+    const career = {
+      company: "가",
+      team: "",
+      role: "",
+      startedOn: "2023-01",
+      endedOn: null,
+      leaveStartedOn: null,
+      leaveEndedOn: null,
+      duties: "",
+    };
+
+    await service.getResume();
+    await service.saveResumeBasics({ name: "김", email: "", phone: "", status: "", want: "", summary: "" });
+    await service.saveResumeDirection("방향");
+    await service.saveCareers([career]);
+    await service.saveEducations([]);
+    await service.saveCertificates([]);
+    await service.saveSkills([]);
+    await service.savePersonality([]);
+
+    expect(fetch.mock.calls.map(([url, init]) => [url, init?.method ?? "GET"])).toEqual([
+      ["/api/resume", "GET"],
+      ["/api/resume/basics", "PUT"],
+      ["/api/resume/direction", "PUT"],
+      ["/api/resume/careers", "PUT"],
+      ["/api/resume/educations", "PUT"],
+      ["/api/resume/certificates", "PUT"],
+      ["/api/resume/skills", "PUT"],
+      ["/api/resume/personality", "PUT"],
+    ]);
+    expect(JSON.parse(String(fetch.mock.calls[2][1]?.body))).toEqual({ direction: "방향" });
+    expect(JSON.parse(String(fetch.mock.calls[3][1]?.body))).toEqual([career]);
+    expect(fetch.mock.calls[3][1]?.headers).toMatchObject({ "X-Requested-With": "SaveMe" });
+  });
+
   it("deletes with no body expected back", async () => {
     const fetch = stubFetch(204);
     await createHttpService("/api", fetch).deleteApplication(5);

@@ -4,6 +4,9 @@ import type {
   ApplicationInput,
   ApplicationList,
   AuthConfig,
+  Career,
+  Certificate,
+  Education,
   Experience,
   ExperienceInput,
   ExperienceLinkKey,
@@ -14,11 +17,15 @@ import type {
   JobInput,
   JobList,
   JobStatusFilter,
+  PersonalityAnswer,
   Question,
+  Resume,
+  ResumeBasics,
   Review,
   ReviewInput,
   ReviewList,
   SaveMeService,
+  SkillGroup,
   StatusFilter,
   User,
 } from "./types";
@@ -230,6 +237,38 @@ export function createHttpService(
 
     async deleteExperience(id: number) {
       await empty(await request(experiencePath(id), send("DELETE")));
+    },
+
+    async getResume() {
+      return json<Resume>(await request("/resume"));
+    },
+
+    async saveResumeBasics(basics: ResumeBasics) {
+      return json<Resume>(await request("/resume/basics", send("PUT", basics)));
+    },
+
+    async saveResumeDirection(direction: string) {
+      return json<Resume>(await request("/resume/direction", send("PUT", { direction })));
+    },
+
+    async saveCareers(careers: Career[]) {
+      return json<Resume>(await request("/resume/careers", send("PUT", careers)));
+    },
+
+    async saveEducations(educations: Education[]) {
+      return json<Resume>(await request("/resume/educations", send("PUT", educations)));
+    },
+
+    async saveCertificates(certificates: Certificate[]) {
+      return json<Resume>(await request("/resume/certificates", send("PUT", certificates)));
+    },
+
+    async saveSkills(skills: SkillGroup[]) {
+      return json<Resume>(await request("/resume/skills", send("PUT", skills)));
+    },
+
+    async savePersonality(personality: PersonalityAnswer[]) {
+      return json<Resume>(await request("/resume/personality", send("PUT", personality)));
     },
   };
 }

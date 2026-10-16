@@ -473,6 +473,95 @@ export interface ExperienceLinkKey {
   linkKey: string;
 }
 
+// ── 이력 ──
+
+/** 기본 정보. 모두 비워도 된다. */
+export interface ResumeBasics {
+  name: string;
+  email: string;
+  phone: string;
+  /** 현재 상태 (구직 중·재직 중·휴직 중 등). */
+  status: string;
+  /** 희망 직무. */
+  want: string;
+  /** 이력서 요약문 (줄바꿈을 지킨다). */
+  summary: string;
+}
+
+/** 경력 하나. 달은 `YYYY-MM`, 없으면 null. */
+export interface Career {
+  /** 필수. 경험의 소속과 같은 이름으로 적는다. */
+  company: string;
+  team: string;
+  /** 직무·직급. */
+  role: string;
+  startedOn: string | null;
+  /** null이면 재직 중. */
+  endedOn: string | null;
+  leaveStartedOn: string | null;
+  /** 휴직 끝 (복직 예정 달). 휴직 시작이 있어야 한다. */
+  leaveEndedOn: string | null;
+  /** 주요 업무, 한 줄에 하나. */
+  duties: string;
+}
+
+export interface Education {
+  /** 필수. */
+  school: string;
+  major: string;
+  startedOn: string | null;
+  endedOn: string | null;
+  /** 졸업·재학·수료 등. */
+  status: string;
+}
+
+export interface Certificate {
+  /** 필수. */
+  name: string;
+  acquiredOn: string | null;
+  issuer: string;
+  /** 자격번호. */
+  number: string;
+}
+
+/** 기술 스택의 분류 하나. */
+export interface SkillGroup {
+  /** 필수. */
+  category: string;
+  /** 쉼표로 나눈 글 그대로. */
+  items: string;
+  /** 근거나 숙련도. */
+  memo: string;
+}
+
+export interface PersonalityAnswer {
+  /** 같은 주제끼리 묶여 보인다. */
+  topic: string;
+  /** 필수. */
+  question: string;
+  /** 비어 있으면 "답변 작성 필요". */
+  answer: string;
+  lesson: string;
+}
+
+/**
+ * 이력 전체. 경력·학력·자격증은 날짜가 최근인 것부터 (비어 있으면 맨 뒤, 같으면 저장한 순서),
+ * 기술 스택과 인성 답변은 저장한 순서.
+ */
+export interface Resume {
+  basics: ResumeBasics;
+  /** 커리어 방향. */
+  direction: string;
+  careers: Career[];
+  educations: Education[];
+  certificates: Certificate[];
+  skills: SkillGroup[];
+  personality: PersonalityAnswer[];
+}
+
+/** 이력의 목록 카드. */
+export type ResumeListCard = "careers" | "educations" | "certificates" | "skills" | "personality";
+
 /**
  * 백엔드 호출은 모두 이 인터페이스를 거친다. 세션 없이 부르면 status 401인
  * ApiError를 던진다 (`isUnauthorized` 참고).
@@ -530,4 +619,15 @@ export interface SaveMeService {
   setExperienceVerified(id: number, verified: boolean): Promise<Experience>;
   /** 다른 경험의 관련 경험 줄 중 이것을 가리키던 것도 지워진다. */
   deleteExperience(id: number): Promise<void>;
+
+  /** 이력 전체. 아직 적은 것이 없으면 빈 칸과 빈 목록. */
+  getResume(): Promise<Resume>;
+  /** 카드 하나를 통째로 바꾸고 이력 전체를 돌려준다. 필수 칸이 비었거나 날짜가 틀리면 422인 ApiError. */
+  saveResumeBasics(basics: ResumeBasics): Promise<Resume>;
+  saveResumeDirection(direction: string): Promise<Resume>;
+  saveCareers(careers: Career[]): Promise<Resume>;
+  saveEducations(educations: Education[]): Promise<Resume>;
+  saveCertificates(certificates: Certificate[]): Promise<Resume>;
+  saveSkills(skills: SkillGroup[]): Promise<Resume>;
+  savePersonality(personality: PersonalityAnswer[]): Promise<Resume>;
 }

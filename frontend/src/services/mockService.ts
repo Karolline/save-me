@@ -8,6 +8,9 @@ import {
   type ApplicationInput,
   type ApplicationList,
   type ApplicationStats,
+  type Career,
+  type Certificate,
+  type Education,
   type Experience,
   type ExperienceFields,
   type ExperienceInput,
@@ -23,15 +26,19 @@ import {
   type JobStatusFilter,
   type JobSummary,
   type LevelCounts,
+  type PersonalityAnswer,
   type Question,
   type RequirementCategory,
   type Result,
+  type Resume,
+  type ResumeBasics,
   type Review,
   type ReviewGroup,
   type ReviewInput,
   type ReviewList,
   type ReviewSummary,
   type SaveMeService,
+  type SkillGroup,
   type Stage,
   type StageKind,
   type StatusFilter,
@@ -43,7 +50,7 @@ import type { JobSeed } from "./sampleJobs";
 /**
  * 백엔드와 똑같이 동작하는 메모리 구현: 정렬, 필터, 통계, 계산 값(`depth`,
  * `period`), (company, appliedAt) 중복 규칙, 검증, 세션, 면접 후기의 회사별
- * 묶기와 즐겨찾기, 공고분석의 정렬·필터·●◐○ 수·지원 건 연결 규칙.
+ * 묶기와 즐겨찾기, 공고분석의 정렬·필터·●◐○ 수·지원 건 연결 규칙, 이력 카드의 검증과 정렬.
  * 모든 컴포넌트 테스트와 `VITE_USE_MOCK_API=true`에서 쓴다.
  * 데이터는 모두 지어낸 것이다.
  */
@@ -149,6 +156,8 @@ export interface MockOptions {
   jobs?: JobSeed[];
   /** 처음 경험 (기본: 없음). 받은 질문의 후기는 `reviews`에서 (회사, 차수)로 찾는다. */
   experiences?: ExperienceSeed[];
+  /** 처음 이력 (기본: 빈 이력). */
+  resume?: Resume;
   /** 호출마다 기다리는 밀리초. 불러오는 중 화면을 보려고 (기본 0). */
   delay?: number;
 }
@@ -401,6 +410,120 @@ function oldestFirst(a: StoredReview, b: StoredReview): number {
   return sortDay(a).localeCompare(sortDay(b)) || a.createdAt.localeCompare(b.createdAt) || a.id - b.id;
 }
 
+// ── 이력 (백엔드의 models.py 검증, stores/resume.py 정렬과 같다) ──
+
+/** 빈 이력 (아직 아무것도 적지 않은 사용자). */
+export function emptyResume(): Resume {
+  return {
+    basics: { name: "", email: "", phone: "", status: "", want: "", summary: "" },
+    direction: "",
+    careers: [],
+    educations: [],
+    certificates: [],
+    skills: [],
+    personality: [],
+  };
+}
+
+const invalidResume = () => new ApiError(422, "Request failed (422): invalid resume");
+
+/** 빈 글자는 달 없음, 형식이 틀리면 422. */
+function resumeMonth(value: string | null): string | null {
+  const m = value || null;
+  if (m !== null && !MONTH.test(m)) throw invalidResume();
+  return m;
+}
+
+function requiredText(value: string): string {
+  const v = value.trim();
+  if (!v) throw invalidResume();
+  return v;
+}
+
+/** 끝이 시작보다 빠르면 422 (둘 다 있을 때만). */
+function checkOrder(start: string | null, end: string | null) {
+  if (start && end && end < start) throw invalidResume();
+}
+
+function cleanCareer(c: Career): Career {
+  const clean: Career = {
+    ...c,
+    company: requiredText(c.company),
+    team: c.team.trim(),
+    role: c.role.trim(),
+    startedOn: resumeMonth(c.startedOn),
+    endedOn: resumeMonth(c.endedOn),
+    leaveStartedOn: resumeMonth(c.leaveStartedOn),
+    leaveEndedOn: resumeMonth(c.leaveEndedOn),
+  };
+  checkOrder(clean.startedOn, clean.endedOn);
+  if (clean.leaveEndedOn && !clean.leaveStartedOn) throw invalidResume();
+  checkOrder(clean.leaveStartedOn, clean.leaveEndedOn);
+  return clean;
+}
+
+function cleanEducation(e: Education): Education {
+  const clean: Education = {
+    ...e,
+    school: requiredText(e.school),
+    major: e.major.trim(),
+    status: e.status.trim(),
+    startedOn: resumeMonth(e.startedOn),
+    endedOn: resumeMonth(e.endedOn),
+  };
+  checkOrder(clean.startedOn, clean.endedOn);
+  return clean;
+}
+
+const cleanCertificate = (c: Certificate): Certificate => ({
+  ...c,
+  name: requiredText(c.name),
+  acquiredOn: resumeMonth(c.acquiredOn),
+  issuer: c.issuer.trim(),
+  number: c.number.trim(),
+});
+
+const cleanSkill = (s: SkillGroup): SkillGroup => ({ ...s, category: requiredText(s.category), items: s.items.trim() });
+
+const cleanAnswer = (p: PersonalityAnswer): PersonalityAnswer => ({
+  ...p,
+  topic: p.topic.trim(),
+  question: requiredText(p.question),
+});
+
+const cleanBasics = (b: ResumeBasics): ResumeBasics => ({
+  name: b.name.trim(),
+  email: b.email.trim(),
+  phone: b.phone.trim(),
+  status: b.status.trim(),
+  want: b.want.trim(),
+  summary: b.summary,
+});
+
+/** 날짜가 최근인 것부터, 비어 있으면 맨 뒤, 같으면 받은 순서. */
+function newestFirst<T>(list: T[], day: (x: T) => string | null): T[] {
+  return list
+    .map((x, i) => ({ x, i, d: day(x) }))
+    .sort((a, b) => {
+      if (!a.d !== !b.d) return a.d ? -1 : 1;
+      return (a.d && b.d ? b.d.localeCompare(a.d) : 0) || a.i - b.i;
+    })
+    .map((p) => p.x);
+}
+
+/** 이력을 저장할 때처럼 다듬고 정렬한다. 하나라도 틀리면 422 (아무것도 바뀌지 않는다). */
+function cleanResume(r: Resume): Resume {
+  return {
+    basics: cleanBasics(r.basics),
+    direction: r.direction,
+    careers: newestFirst(r.careers.map(cleanCareer), (c) => c.startedOn),
+    educations: newestFirst(r.educations.map(cleanEducation), (e) => e.startedOn),
+    certificates: newestFirst(r.certificates.map(cleanCertificate), (c) => c.acquiredOn),
+    skills: r.skills.map(cleanSkill),
+    personality: r.personality.map(cleanAnswer),
+  };
+}
+
 export function createMockService(options: MockOptions = {}): MockService {
   let loggedIn = options.loggedIn ?? true;
   let offline = false;
@@ -415,6 +538,13 @@ export function createMockService(options: MockOptions = {}): MockService {
   let nextJobId = 1;
   const experiences = new Map<number, StoredExperience>();
   let nextExperienceId = 1;
+  let resume = cleanResume(options.resume ?? emptyResume());
+  /** 카드 하나를 바꾼다: 다듬다가 틀리면 422이고 이력은 그대로. */
+  const saveCard = (change: Partial<Resume>) =>
+    call((): Resume => {
+      resume = cleanResume({ ...resume, ...change });
+      return resume;
+    });
 
   function experienceSummary(x: StoredExperience): ExperienceSummary {
     return {
@@ -1006,5 +1136,14 @@ export function createMockService(options: MockOptions = {}): MockService {
         // 다른 경험의 관련 경험 줄 중 이것을 가리키던 것도 지워진다 (DB의 CASCADE).
         for (const x of experiences.values()) x.related = x.related.filter((r) => r.experienceId !== id);
       }),
+
+    getResume: () => call(() => resume),
+    saveResumeBasics: (basics: ResumeBasics) => saveCard({ basics }),
+    saveResumeDirection: (direction: string) => saveCard({ direction }),
+    saveCareers: (careers: Career[]) => saveCard({ careers }),
+    saveEducations: (educations: Education[]) => saveCard({ educations }),
+    saveCertificates: (certificates: Certificate[]) => saveCard({ certificates }),
+    saveSkills: (skills: SkillGroup[]) => saveCard({ skills }),
+    savePersonality: (personality: PersonalityAnswer[]) => saveCard({ personality }),
   };
 }

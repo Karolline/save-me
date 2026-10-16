@@ -3,6 +3,7 @@ import { createHttpService } from "./httpService";
 import { createMockService, SAMPLE_APPLICATIONS, SAMPLE_REVIEWS } from "./mockService";
 import { SAMPLE_EXPERIENCES } from "./sampleExperiences";
 import { SAMPLE_JOBS } from "./sampleJobs";
+import { SAMPLE_RESUME } from "./sampleResume";
 import type { SaveMeService } from "./types";
 
 /**
@@ -20,6 +21,7 @@ export const defaultService: SaveMeService = useMock
       reviews: SAMPLE_REVIEWS,
       jobs: SAMPLE_JOBS,
       experiences: SAMPLE_EXPERIENCES,
+      resume: SAMPLE_RESUME,
     })
   : createHttpService(apiBaseUrl);
 
