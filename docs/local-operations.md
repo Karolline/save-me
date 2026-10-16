@@ -73,7 +73,7 @@ powershell -ExecutionPolicy Bypass -File scripts\restore.ps1
 
 ## 기존 데이터 가져오기
 
-메뉴마다 만드는 단계의 마지막에 사용자의 기존 기록을 가져온다 (기획안 7). 가져오기는 JSON 파일을 읽는다. 진짜 데이터가 든 JSON은 `private/`(git이 무시)에 둔다. `saveme_dev`에 먼저 넣고, 화면을 확인하고, 백업한 뒤 `saveme`에 넣는다. 두 번 돌려도 괜찮다: 이미 있는 기록(같은 키)은 중복되지 않고 고쳐진다.
+메뉴마다 만드는 단계의 마지막에 사용자의 기존 기록을 가져온다 (기획안 7). 가져오기는 JSON 파일을 읽는다. 진짜 데이터가 든 JSON은 `private/`(git이 무시)에 둔다. `saveme_dev`에 먼저 넣고, 화면을 확인하고, 백업한 뒤 `saveme`에 넣는다. 두 번 돌려도 괜찮다: 이미 있는 기록(같은 키)은 중복되지 않고 고쳐진다 (공고분석은 기본으로 건너뛴다: 아래 참고).
 
 ```
 cd backend
@@ -147,16 +147,29 @@ uv run python -m app.importers.reviews ../private/reviews.json --database-url po
 ```
 
 - API와 달리 `analyzedAt`(원래 분석한 날)을 그대로 쓴다. 앱에서 저장하면 그날로 바뀐다.
-- 같은 분석인지는 로컬 사용자의 (`company`, `title`)로 정한다. 있으면 통째로 바꾸므로 두 번 돌려도 달라지지 않는다. 한 파일에 같은 (`company`, `title`)가 두 번 있으면 알려 주고 아무것도 쓰지 않는다.
-- `application`은 연결할 지원 건 (`company`, `appliedAt`)이거나 `null`. 없는 지원 건이 있으면 알려 주고 아무것도 쓰지 않는다. 연결하면 지원 여부는 `applied`가 된다. 지원 건 하나에는 분석 하나: 이미 다른 분석과 연결된 지원 건이나 한 지원 건을 가리키는 두 항목이 있으면 아무것도 쓰지 않는다.
+- 같은 분석인지는 로컬 사용자의 (`company`, `title`)로 정한다. 새 분석은 사람 확인 N으로 만든다 (앱에서 [읽고 확인했어요]로 Y). 한 파일에 같은 (`company`, `title`)가 두 번 있으면 알려 주고 아무것도 쓰지 않는다.
+- 이미 있는 분석은 기본으로 **건너뛴다**: 내용, 사람 확인, 분석일, 지원 건 연결 모두 그대로. 그래서 같은 파일을 두 번 돌려도 두 번째는 모두 건너뛴다.
+- `--replace`: 사람 확인이 N인 기존 분석만 통째로 바꾼다 (다시 N). 사람이 확인한(Y) 분석은 `--replace`여도 그 항목만 건너뛰고, 다른 항목은 들어간다.
+- 건너뛴 항목은 아무것도 쓰지 않는다: 지원 건도 잇지 않고, 아래 연결 검사에도 세지 않는다.
+- `application`은 연결할 지원 건 (`company`, `appliedAt`)이거나 `null`. 없는 지원 건이 있으면 (건너뛸 항목이라도) 알려 주고 아무것도 쓰지 않는다. 연결하면 지원 여부는 `applied`가 된다. 지원 건 하나에는 분석 하나: 쓰는 항목이 이미 다른 분석과 연결된 지원 건을 가리키거나, 쓰는 두 항목이 한 지원 건을 가리키면 아무것도 쓰지 않는다.
+- `--dry-run`: 모든 검사를 진짜처럼 하고 같은 요약을 보이지만 아무것도 쓰지 않는다 (트랜잭션을 되돌린다). `saveme`에 넣기 전에 먼저 돌려 본다. 마이그레이션은 하지 않아서, DB가 최신 버전이 아니면 `DB가 최신 버전이 아니에요. 앱을 먼저 업데이트하세요.`로 멈춘다. 그냥 돌리면 전처럼 먼저 마이그레이션한다.
+- 출력: 첫 줄에 수, 건너뛴 항목마다 한 줄 (파일 순서). 까닭은 `이미 있음` (`--replace` 없이 있는 분석, 확인된 것도) 또는 `확인됨이라 바꾸지 않음` (`--replace`인데 Y). `--dry-run`이면 첫 줄 앞에 `[시험] `, 끝에 `시험이라 아무것도 쓰지 않았어요.`
+
+  ```
+  saveme: 추가 2, 바꿈 1, 건너뜀 2 (파일 5건)
+  건너뜀: 오늘의집 · 백엔드 개발자 (이미 있음)
+  건너뜀: 토스 · Server Developer (확인됨이라 바꾸지 않음)
+  ```
 - `level`: `full`(충족), `part`(부분·인접), `none`(없음), `""`(미평가). 해당도를 매기지 않은 기존 분석은 `""`로 둔다.
 - 파일 전체를 트랜잭션 하나로 쓴다. `company`와 `analyzedAt` 말고는 빼도 된다. 점수는 0~1000.
-- 파일이 망가졌으면 (JSON, 칸 모양) 한 줄 오류를 보이고 아무것도 쓰지 않는다.
+- 파일이 망가졌으면 (JSON, 칸 모양) 한 줄 오류를 보이고 아무것도 쓰지 않는다. 다른 오류도 한 줄이고, 아무것도 쓰지 않고 0이 아닌 코드로 끝난다.
 
 ```
 cd backend
 uv run python -m app.importers.jobs ../private/jobs.json
+uv run python -m app.importers.jobs ../private/jobs.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme --dry-run
 uv run python -m app.importers.jobs ../private/jobs.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
+uv run python -m app.importers.jobs ../private/jobs.json --replace
 ```
 
 ---
@@ -228,7 +241,7 @@ With no arguments this is a **restore drill**: it restores the newest dump into 
 
 ## Importing existing data
 
-Each menu's build step ends by importing the user's existing records for it (tech plan 7). The importer reads a JSON file; the JSON with real data lives in `private/` (git-ignored). Import into `saveme_dev`, check the screens, back up, then import into `saveme`. Importers are safe to run twice: existing records (same key) are updated, not duplicated.
+Each menu's build step ends by importing the user's existing records for it (tech plan 7). The importer reads a JSON file; the JSON with real data lives in `private/` (git-ignored). Import into `saveme_dev`, check the screens, back up, then import into `saveme`. Importers are safe to run twice: existing records (same key) are updated, not duplicated (job analyses are skipped by default: see below).
 
 ```
 cd backend
@@ -259,14 +272,21 @@ uv run python -m app.importers.reviews ../private/reviews.json --database-url po
 Run it after the applications are imported when analyses link to them. The file is `{"jobs": [...]}`; each item is the `POST /api/jobs` body (`JobFields` in `openapi.yaml`, without `applicationId`) plus `analyzedAt` and `application`, as shown in the Korean section above.
 
 - Unlike the API, the given `analyzedAt` (the original analysis day) is kept. Saving in the app changes it to that day.
-- The same analysis is the same (`company`, `title`) for the local user; it is replaced as a whole, so running twice changes nothing. The same (`company`, `title`) twice in the file is named and nothing is written.
-- `application` is the application to link (`company`, `appliedAt`) or `null`. A missing application is named and nothing is written. Linking stores the status as `applied`. One analysis per application: an application already linked to another analysis, or two items pointing at one application, write nothing.
+- The same analysis is the same (`company`, `title`) for the local user. New analyses are created unverified (N; the user marks them Y in the app with [읽고 확인했어요]). The same (`company`, `title`) twice in the file is named and nothing is written.
+- An existing analysis is **skipped** by default: its content, verified flag, analysis date and application link stay as they are. So running a file twice skips everything the second time.
+- `--replace`: an existing unverified (N) analysis is replaced as a whole (and stays N). A verified (Y) analysis is skipped even with `--replace`, just that item; the other items still go in.
+- Skipped items write nothing: their application is not linked and they don't count in the link checks below.
+- `application` is the application to link (`company`, `appliedAt`) or `null`. A missing application (even on an item that would be skipped) is named and nothing is written. Linking stores the status as `applied`. One analysis per application: a written item pointing at an application already linked to another analysis, or two written items pointing at one application, write nothing.
+- `--dry-run`: runs every check like a real run and prints the same summary, but writes nothing (the transaction is rolled back). Run it before importing into `saveme`. It doesn't migrate: if the database isn't at the latest version it stops with `DB가 최신 버전이 아니에요. 앱을 먼저 업데이트하세요.` A normal run migrates first, as before.
+- Output: the counts on the first line, then one line per skipped item (in file order). The reason is `이미 있음` (existing, without `--replace`, verified or not) or `확인됨이라 바꾸지 않음` (verified, with `--replace`). With `--dry-run` the first line starts with `[시험] ` and a last line says `시험이라 아무것도 쓰지 않았어요.` (example in the Korean section above).
 - `level`: `full`, `part`, `none`, or `""` (not rated yet). Existing analyses without per-item ratings use `""`.
 - The whole file is written in one transaction. Everything but `company` and `analyzedAt` may be left out. Scores are 0-1000.
-- A malformed file (JSON, field shapes) prints a one-line error and writes nothing.
+- A malformed file (JSON, field shapes) prints a one-line error and writes nothing. Other errors are one line too, write nothing and exit non-zero.
 
 ```
 cd backend
 uv run python -m app.importers.jobs ../private/jobs.json
+uv run python -m app.importers.jobs ../private/jobs.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme --dry-run
 uv run python -m app.importers.jobs ../private/jobs.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
+uv run python -m app.importers.jobs ../private/jobs.json --replace
 ```
