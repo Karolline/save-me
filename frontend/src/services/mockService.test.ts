@@ -1,8 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { isConflict, isNotFound, isUnauthorized } from "./errors";
-import { createMockService, emptyJobFields, formatPeriod, SAMPLE_APPLICATIONS, SAMPLE_REVIEWS } from "./mockService";
+import {
+  createMockService,
+  emptyExperienceFields,
+  emptyJobFields,
+  formatPeriod,
+  SAMPLE_APPLICATIONS,
+  SAMPLE_REVIEWS,
+} from "./mockService";
+import { SAMPLE_EXPERIENCES } from "./sampleExperiences";
 import { SAMPLE_JOBS } from "./sampleJobs";
-import type { ApplicationInput, JobInput, ReviewInput } from "./types";
+import type { ApplicationInput, ExperienceInput, JobInput, ReviewInput } from "./types";
 
 const INPUT: ApplicationInput = {
   company: "누리커머스",
@@ -293,5 +301,94 @@ describe("mockService job analyses", () => {
     );
     expect(updated.requirements.map((r) => r.text)).toEqual(["Kafka"]);
     expect(isNotFound(await service.updateJob(999, input()).catch((e) => e))).toBe(true);
+  });
+});
+
+describe("mockService experiences", () => {
+  const withExperiences = () =>
+    createMockService({ applications: SAMPLE_APPLICATIONS, reviews: SAMPLE_REVIEWS, experiences: SAMPLE_EXPERIENCES });
+  const input = (changes: Partial<ExperienceInput> = {}): ExperienceInput => ({
+    ...emptyExperienceFields("새 경험"),
+    related: [],
+    ...changes,
+  });
+  const status = (error: unknown) => (error as { status?: number }).status;
+
+  it("lists most recently started first, empty start last, with counts over everything", async () => {
+    const service = withExperiences();
+    await service.createExperience(input({ name: "시작 모름" }));
+
+    const all = await service.listExperiences();
+    expect(all.items.map((x) => x.id)).toEqual([7, 11, 9, 5, 3, 6, 2, 10, 4, 8, 1, 12, 13]);
+    expect(all.counts).toEqual({ all: 13, unv: 4, need: 11 });
+
+    expect((await service.listExperiences("unv")).items.map((x) => x.id)).toEqual([7, 3, 10, 1]);
+    expect((await service.listExperiences("need")).items.map((x) => x.id)).not.toContain(2);
+    const searched = await service.listExperiences("all", " KAFKA ");
+    expect(searched.items.map((x) => x.name)).toEqual(["주문 이벤트 스트림 재설계"]);
+    expect(searched.counts).toEqual(all.counts);
+    expect((await service.listExperiences("all", "다올")).items).toHaveLength(4);
+  });
+
+  it("computes the needs like the server", async () => {
+    const service = withExperiences();
+    expect((await service.getExperience(2))!.needs).toEqual([]);
+    const created = await service.createExperience(
+      input({ qas: [{ question: "Q1", answer: "", caution: "" }], missing: ["수치"] }),
+    );
+    expect(created.needs.map((n) => n.label)).toEqual(["결과 수치 없음", "비어 있음 4", "답변 작성 필요 1", "보완 필요 1"]);
+    expect(created.needs[1].detail).toBe("상황 · 과제 · 행동 · 결과이(가) 비어 있어요.");
+    expect(created.verified).toBe(true);
+  });
+
+  it("links sample asked questions to reviews and related experiences by name", async () => {
+    const cloud = (await withExperiences().getExperience(1))!;
+    expect(cloud.asked.map((a) => a.interviewReviewId)).toEqual([1, null, null]);
+    expect(cloud.related.map((r) => [r.name, r.verified])).toEqual([
+      ["정산 배치 튜닝", true],
+      ["클라우드 비용 대시보드", true],
+    ]);
+  });
+
+  it("unlinks asked questions when the review or its application goes", async () => {
+    const service = withExperiences();
+    await service.deleteReview(1);
+    expect((await service.getExperience(1))!.asked[0].interviewReviewId).toBeNull();
+
+    const raon = (await service.getExperience(2))!.asked[0].interviewReviewId!;
+    const app = (await service.getReview(raon))!.applicationId;
+    await service.deleteApplication(app);
+    expect((await service.getExperience(2))!.asked[0].interviewReviewId).toBeNull();
+  });
+
+  it("removes related rows pointing at a deleted experience", async () => {
+    const service = withExperiences();
+    await service.deleteExperience(4);
+    expect((await service.getExperience(1))!.related.map((r) => r.name)).toEqual(["클라우드 비용 대시보드"]);
+    expect(await service.getExperience(4)).toBeNull();
+    expect(isNotFound(await service.deleteExperience(4).catch((e: unknown) => e))).toBe(true);
+  });
+
+  it("lists link keys, keeps updatedAt when verifying, and validates like the server", async () => {
+    const service = withExperiences();
+    const links = await service.listExperienceLinks();
+    expect(links).toHaveLength(12);
+    expect(links[0]).toEqual({ id: 1, linkKey: "클라우드이전-로그수집" });
+
+    const before = (await service.getExperience(1))!;
+    const after = await service.setExperienceVerified(1, true);
+    expect(after.verified).toBe(true);
+    expect(after.updatedAt).toBe(before.updatedAt);
+    expect((await service.updateExperience(3, input({ name: "고침" }))).verified).toBe(true);
+
+    expect(isNotFound(await service.updateExperience(99, input()).catch((e: unknown) => e))).toBe(true);
+    const badRelated = input({ related: [{ experienceId: 99, note: "" }] });
+    expect(isNotFound(await service.createExperience(badRelated).catch((e: unknown) => e))).toBe(true);
+    const badReview = input({ asked: [{ question: "Q", where: "", interviewReviewId: 99 }] });
+    expect(isNotFound(await service.createExperience(badReview).catch((e: unknown) => e))).toBe(true);
+    const itself = input({ related: [{ experienceId: 2, note: "" }] });
+    expect(status(await service.updateExperience(2, itself).catch((e: unknown) => e))).toBe(422);
+    expect(status(await service.createExperience(input({ name: " " })).catch((e: unknown) => e))).toBe(422);
+    expect(status(await service.createExperience(input({ startedOn: "2021-13" })).catch((e: unknown) => e))).toBe(422);
   });
 });

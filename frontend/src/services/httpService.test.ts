@@ -133,6 +133,37 @@ describe("httpService", () => {
     expect(deleting.mock.calls[0]).toMatchObject(["/api/jobs/4", { method: "DELETE" }]);
   });
 
+  it("calls the experience endpoints", async () => {
+    const fetch = stubFetch(200, { id: 3 });
+    const service = createHttpService("/api", fetch);
+    const input = { name: "경험" } as unknown as Parameters<typeof service.createExperience>[0];
+
+    await service.listExperiences();
+    await service.listExperiences("need", " 스트림 ");
+    await service.listExperienceLinks();
+    await service.getExperience(3);
+    await service.createExperience(input);
+    await service.updateExperience(3, input);
+    await service.setExperienceVerified(3, true);
+
+    expect(fetch.mock.calls.map(([url, init]) => [url, init?.method ?? "GET"])).toEqual([
+      ["/api/experiences", "GET"],
+      [`/api/experiences?view=need&q=${encodeURIComponent("스트림")}`, "GET"],
+      ["/api/experiences/links", "GET"],
+      ["/api/experiences/3", "GET"],
+      ["/api/experiences", "POST"],
+      ["/api/experiences/3", "PUT"],
+      ["/api/experiences/3/verified", "PUT"],
+    ]);
+    expect(JSON.parse(String(fetch.mock.calls[4][1]?.body))).toEqual({ name: "경험" });
+    expect(JSON.parse(String(fetch.mock.calls[6][1]?.body))).toEqual({ verified: true });
+    expect(fetch.mock.calls[5][1]?.headers).toMatchObject({ "X-Requested-With": "SaveMe" });
+    expect(await createHttpService("/api", stubFetch(404, { detail: "nope" })).getExperience(9)).toBeNull();
+    const deleting = stubFetch(204);
+    await createHttpService("/api", deleting).deleteExperience(4);
+    expect(deleting.mock.calls[0]).toMatchObject(["/api/experiences/4", { method: "DELETE" }]);
+  });
+
   it("deletes with no body expected back", async () => {
     const fetch = stubFetch(204);
     await createHttpService("/api", fetch).deleteApplication(5);

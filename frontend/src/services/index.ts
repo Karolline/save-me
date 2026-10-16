@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import { createHttpService } from "./httpService";
 import { createMockService, SAMPLE_APPLICATIONS, SAMPLE_REVIEWS } from "./mockService";
+import { SAMPLE_EXPERIENCES } from "./sampleExperiences";
 import { SAMPLE_JOBS } from "./sampleJobs";
 import type { SaveMeService } from "./types";
 
@@ -14,7 +15,12 @@ const useMock = import.meta.env.VITE_USE_MOCK_API === "true";
 const apiBaseUrl: string = import.meta.env.VITE_API_BASE_URL || "/api";
 
 export const defaultService: SaveMeService = useMock
-  ? createMockService({ applications: SAMPLE_APPLICATIONS, reviews: SAMPLE_REVIEWS, jobs: SAMPLE_JOBS })
+  ? createMockService({
+      applications: SAMPLE_APPLICATIONS,
+      reviews: SAMPLE_REVIEWS,
+      jobs: SAMPLE_JOBS,
+      experiences: SAMPLE_EXPERIENCES,
+    })
   : createHttpService(apiBaseUrl);
 
 export const ServiceContext = createContext<SaveMeService>(defaultService);

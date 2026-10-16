@@ -4,6 +4,11 @@ import type {
   ApplicationInput,
   ApplicationList,
   AuthConfig,
+  Experience,
+  ExperienceInput,
+  ExperienceLinkKey,
+  ExperienceList,
+  ExperienceView,
   FavoriteQuestion,
   Job,
   JobInput,
@@ -78,6 +83,7 @@ export function createHttpService(
   const appPath = (id: number) => `/applications/${encodeURIComponent(String(id))}`;
   const reviewPath = (id: number) => `/reviews/${encodeURIComponent(String(id))}`;
   const jobPath = (id: number) => `/jobs/${encodeURIComponent(String(id))}`;
+  const experiencePath = (id: number) => `/experiences/${encodeURIComponent(String(id))}`;
 
   return {
     async getAuthConfig() {
@@ -190,6 +196,40 @@ export function createHttpService(
 
     async deleteJob(id: number) {
       await empty(await request(jobPath(id), send("DELETE")));
+    },
+
+    async listExperiences(view: ExperienceView = "all", q = "") {
+      const params = new URLSearchParams();
+      if (view !== "all") params.set("view", view);
+      if (q.trim()) params.set("q", q.trim());
+      const qs = params.toString();
+      return json<ExperienceList>(await request(`/experiences${qs ? `?${qs}` : ""}`));
+    },
+
+    async listExperienceLinks() {
+      return json<ExperienceLinkKey[]>(await request("/experiences/links"));
+    },
+
+    async getExperience(id: number) {
+      const response = await request(experiencePath(id));
+      if (response.status === 404) return null;
+      return json<Experience>(response);
+    },
+
+    async createExperience(input: ExperienceInput) {
+      return json<Experience>(await request("/experiences", send("POST", input)));
+    },
+
+    async updateExperience(id: number, input: ExperienceInput) {
+      return json<Experience>(await request(experiencePath(id), send("PUT", input)));
+    },
+
+    async setExperienceVerified(id: number, verified: boolean) {
+      return json<Experience>(await request(`${experiencePath(id)}/verified`, send("PUT", { verified })));
+    },
+
+    async deleteExperience(id: number) {
+      await empty(await request(experiencePath(id), send("DELETE")));
     },
   };
 }

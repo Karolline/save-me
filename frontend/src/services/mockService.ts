@@ -8,6 +8,13 @@ import {
   type ApplicationInput,
   type ApplicationList,
   type ApplicationStats,
+  type Experience,
+  type ExperienceFields,
+  type ExperienceInput,
+  type ExperienceList,
+  type ExperienceNeed,
+  type ExperienceSummary,
+  type ExperienceView,
   type FavoriteQuestion,
   type Job,
   type JobFields,
@@ -30,6 +37,7 @@ import {
   type StatusFilter,
   type User,
 } from "./types";
+import type { ExperienceSeed } from "./sampleExperiences";
 import type { JobSeed } from "./sampleJobs";
 
 /**
@@ -139,6 +147,8 @@ export interface MockOptions {
   reviews?: ReviewSeed[];
   /** 처음 공고분석 (기본: 없음). 연결할 지원 건은 `applications`에서 찾는다. */
   jobs?: JobSeed[];
+  /** 처음 경험 (기본: 없음). 받은 질문의 후기는 `reviews`에서 (회사, 차수)로 찾는다. */
+  experiences?: ExperienceSeed[];
   /** 호출마다 기다리는 밀리초. 불러오는 중 화면을 보려고 (기본 0). */
   delay?: number;
 }
@@ -288,6 +298,90 @@ const noEvidence = (job: JobFields) => job.requirements.filter((r) => r.level ==
 const newestAnalysisFirst = (a: StoredJob, b: StoredJob) =>
   b.analyzedAt.localeCompare(a.analyzedAt) || b.id - a.id;
 
+/** 빈 경험 칸 (백엔드의 기본값과 같음). */
+export function emptyExperienceFields(name = ""): ExperienceFields {
+  return {
+    name,
+    project: "",
+    linkKey: "",
+    startedOn: null,
+    endedOn: null,
+    org: "",
+    role: "",
+    tags: [],
+    summary: "",
+    situation: "",
+    scope: "",
+    task: "",
+    actionsIntro: "",
+    actions: [],
+    resultMine: [],
+    resultTeam: [],
+    numbers: "",
+    appealMainUse: "",
+    appealQuestions: [],
+    appealStrength: "",
+    framing: [],
+    asked: [],
+    qas: [],
+    missing: [],
+  };
+}
+
+const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+function validateExperience(input: ExperienceInput): ExperienceInput {
+  const clean = {
+    ...input,
+    name: input.name.trim(),
+    project: input.project.trim(),
+    linkKey: input.linkKey.trim(),
+    org: input.org.trim(),
+    role: input.role.trim(),
+    startedOn: input.startedOn || null,
+    endedOn: input.endedOn || null,
+    tags: input.tags.map((t) => t.trim()).filter(Boolean),
+  };
+  if (
+    !clean.name ||
+    (clean.startedOn !== null && !MONTH.test(clean.startedOn)) ||
+    (clean.endedOn !== null && !MONTH.test(clean.endedOn))
+  ) {
+    throw new ApiError(422, "Request failed (422): invalid experience");
+  }
+  return clean;
+}
+
+interface StoredExperience extends ExperienceFields {
+  id: number;
+  verified: boolean;
+  related: { experienceId: number; note: string }[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+const NUMBERS_DETAIL = '결과에 숫자가 없어요. 모르면 "수치 미기재"로 남겨 두되, 찾을 수 있으면 채워 주세요.';
+
+/** 보완할 것 (백엔드의 needs_of와 같은 기준). */
+function experienceNeeds(x: ExperienceFields): ExperienceNeed[] {
+  const out: ExperienceNeed[] = [];
+  if (!x.numbers.trim()) out.push({ label: "결과 수치 없음", detail: NUMBERS_DETAIL });
+  const empty = ([[x.situation, "상황"], [x.task, "과제"]] as const).filter(([v]) => !v.trim()).map(([, l]) => l as string);
+  if (!x.actions.length) empty.push("행동");
+  if (!x.resultMine.length && !x.resultTeam.length) empty.push("결과");
+  if (empty.length) out.push({ label: `비어 있음 ${empty.length}`, detail: `${empty.join(" · ")}이(가) 비어 있어요.` });
+  const noAnswer = x.qas.filter((q) => !q.answer.trim()).map((q) => q.question);
+  if (noAnswer.length) {
+    out.push({ label: `답변 작성 필요 ${noAnswer.length}`, detail: `예상 질문 답변이 비어 있어요: ${noAnswer.join(" / ")}` });
+  }
+  if (x.missing.length) out.push({ label: `보완 필요 ${x.missing.length}`, detail: `기록이 없는 것: ${x.missing.join(" · ")}` });
+  return out;
+}
+
+/** 최근에 시작한 순, 시작 달이 없으면 맨 뒤, 같으면 id가 큰 것부터 (백엔드와 같음). */
+const newestStartFirst = (a: StoredExperience, b: StoredExperience) =>
+  (b.startedOn ?? "").localeCompare(a.startedOn ?? "") || b.id - a.id;
+
 interface StoredReview {
   id: number;
   applicationId: number;
@@ -319,6 +413,51 @@ export function createMockService(options: MockOptions = {}): MockService {
   const reviews = new Map<number, StoredReview>();
   const jobs = new Map<number, StoredJob>();
   let nextJobId = 1;
+  const experiences = new Map<number, StoredExperience>();
+  let nextExperienceId = 1;
+
+  function experienceSummary(x: StoredExperience): ExperienceSummary {
+    return {
+      id: x.id,
+      name: x.name,
+      summary: x.summary,
+      project: x.project,
+      org: x.org,
+      startedOn: x.startedOn,
+      endedOn: x.endedOn,
+      verified: x.verified,
+      needs: experienceNeeds(x),
+    };
+  }
+
+  function experienceOf(x: StoredExperience): Experience {
+    return {
+      ...x,
+      related: x.related.flatMap((r) => {
+        const o = experiences.get(r.experienceId);
+        return o
+          ? [{ ...r, name: o.name, startedOn: o.startedOn, endedOn: o.endedOn, verified: o.verified }]
+          : [];
+      }),
+      needs: experienceNeeds(x),
+    };
+  }
+
+  /** 검증하고 같은 사용자 규칙(후기·관련 경험)을 지켜 저장할 경험을 만든다 (백엔드와 같은 오류). */
+  function fillExperience(
+    input: ExperienceInput,
+    base: Pick<StoredExperience, "id" | "createdAt" | "verified">,
+  ): StoredExperience {
+    const { related, ...fields } = validateExperience(input);
+    if (fields.asked.some((a) => a.interviewReviewId !== null && !reviews.has(a.interviewReviewId))) {
+      throw notFound("Interview review");
+    }
+    if (related.some((r) => r.experienceId === base.id)) {
+      throw new ApiError(422, "Request failed (422): An experience cannot be related to itself");
+    }
+    if (related.some((r) => !experiences.has(r.experienceId))) throw notFound("Related experience");
+    return { ...structuredClone(fields), related: structuredClone(related), ...base, updatedAt: now() };
+  }
 
   /** 지원 건에 연결된 분석 (jobId, jobAnalyzedAt)을 붙인다. */
   function linked(a: Application): Application {
@@ -549,6 +688,35 @@ export function createMockService(options: MockOptions = {}): MockService {
     );
   }
 
+  // 경험: 먼저 모두 만들고, 그다음 제목으로 관련 경험을 잇는다.
+  const seededExperiences = (options.experiences ?? []).map((seed) => {
+    const id = nextExperienceId++;
+    const asked = (seed.experience.asked ?? []).map((a, i) => {
+      const ref = seed.reviews?.[i];
+      if (!ref) return a;
+      const review = [...reviews.values()].find((r) => rows.get(r.applicationId)?.company === ref[0] && r.round === ref[1]);
+      if (!review) throw new Error(`no sample review ${ref.join(" ")}`);
+      return { ...a, interviewReviewId: review.id };
+    });
+    const input: ExperienceInput = { ...emptyExperienceFields(), ...seed.experience, asked, related: [] };
+    experiences.set(id, fillExperience(input, { id, createdAt: now(), verified: seed.verified ?? true }));
+    return { id, seed };
+  });
+  for (const { id, seed } of seededExperiences) {
+    experiences.get(id)!.related = (seed.related ?? []).map(([name, note]) => {
+      const target = [...experiences.values()].find((x) => x.name === name);
+      if (!target) throw new Error(`no sample experience ${name}`);
+      return { experienceId: target.id, note };
+    });
+  }
+
+  /** 지운 후기를 가리키던 받은 질문의 연결을 푼다 (DB의 ON DELETE SET NULL). */
+  function unlinkReviews(reviewIds: number[]) {
+    for (const x of experiences.values()) {
+      for (const a of x.asked) if (a.interviewReviewId !== null && reviewIds.includes(a.interviewReviewId)) a.interviewReviewId = null;
+    }
+  }
+
   return {
     expireSession() {
       loggedIn = false;
@@ -631,8 +799,10 @@ export function createMockService(options: MockOptions = {}): MockService {
     deleteApplication: (id: number) =>
       call(() => {
         if (!rows.delete(id)) throw notFound("Application");
-        // 지원 건을 지우면 그 후기도 지워진다 (DB의 CASCADE).
-        for (const r of [...reviews.values()]) if (r.applicationId === id) reviews.delete(r.id);
+        // 지원 건을 지우면 그 후기도 지워진다 (DB의 CASCADE). 경험의 받은 질문은 연결만 풀린다.
+        const gone = [...reviews.values()].filter((r) => r.applicationId === id).map((r) => r.id);
+        for (const reviewId of gone) reviews.delete(reviewId);
+        unlinkReviews(gone);
         // 공고분석은 남고 연결만 풀린다 (지원 여부는 그대로).
         for (const j of jobs.values()) if (j.applicationId === id) j.applicationId = null;
       }),
@@ -716,6 +886,7 @@ export function createMockService(options: MockOptions = {}): MockService {
     deleteReview: (id: number) =>
       call(() => {
         if (!reviews.delete(id)) throw notFound("Review");
+        unlinkReviews([id]);
       }),
 
     listJobs: (status: JobStatusFilter = "all") =>
@@ -765,6 +936,73 @@ export function createMockService(options: MockOptions = {}): MockService {
       call(() => {
         // 연결은 분석 쪽에 있어서, 지우면 지원 건의 연결도 함께 풀린다.
         if (!jobs.delete(id)) throw notFound("Job analysis");
+      }),
+
+    listExperiences: (view: ExperienceView = "all", q = "") =>
+      call((): ExperienceList => {
+        const all = [...experiences.values()].sort(newestStartFirst);
+        const summaries = all.map(experienceSummary);
+        const counts = {
+          all: all.length,
+          unv: summaries.filter((x) => !x.verified).length,
+          need: summaries.filter((x) => x.needs.length).length,
+        };
+        const query = q.trim().toLowerCase();
+        const items = summaries.filter((x, i) => {
+          const inView = view === "unv" ? !x.verified : view === "need" ? x.needs.length > 0 : true;
+          const e = all[i];
+          const text = [e.name, e.summary, e.org, e.project, ...e.tags].join(" ").toLowerCase();
+          return inView && (!query || text.includes(query));
+        });
+        return { items, counts };
+      }),
+
+    listExperienceLinks: () =>
+      call(() =>
+        [...experiences.values()]
+          .filter((x) => x.linkKey)
+          .sort((a, b) => a.id - b.id)
+          .map((x) => ({ id: x.id, linkKey: x.linkKey })),
+      ),
+
+    getExperience: (id: number) =>
+      call(() => {
+        const x = experiences.get(id);
+        return x ? experienceOf(x) : null;
+      }),
+
+    createExperience: (input: ExperienceInput) =>
+      call(() => {
+        const id = nextExperienceId;
+        const created = fillExperience(input, { id, createdAt: now(), verified: true });
+        nextExperienceId++;
+        experiences.set(id, created);
+        return experienceOf(created);
+      }),
+
+    updateExperience: (id: number, input: ExperienceInput) =>
+      call(() => {
+        const existing = experiences.get(id);
+        if (!existing) throw notFound("Experience");
+        const updated = fillExperience(input, { id, createdAt: existing.createdAt, verified: true });
+        experiences.set(id, updated);
+        return experienceOf(updated);
+      }),
+
+    setExperienceVerified: (id: number, verified: boolean) =>
+      call(() => {
+        const x = experiences.get(id);
+        if (!x) throw notFound("Experience");
+        // updatedAt은 그대로 둔다.
+        x.verified = verified;
+        return experienceOf(x);
+      }),
+
+    deleteExperience: (id: number) =>
+      call(() => {
+        if (!experiences.delete(id)) throw notFound("Experience");
+        // 다른 경험의 관련 경험 줄 중 이것을 가리키던 것도 지워진다 (DB의 CASCADE).
+        for (const x of experiences.values()) x.related = x.related.filter((r) => r.experienceId !== id);
       }),
   };
 }

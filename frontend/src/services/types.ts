@@ -355,6 +355,124 @@ export interface JobList {
   counts: Record<JobStatusFilter, number>;
 }
 
+// ── 경험 ──
+
+/** 목록 보기: 전체, 미확인, 보완 필요. */
+export type ExperienceView = "all" | "unv" | "need";
+
+export interface ExperienceAction {
+  title: string;
+  /** 세부 내용, 한 줄에 하나. */
+  points: string[];
+  /** 회고 · 메모. */
+  note: string;
+  /** 출처 (예: 면접 답변을 정리하며 추가). */
+  source: string;
+}
+
+export interface ExperienceAsked {
+  question: string;
+  /** 어디서 (예: "파랑모빌리티 1차 면접"). */
+  where: string;
+  /** 연결한 면접후기. 후기를 지우면 null. */
+  interviewReviewId: number | null;
+}
+
+export interface ExperienceQa {
+  question: string;
+  /** 비어 있으면 "답변 작성 필요". */
+  answer: string;
+  caution: string;
+}
+
+/** 보완할 것 하나 (서버가 계산): 목록의 이름표와 상세의 설명. */
+export interface ExperienceNeed {
+  label: string;
+  detail: string;
+}
+
+/** 경험에서 사용자가 고치는 칸. 달은 `YYYY-MM`, 모르면 null. */
+export interface ExperienceFields {
+  name: string;
+  project: string;
+  /** 공고분석 연결 이름: 근거 경험 태그에 이 글자가 들어 있으면 이 경험으로 잇는다. */
+  linkKey: string;
+  startedOn: string | null;
+  /** null이면 진행 중. */
+  endedOn: string | null;
+  org: string;
+  role: string;
+  tags: string[];
+  summary: string;
+  situation: string;
+  /** 본인 담당 범위. */
+  scope: string;
+  task: string;
+  actionsIntro: string;
+  actions: ExperienceAction[];
+  resultMine: string[];
+  resultTeam: string[];
+  /** 비어 있으면 "결과 수치 없음". */
+  numbers: string;
+  appealMainUse: string;
+  appealQuestions: string[];
+  appealStrength: string;
+  framing: string[];
+  asked: ExperienceAsked[];
+  qas: ExperienceQa[];
+  /** 보완 필요: 아직 기록이 없는 것. */
+  missing: string[];
+}
+
+export interface ExperienceInput extends ExperienceFields {
+  /** 내 다른 경험 (자기 자신은 안 된다). 저장하면 하위 줄이 통째로 바뀐다. */
+  related: { experienceId: number; note: string }[];
+}
+
+export interface RelatedExperience {
+  experienceId: number;
+  note: string;
+  name: string;
+  startedOn: string | null;
+  endedOn: string | null;
+  verified: boolean;
+}
+
+export interface ExperienceSummary {
+  id: number;
+  name: string;
+  summary: string;
+  project: string;
+  org: string;
+  startedOn: string | null;
+  endedOn: string | null;
+  verified: boolean;
+  needs: ExperienceNeed[];
+}
+
+export interface Experience extends ExperienceFields {
+  id: number;
+  /** 사람 확인: 가져온 경험은 false, 화면에서 저장하거나 [읽고 확인했어요]를 누르면 true. */
+  verified: boolean;
+  related: RelatedExperience[];
+  needs: ExperienceNeed[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExperienceList {
+  /** 최근에 시작한 순 (시작 달이 없으면 맨 뒤), 고른 보기와 검색으로 거른 것. */
+  items: ExperienceSummary[];
+  /** 보기·검색과 상관없이 모든 경험에 대한 수. */
+  counts: Record<ExperienceView, number>;
+}
+
+/** 공고분석의 근거 경험 태그를 경험으로 잇는 이름. */
+export interface ExperienceLinkKey {
+  id: number;
+  linkKey: string;
+}
+
 /**
  * 백엔드 호출은 모두 이 인터페이스를 거친다. 세션 없이 부르면 status 401인
  * ApiError를 던진다 (`isUnauthorized` 참고).
@@ -397,4 +515,19 @@ export interface SaveMeService {
   setJobVerified(id: number, verified: boolean): Promise<Job>;
   /** 연결된 지원 건은 남고 연결만 풀린다. */
   deleteJob(id: number): Promise<void>;
+
+  /** 보기와 검색(제목·요약·소속·프로젝트·태그)으로 거른 경험. */
+  listExperiences(view?: ExperienceView, q?: string): Promise<ExperienceList>;
+  /** 공고분석 연결 이름이 있는 경험 (근거 경험 태그를 잇는 데 쓴다). */
+  listExperienceLinks(): Promise<ExperienceLinkKey[]>;
+  /** 없거나 남의 경험이면 null. */
+  getExperience(id: number): Promise<Experience | null>;
+  /** 후기나 관련 경험이 없거나 남의 것이면 404, 자기 자신을 관련 경험으로 고르면 422인 ApiError. */
+  createExperience(input: ExperienceInput): Promise<Experience>;
+  /** 저장하면 확인됨이 된다. */
+  updateExperience(id: number, input: ExperienceInput): Promise<Experience>;
+  /** 사람 확인 표시 ([읽고 확인했어요]). updatedAt은 바뀌지 않는다. */
+  setExperienceVerified(id: number, verified: boolean): Promise<Experience>;
+  /** 다른 경험의 관련 경험 줄 중 이것을 가리키던 것도 지워진다. */
+  deleteExperience(id: number): Promise<void>;
 }
