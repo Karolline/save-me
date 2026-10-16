@@ -38,7 +38,9 @@ $Override = Join-Path $PSScriptRoot "preview.override.yaml"
 # environment they would move the real stack (Start-Database, Invoke-Db) onto
 # the preview volume.
 function Invoke-Preview {
-    $dir, $rest = $args
+    $dir = $args[0]
+    # @() keeps a single compose argument (e.g. "down") a list, not a string to splat.
+    $rest = @($args | Select-Object -Skip 1)
     $env:APP_PORT = "$AppPort"
     $env:DB_PORT = "5452"
     $env:PGDATA_VOLUME = $Volume
