@@ -1,0 +1,6 @@
+# Used by scripts/preview.ps1 on top of a branch's docker-compose.yaml.
+# A separate image name, so building a branch never replaces the "saveme"
+# image that the real stack runs.
+services:
+  app:
+    image: saveme-preview

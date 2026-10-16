@@ -25,6 +25,26 @@ powershell -ExecutionPolicy Bypass -File scripts\update.ps1
 
 먼저 `saveme`를 백업하고 (실패하면 멈춘다), 스택을 다시 빌드해 띄운 뒤 (앱이 시작할 때 `saveme`를 마이그레이션한다) 앱이 응답할 때까지 기다린다. 마이그레이션이 실패하면 앱이 시작하지 않고, 데이터는 그대로이며, 백업이 남아 있다.
 
+## 병합 전 브랜치 미리 보기
+
+```
+powershell -ExecutionPolicy Bypass -File scripts\preview.ps1 -Branch step8-jobs
+```
+
+아직 `main`에 합치지 않은 브랜치를 진짜 스택 옆에 따로 띄운다. 그 브랜치가 worktree에 체크아웃돼 있어야 한다 (개발자 에이전트의 worktree, 또는 `git worktree add`).
+
+| | 진짜 스택 | 미리 보기 |
+|---|---|---|
+| compose 프로젝트 | `save-me` | `saveme-preview` |
+| 앱 | http://localhost:8100 | http://localhost:8200 |
+| DB 포트 | 5442 | 5452 |
+| 볼륨 | `saveme-pgdata` | `saveme-preview-pgdata` |
+| 이미지 | `saveme` | `saveme-preview` (`scripts/preview.override.yaml`) |
+
+돌 때마다 진짜 `saveme`를 pg_dump로 읽어 미리 보기 DB에 복사하고, 미리 보기 앱이 그 복사본을 마이그레이션한다. 그래서 미리 보기에서 바꾼 것은 다음 실행 때 사라진다 (`-KeepData`면 복사하지 않고 둔다). `-Stop`은 미리 보기를 끄고 그 볼륨만 이름으로 지운다.
+
+`APP_PORT`, `DB_PORT`, `PGDATA_VOLUME`은 셸에 남기지 않는다. 남아 있으면 진짜 스택의 `docker compose up`도 그 값을 읽어 진짜 db 컨테이너를 다른 볼륨에 다시 만든다 (데이터는 `saveme-pgdata`에 그대로지만 앱이 빈 DB를 본다). 스크립트는 이 값을 미리 보기 명령 하나에만 주고, 진짜 db가 `saveme-pgdata`에 있는지 확인한다.
+
 ## 백업
 
 `scripts/backup.ps1`은 컨테이너 안에서 `saveme`를 `pg_dump`(custom 형식)하고, 그 파일을 백업 폴더에 `saveme-YYYYMMDD-HHMMSS-<이유>.dump`로 복사한다. 최신 30개만 남긴다. 돌 때마다 그 폴더의 `backup.log`에 한 줄을 남긴다. 필요하면 Docker Desktop과 DB를 켠다.
@@ -129,6 +149,18 @@ powershell -ExecutionPolicy Bypass -File scripts\update.ps1
 ```
 
 It backs up `saveme` first (stops if that fails), rebuilds and restarts the stack (the app migrates `saveme` when it starts), and waits until the app answers. If a migration fails the app doesn't start, the data is unchanged, and the backup is there.
+
+## Previewing a branch before merging
+
+```
+powershell -ExecutionPolicy Bypass -File scripts\preview.ps1 -Branch step8-jobs
+```
+
+Runs a branch that isn't merged into `main` yet, next to the real stack. The branch must be checked out in a worktree (the developer agent's, or `git worktree add`). It uses the compose project `saveme-preview`, the app on http://localhost:8200, the database on 5452, the volume `saveme-preview-pgdata` and the image `saveme-preview` (`scripts/preview.override.yaml`); the real stack keeps `save-me`, 8100, 5442, `saveme-pgdata` and `saveme`.
+
+Each run copies the real `saveme` (read with pg_dump) into the preview database, and the preview app migrates the copy, so changes made in the preview are gone on the next run (`-KeepData` skips the copy). `-Stop` stops the preview and removes only its volume, by name.
+
+Never leave `APP_PORT`, `DB_PORT` or `PGDATA_VOLUME` set in a shell: the real stack's `docker compose up` reads them too and recreates the real db container on another volume (the data stays in `saveme-pgdata`, but the app sees an empty database). The script sets them for each preview command only, and checks that the real db is on `saveme-pgdata`.
 
 ## Backups
 
