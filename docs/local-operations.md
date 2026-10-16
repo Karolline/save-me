@@ -224,6 +224,41 @@ uv run python -m app.importers.experiences ../private/experiences.json --databas
 uv run python -m app.importers.experiences ../private/experiences.json --replace
 ```
 
+### 이력 (`app.importers.resume`)
+
+파일은 카드마다 키 하나이고 (`basics`, `direction`, `careers`, `educations`, `certificates`, `skills`, `personality`), 칸은 API의 `PUT /api/resume/...` 본문(`openapi.yaml`의 `ResumeBasics`, `Career` 등)과 같다. 어느 키든 없어도 된다. 예 (지어낸 것):
+
+```json
+{
+  "basics": {"name": "김지원", "email": "jiwon.kim@example.com", "status": "재직 중", "want": "데이터 엔지니어", "summary": "…"},
+  "direction": "…",
+  "careers": [{"company": "다올커머스", "team": "데이터팀", "startedOn": "2021-03", "endedOn": "2022-12",
+               "leaveStartedOn": null, "leaveEndedOn": null, "duties": "정산 쿼리 개선\n클라우드 이전"}],
+  "educations": [{"school": "한빛대학교", "major": "통계학", "startedOn": "2011-03", "endedOn": "2017-02", "status": "졸업"}],
+  "certificates": [{"name": "SQLD", "acquiredOn": "2020-09", "issuer": "한국데이터산업진흥원", "number": "SQLD-0123456"}],
+  "skills": [{"category": "분산처리", "items": "Spark, Kafka", "memo": "AQE는 써 본 적 없음"}],
+  "personality": [{"topic": "이직 사유", "question": "지금 회사를 왜 그만두려 하나요", "answer": "", "lesson": ""}]
+}
+```
+
+- 경력의 회사 이름은 경험의 소속과 같은 이름으로 적는다 (경험 캘린더가 이름으로 비교).
+- 카드마다: 로컬 사용자의 카드가 비어 있으면 채우고, 이미 적은 것이 있으면 건너뛴다. `--replace`는 그 카드를 통째로 바꾼다. 파일에서 비어 있는 카드(빈 목록, 빈 글, 칸이 모두 빈 기본 정보)는 없는 것처럼 다룬다 (`--replace`로도 지우지 않는다). 같은 파일을 두 번 돌리면 두 번째는 모두 건너뛴다.
+- 출력:
+
+  ```
+  saveme_dev: 채움 6, 바꿈 0, 건너뜀 1 (파일 카드 7개)
+  건너뜀: 기본 정보 (이미 있음)
+  ```
+- 트랜잭션 하나로 쓰고, `--dry-run`은 다른 가져오기와 같다. 망가진 파일(필수 칸 없음, 날짜 순서·형식이 틀림)은 한 줄로 알리고 아무것도 쓰지 않는다.
+
+```
+cd backend
+uv run python -m app.importers.resume ../private/resume.json
+uv run python -m app.importers.resume ../private/resume.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme --dry-run
+uv run python -m app.importers.resume ../private/resume.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
+uv run python -m app.importers.resume ../private/resume.json --replace
+```
+
 ---
 
 # Local operations (English)
@@ -361,4 +396,21 @@ uv run python -m app.importers.experiences ../private/experiences.json
 uv run python -m app.importers.experiences ../private/experiences.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme --dry-run
 uv run python -m app.importers.experiences ../private/experiences.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
 uv run python -m app.importers.experiences ../private/experiences.json --replace
+```
+
+### Resume (`app.importers.resume`)
+
+The file has one key per card (`basics`, `direction`, `careers`, `educations`, `certificates`, `skills`, `personality`) with the same fields as the `PUT /api/resume/...` bodies (`ResumeBasics`, `Career` and so on in `openapi.yaml`); any key may be missing (example in the Korean section above).
+
+- Write a career's company with the same name the experiences use as 소속 (the experience calendar compares names).
+- Per card: when the local user's card is empty it is filled; when it already has something it is skipped. `--replace` replaces that card entirely. A card that is empty in the file (empty list, blank text, basics with every field blank) is treated as missing (`--replace` never clears with it). Running a file twice skips everything the second time.
+- Output: `saveme_dev: 채움 6, 바꿈 0, 건너뜀 1 (파일 카드 7개)`, then `건너뜀: 기본 정보 (이미 있음)` per skipped card.
+- One transaction; `--dry-run` works as for the other importers. A malformed file (a missing required field, dates out of order or malformed) prints one line and writes nothing.
+
+```
+cd backend
+uv run python -m app.importers.resume ../private/resume.json
+uv run python -m app.importers.resume ../private/resume.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme --dry-run
+uv run python -m app.importers.resume ../private/resume.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
+uv run python -m app.importers.resume ../private/resume.json --replace
 ```
