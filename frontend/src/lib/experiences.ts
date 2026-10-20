@@ -124,6 +124,8 @@ export interface ExperienceDraft {
   role: string;
   /** 쉼표로 구분. */
   tags: string;
+  /** 경험 그룹 id, 없으면 "". */
+  groupId: string;
   summary: string;
   situation: string;
   scope: string;
@@ -169,6 +171,7 @@ export function toExperienceDraft(x: Experience | null): ExperienceDraft {
       org: "",
       role: "",
       tags: "",
+      groupId: "",
       summary: "",
       situation: "",
       scope: "",
@@ -197,6 +200,7 @@ export function toExperienceDraft(x: Experience | null): ExperienceDraft {
     org: x.org,
     role: x.role,
     tags: x.tags.join(", "),
+    groupId: x.groupId === null ? "" : String(x.groupId),
     summary: x.summary,
     situation: x.situation,
     scope: x.scope,
@@ -261,6 +265,7 @@ export function fromExperienceDraft(d: ExperienceDraft): ExperienceInput {
       .filter((r) => r.experienceId)
       .map((r) => ({ experienceId: Number(r.experienceId), note: r.note })),
     missing: fromLines(d.missing),
+    groupId: d.groupId ? Number(d.groupId) : null,
   };
 }
 

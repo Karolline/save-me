@@ -43,7 +43,7 @@ function setup(ui: ReactNode, service: MockService = samples()) {
   return { service, user };
 }
 
-const listProps = { q: "", onViewChange: () => {}, onQueryChange: () => {}, onOpen: () => {}, onAdd: () => {} };
+const listProps = { mode: "list" as const, onModeChange: () => {}, q: "", onViewChange: () => {}, onQueryChange: () => {}, onOpen: () => {}, onAdd: () => {} };
 const viewProps = {
   fromJob: false,
   onBack: () => {},
@@ -63,25 +63,27 @@ describe("ExperiencesScreen", () => {
     const { user } = setup(<ExperiencesScreen view="all" {...listProps} onOpen={onOpen} />);
 
     const list = await screen.findByLabelText("경험 목록");
-    expect(rowNames(list).slice(0, 3)).toEqual(["Iceberg 테이블 포맷 실험 (개인)", "신규 입사자 온보딩 문서", "클라우드 비용 대시보드"]);
+    expect(rowNames(list).slice(0, 3)).toEqual(["오픈소스 문서 번역", "Iceberg 테이블 포맷 실험 (개인)", "신규 입사자 온보딩 문서"]);
     const rows = within(list).getAllByRole("button");
-    expect(rows[0].textContent).toContain("미확인");
-    expect(rows[0].textContent).toContain("결과 수치 없음");
-    expect(rows[0].textContent).toContain("비어 있음 4");
-    expect(rows[0].textContent).toContain("보완 필요 2");
-    expect(rows[0].querySelector(".xsum")?.textContent).toBe("공개 데이터로 Iceberg 테이블을 만들고 시간 여행 조회까지 해 봤다.");
+    const iceberg = rows[1];
+    expect(iceberg.textContent).toContain("미확인");
+    expect(iceberg.textContent).toContain("결과 수치 없음");
+    expect(iceberg.textContent).toContain("비어 있음 4");
+    expect(iceberg.textContent).toContain("보완 필요 2");
+    expect(iceberg.querySelector(".xsum")?.textContent).toBe("공개 데이터로 Iceberg 테이블을 만들고 시간 여행 조회까지 해 봤다.");
     const stream = rows.find((r) => r.textContent?.includes("주문 이벤트 스트림 재설계"))!;
     expect(stream.querySelectorAll(".pill.gap")).toHaveLength(0);
     expect(stream.textContent).toContain("확인됨");
 
     const views = screen.getByRole("group", { name: "보기" });
-    expect(within(views).getAllByRole("button").map((b) => b.textContent)).toEqual(["전체12", "미확인4", "보완 필요10"]);
+    expect(within(views).getAllByRole("button").map((b) => b.textContent)).toEqual(["전체15", "미확인4", "보완 필요13"]);
     expect(screen.getByRole("searchbox", { name: "경험 검색" })).toHaveAttribute("placeholder", "제목·요약·태그로 찾기");
     expect(screen.getByText(/미확인 = AI가 만들거나 고친 뒤/)).toBeInTheDocument();
-    // 경험 캘린더는 10단계에서.
-    expect(screen.queryByRole("button", { name: "경험 캘린더" })).not.toBeInTheDocument();
+    const mode = screen.getByRole("group", { name: "보기 방식" });
+    expect(within(mode).getByRole("button", { name: "목록" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(mode).getByRole("button", { name: "경험 캘린더" })).toHaveAttribute("aria-pressed", "false");
 
-    await user.click(rows[0]);
+    await user.click(iceberg);
     expect(onOpen).toHaveBeenCalledWith(7);
   });
 
@@ -112,12 +114,12 @@ describe("ExperiencesScreen", () => {
     expect(rowNames(list)).toEqual(["주문 이벤트 스트림 재설계"]);
     expect(screen.getByRole("searchbox", { name: "경험 검색" })).toHaveValue("kafka");
     // 수는 검색과 상관없다.
-    expect(screen.getByRole("button", { name: /전체\s*12/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /전체\s*15/ })).toBeInTheDocument();
   });
 
   it("shows 요약 없음 for an experience without a summary", async () => {
     const service = createMockService();
-    await service.createExperience({ ...emptyExperienceFields("요약 안 씀"), related: [] });
+    await service.createExperience({ ...emptyExperienceFields("요약 안 씀"), related: [], groupId: null });
     setup(<ExperiencesScreen view="all" {...listProps} />, service);
     const list = await screen.findByLabelText("경험 목록");
     expect(within(list).getByText("요약 없음")).toHaveClass("hint");
@@ -152,8 +154,8 @@ describe("ExperienceViewScreen", () => {
     expect(meta.textContent).toContain("다올커머스 · 데이터팀");
     expect(meta.textContent).toContain("데이터 엔지니어 (로그 수집 파트 담당)");
     expect(within(meta).getByText("Spark")).toHaveClass("tag", "sm");
-    // 그룹은 10단계에서.
-    expect(meta.textContent).not.toContain("그룹");
+    // 그룹이 없으면 "–".
+    expect(meta.textContent).toContain("그룹–");
 
     const needs = document.querySelector(".needs") as HTMLElement;
     expect(within(needs).getAllByText(/결과 수치 없음|답변 작성 필요|보완 필요/).map((p) => p.textContent)).toEqual([
@@ -244,7 +246,7 @@ describe("ExperienceViewScreen", () => {
 
   it("shows 기간 미입력 without a start month", async () => {
     const service = createMockService();
-    const x = await service.createExperience({ ...emptyExperienceFields("시작 모름"), related: [] });
+    const x = await service.createExperience({ ...emptyExperienceFields("시작 모름"), related: [], groupId: null });
     setup(<ExperienceViewScreen id={x.id} {...viewProps} />, service);
     expect(await screen.findByText("기간 미입력")).toBeInTheDocument();
   });
@@ -284,8 +286,13 @@ describe("ExperienceEditScreen", () => {
     expect(save).toBeDisabled();
     expect(screen.getByText("제목을 입력하면 저장할 수 있어요")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "경험 삭제" })).not.toBeInTheDocument();
-    // 그룹은 10단계에서.
-    expect(screen.queryByLabelText(/^그룹/)).not.toBeInTheDocument();
+    const group = screen.getByLabelText(/^그룹/);
+    expect(group).toHaveValue("");
+    expect(within(group).getAllByRole("option").map((o) => o.textContent)).toEqual([
+      "그룹 없음",
+      "데이터 품질·모니터링",
+      "정산·결제 데이터",
+    ]);
     expect(screen.getByLabelText(/^시작/)).toHaveAttribute("type", "month");
 
     const title = screen.getByLabelText(/^제목/);
@@ -295,9 +302,9 @@ describe("ExperienceEditScreen", () => {
     expect(save).toBeEnabled();
     await user.click(save);
 
-    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(13));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(16));
     expect(await screen.findByText("저장했어요")).toBeInTheDocument();
-    const saved = (await service.getExperience(13))!;
+    const saved = (await service.getExperience(16))!;
     expect(saved.verified).toBe(true);
     expect(saved.tags).toEqual(["Kafka", "운영"]);
   });

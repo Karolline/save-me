@@ -88,6 +88,7 @@ const saved: Experience = {
   startedOn: "2021-07",
   endedOn: null,
   org: "다올커머스",
+  groupId: null,
   role: "데이터 엔지니어",
   tags: ["AWS", "로그 수집"],
   summary: "요약",

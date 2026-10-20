@@ -111,6 +111,29 @@ describe("experience routes", () => {
     expect(await screen.findByRole("heading", { name: "경험 추가" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/experiences/new");
   });
+
+  it("keeps the calendar in the address and comes back to it from a detail", { timeout: 15_000 }, async () => {
+    const user = userEvent.setup();
+    await open("/experiences?view=need&q=알림");
+    await user.click(await screen.findByRole("button", { name: "경험 캘린더" }));
+    // 캘린더로 가면 목록의 보기와 검색은 빠진다.
+    await waitFor(() => expect(router.state.location.search).toEqual({ view: "calendar" }));
+    expect(await screen.findByText(/^흐름 점검/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^주문 이벤트 스트림 재설계2023/ }));
+    const panel = screen.getByRole("dialog", { name: "주문 이벤트 스트림 재설계 기간 고치기" });
+    await user.click(within(panel).getByRole("button", { name: "경험 상세 열기" }));
+    expect(await screen.findByRole("heading", { name: "주문 이벤트 스트림 재설계" })).toBeInTheDocument();
+    expect(router.state.location).toMatchObject({ pathname: "/experiences/2", search: { from: "calendar" } });
+
+    await user.click(screen.getByRole("button", { name: "← 경험 목록으로" }));
+    expect(await screen.findByText(/^흐름 점검/)).toBeInTheDocument();
+    expect(router.state.location.search).toEqual({ view: "calendar" });
+    // 목록으로 돌아오면 전체.
+    await user.click(screen.getByRole("button", { name: "목록" }));
+    await waitFor(() => expect(router.state.location.search).toEqual({}));
+    expect(await screen.findByRole("button", { name: /^전체\s*\d/ })).toHaveAttribute("aria-pressed", "true");
+  });
 });
 
 describe("resume route", () => {

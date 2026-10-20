@@ -12,6 +12,8 @@ export interface ExperienceSeed {
   reviews?: ([company: string, round: string] | null)[];
   /** 관련 경험 (제목, 어떻게 이어지나). */
   related?: [name: string, note: string][];
+  /** 경험 그룹 이름 (목업의 EXPGROUP_SEED). 같은 이름끼리 한 그룹이 된다. */
+  group?: string;
 }
 
 const A = (title: string, points: string[], note = "", source = ""): ExperienceAction => ({ title, points, note, source });
@@ -121,6 +123,7 @@ export const SAMPLE_EXPERIENCES: ExperienceSeed[] = [
     related: [["수집 지연 알림 도입", "랙 알림을 수집 지연 알림으로 넓힘"]],
   },
   {
+    group: "데이터 품질·모니터링",
     verified: false,
     experience: {
       name: "수집 지연 알림 도입",
@@ -142,6 +145,7 @@ export const SAMPLE_EXPERIENCES: ExperienceSeed[] = [
     },
   },
   {
+    group: "정산·결제 데이터",
     experience: {
       name: "정산 배치 튜닝",
       linkKey: "정산배치-튜닝",
@@ -165,6 +169,7 @@ export const SAMPLE_EXPERIENCES: ExperienceSeed[] = [
     related: [["클라우드 이전 · 로그 수집 파트", "이관 직후 새 환경에서 한 튜닝"]],
   },
   {
+    group: "데이터 품질·모니터링",
     experience: {
       name: "데이터 품질 검사 도입",
       linkKey: "데이터품질-검사도입",
@@ -217,6 +222,7 @@ export const SAMPLE_EXPERIENCES: ExperienceSeed[] = [
     },
   },
   {
+    group: "정산·결제 데이터",
     experience: {
       name: "결제 로그 마트 구축",
       linkKey: "결제로그-마트구축",
@@ -283,6 +289,38 @@ export const SAMPLE_EXPERIENCES: ExperienceSeed[] = [
       role: "신입 데이터 엔지니어",
       tags: ["배치", "SQL"],
       summary: "스크립트로 돌던 ETL 작업 20개를 Airflow로 옮겼다.",
+    },
+  },
+  // 아래 셋은 경험 캘린더의 흐름 점검을 보이려는 것 (끝이 비었는데 퇴사, 시작 없음, 이력에 없는 소속).
+  {
+    experience: {
+      name: "정산 대사 자동화",
+      startedOn: "2022-08",
+      endedOn: null,
+      org: "다올커머스 · 데이터팀",
+      role: "데이터 엔지니어",
+      tags: ["배치", "정산"],
+      summary: "재무팀이 손으로 하던 정산 대사를 매일 도는 배치로 바꿨다.",
+    },
+  },
+  {
+    experience: {
+      name: "사내 데이터 스터디 운영",
+      org: "미담플랫폼 · 데이터플랫폼팀",
+      role: "스터디 운영",
+      tags: ["협업", "스터디"],
+      summary: "격주로 데이터 엔지니어링 책을 함께 읽는 사내 스터디를 꾸렸다.",
+    },
+  },
+  {
+    experience: {
+      name: "오픈소스 문서 번역",
+      startedOn: "2025-10",
+      endedOn: "2025-12",
+      org: "Airflow 한국 사용자 모임 · 번역팀",
+      role: "번역 기여",
+      tags: ["오픈소스", "Airflow"],
+      summary: "Airflow 공식 문서의 운영 가이드 일부를 한국어로 옮겼다.",
     },
   },
 ];
