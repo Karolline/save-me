@@ -44,4 +44,4 @@ make run front               # http://localhost:5180
 
 - [`tech 기획안.md`](tech%20기획안.md): 기술 기획안 (진행 순서는 7장)
 - [`mockup/saveme-mvp.html`](mockup/saveme-mvp.html): 확정한 MVP 화면 목업
-- [`AGENTS.md`](AGENTS.md): 코드 구조와 규칙 (영어, 코딩 에이전트용)
+- [`AGENTS.md`](AGENTS.md): 코드 구조와 규칙 (코딩 에이전트용)
