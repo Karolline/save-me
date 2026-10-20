@@ -201,7 +201,7 @@ export function JobTrendsTab({ job, evidence }: { job: Job; evidence: (text: str
           {s.body}
         </section>
       ))}
-      {emptyOnes.length > 0 && (
+      {filled.length > 0 && emptyOnes.length > 0 && (
         <p className="hint">비어 있는 섹션: {emptyOnes.map((s) => s.chip).join(" · ")} — [편집]에서 채울 수 있어요.</p>
       )}
     </>

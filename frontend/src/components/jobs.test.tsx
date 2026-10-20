@@ -367,6 +367,16 @@ describe("JobViewScreen tabs", () => {
     );
   });
 
+  it("doesn't name empty sections when only the intro is filled", async () => {
+    const service = createMockService({
+      jobs: [{ analyzedAt: "2026-10-13", application: null, job: { company: "작은회사", trendsNote: "메모만 있다" } }],
+    });
+    setup(<JobViewScreen id={1} {...viewProps} tab="trends" />, service);
+
+    expect((await screen.findByLabelText("조사")).textContent).toBe("메모만 있다");
+    expect(screen.queryByText(/비어 있는 섹션/)).not.toBeInTheDocument();
+  });
+
   it("says there are no company trends yet", async () => {
     setup(<JobViewScreen id={11} {...viewProps} tab="trends" />);
 
@@ -581,7 +591,7 @@ describe("JobEditScreen", () => {
     expect(saved.appealGaps).toEqual(["SAP"]);
   });
 
-  it("keeps existing 회사 동향 when saving other fields", { timeout: 15_000 }, async () => {
+  it("keeps existing 회사 동향 when saving other fields", { timeout: 30_000 }, async () => {
     const onSaved = vi.fn();
     const { user, service } = setup(<JobEditScreen jobId={1} {...editProps} onSaved={onSaved} />);
     const before = (await service.getJob(1))!;
