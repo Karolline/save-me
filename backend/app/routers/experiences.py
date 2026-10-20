@@ -1,4 +1,4 @@
-"""경험 엔드포인트 (/api/experiences). 남의 경험, 면접후기, 관련 경험은 모두 404."""
+"""경험 엔드포인트 (/api/experiences). 남의 경험, 면접후기, 관련 경험, 경험 그룹은 모두 404."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
@@ -8,11 +8,13 @@ from app.models import (
     ExperienceInput,
     ExperienceLinkKey,
     ExperienceList,
+    ExperiencePlacement,
     ExperienceView,
     User,
     VerifiedInput,
 )
 from app.stores import (
+    GroupNotFoundError,
     RelatedExperienceNotFoundError,
     ReviewNotFoundError,
     SelfRelatedError,
@@ -33,13 +35,15 @@ def not_found(what: str = "Experience") -> HTTPException:
 
 
 def save(work) -> Experience | None:
-    """만들기·고치기의 공통 오류: 남의(없는) 후기·관련 경험은 404, 자기 자신은 422."""
+    """만들기·고치기의 공통 오류: 남의(없는) 후기·관련 경험·그룹은 404, 자기 자신은 422."""
     try:
         return work()
     except ReviewNotFoundError:
         raise not_found("Interview review")
     except RelatedExperienceNotFoundError:
         raise not_found("Related experience")
+    except GroupNotFoundError:
+        raise not_found("Experience group")
     except SelfRelatedError:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, SELF_RELATED)
 
@@ -111,6 +115,20 @@ def set_verified(
 ) -> Experience:
     """사람 확인 표시 ([읽고 확인했어요]). updatedAt은 바뀌지 않는다."""
     experience = stores.experiences.set_verified(user.id, experience_id, data.verified)
+    if experience is None:
+        raise not_found()
+    return experience
+
+
+@router.put("/{experience_id}/placement", response_model=Experience, response_model_by_alias=True)
+def set_placement(
+    experience_id: int,
+    data: ExperiencePlacement,
+    user: User = Depends(current_user),
+    stores: Stores = Depends(get_stores),
+) -> Experience:
+    """경험 캘린더의 바로 고치기: 시작·끝·소속·그룹만. 확인 상태와 updatedAt은 바뀌지 않는다."""
+    experience = save(lambda: stores.experiences.set_placement(user.id, experience_id, data))
     if experience is None:
         raise not_found()
     return experience

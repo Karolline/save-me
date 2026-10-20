@@ -230,6 +230,52 @@ def test_resume_migration_one_basics_row_per_user_and_cascades(url):
     engine.dispose()
 
 
+def test_experience_groups_migration_keeps_experiences_and_sets_null(url):
+    # 이력까지 올린 DB의 경험은 그룹 마이그레이션 뒤에도 남고 그룹이 없다. 그룹을 지우면
+    # 경험의 group_id만 NULL이 되고, 사용자를 지우면 그룹도 지워진다.
+    config = alembic_config(url)
+    command.upgrade(config, "8bca33ed6431")
+    engine = create_engine(normalize_url(url))
+    with engine.begin() as c:
+        c.execute(text("INSERT INTO users (id, nickname, status, created_at) VALUES (1, '나', 'active', '2026-10-01')"))
+        for exp_id in (1, 2):
+            c.execute(
+                text(
+                    "INSERT INTO experiences (id, user_id, name, verified, created_at, updated_at)"
+                    " VALUES (:id, 1, :name, :verified, '2026-10-01', '2026-10-01')"
+                ),
+                {"id": exp_id, "name": f"경험{exp_id}", "verified": exp_id == 1},
+            )
+
+    command.upgrade(config, "head")
+
+    with engine.begin() as c:
+        if engine.dialect.name == "sqlite":
+            c.exec_driver_sql("PRAGMA foreign_keys=ON")
+        rows = c.execute(text("SELECT id, group_id, verified FROM experiences ORDER BY id")).all()
+        assert [(r.id, r.group_id, bool(r.verified)) for r in rows] == [(1, None, True), (2, None, False)]
+        c.execute(
+            text("INSERT INTO experience_groups (id, user_id, name, created_at) VALUES (1, 1, '그룹', '2026-10-21')")
+        )
+        c.execute(text("UPDATE experiences SET group_id = 1"))
+        c.execute(text("DELETE FROM experience_groups WHERE id = 1"))
+        assert c.execute(text("SELECT COUNT(*) FROM experiences WHERE group_id IS NULL")).scalar() == 2
+        c.execute(
+            text("INSERT INTO experience_groups (id, user_id, name, created_at) VALUES (2, 1, '그룹', '2026-10-21')")
+        )
+    # 없는 그룹은 가리킬 수 없다 (외래 키).
+    with pytest.raises(IntegrityError), engine.begin() as c:
+        if engine.dialect.name == "sqlite":
+            c.exec_driver_sql("PRAGMA foreign_keys=ON")
+        c.execute(text("UPDATE experiences SET group_id = 99 WHERE id = 1"))
+    with engine.begin() as c:
+        if engine.dialect.name == "sqlite":
+            c.exec_driver_sql("PRAGMA foreign_keys=ON")
+        c.execute(text("DELETE FROM users WHERE id = 1"))
+        assert c.execute(text("SELECT COUNT(*) FROM experience_groups")).scalar() == 0
+    engine.dispose()
+
+
 def test_upgrade_reads_database_url(tmp_path, monkeypatch):
     url = f"sqlite:///{tmp_path / 'from-env.db'}"
     monkeypatch.setenv("DATABASE_URL", url)

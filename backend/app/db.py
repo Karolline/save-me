@@ -338,6 +338,21 @@ class JobRequirementRow(Base):
     caution: Mapped[str] = mapped_column(Text, default="", server_default="")
 
 
+class ExperienceGroupRow(Base):
+    """경험 그룹 (기획안 S2 11번 "경험 그룹", 5.13): 비슷한 경험을 묶는 이름.
+
+    경험 하나는 그룹 하나에만 들어간다 (`experiences.group_id`). 경험이 하나도 없는
+    그룹은 store가 같은 트랜잭션에서 지운다. 이름은 겹쳐도 된다.
+    """
+
+    __tablename__ = "experience_groups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
 class ExperienceRow(Base):
     """경험 하나 (기획안 S2 11번, 5.13). 상황·과제·행동·결과(STAR)로 적은 근거.
 
@@ -361,6 +376,10 @@ class ExperienceRow(Base):
     ended_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     org: Mapped[str] = mapped_column(Text, default="", server_default="")
     role: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 경험 그룹 (하나만). 그룹을 지우면(묶음 풀기) NULL이 된다.
+    group_id: Mapped[int | None] = mapped_column(
+        ForeignKey("experience_groups.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     # 사람이 확인했는지: 가져온 경험은 False, 화면에서 저장하면 True.
     verified: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     summary: Mapped[str] = mapped_column(Text, default="", server_default="")
