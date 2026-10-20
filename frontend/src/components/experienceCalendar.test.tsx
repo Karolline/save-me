@@ -152,6 +152,33 @@ describe("ExperienceCalendar", () => {
     expect(screen.getByText("막대나 이름을 누르면 옆에서 기간·소속·그룹을 바로 고칠 수 있어요. 같은 그룹은 한 상자로 붙어서 보여요.")).toBeInTheDocument();
   });
 
+  it("leaves a career without 입사 out of the legend, keeping the other colors", { timeout: 15_000 }, async () => {
+    const noStart = { ...SAMPLE_RESUME.careers[1], company: "입사 모름", startedOn: null, endedOn: null };
+    const resume = { ...SAMPLE_RESUME, careers: [noStart, ...SAMPLE_RESUME.careers] };
+    const service = createMockService({ resume });
+    await service.createExperience({
+      ...emptyExperienceFields("주문 이벤트"),
+      startedOn: "2023-04",
+      endedOn: "2023-09",
+      org: "미담플랫폼 · 데이터플랫폼팀",
+      related: [],
+      groupId: null,
+    });
+    setup(calendar(), service);
+    await flowBox();
+
+    const legend = document.querySelector(".legend") as HTMLElement;
+    expect([...legend.querySelectorAll(".sw")].map((s) => [s.textContent, s.querySelector("i")?.className])).toEqual([
+      ["다올커머스", "oc-0"],
+      ["미담플랫폼", "oc-1"],
+      ["개인 프로젝트", "oc-personal"],
+      ["끝 날짜 없음", "sw-open"],
+      ["휴직", "sw-leave"],
+    ]);
+    expect([...document.querySelectorAll(".cal-cbar")].map((b) => b.className)).toEqual(["cal-cbar oc-0", "cal-cbar oc-1"]);
+    expect(screen.getByRole("button", { name: "주문 이벤트 · 2023.04 – 2023.09" })).toHaveClass("oc-1");
+  });
+
   it("says so when nothing is off", { timeout: 15_000 }, async () => {
     const service = createMockService({ resume: SAMPLE_RESUME });
     await service.createExperience({

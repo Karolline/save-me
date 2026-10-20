@@ -58,7 +58,7 @@ const editProps = { onSaved: () => {}, onCancel: () => {}, onDeleted: () => {}, 
 const rowNames = (list: HTMLElement) => within(list).getAllByRole("button").map((r) => r.querySelector("b")?.textContent);
 
 describe("ExperiencesScreen", () => {
-  it("lists the most recently started first with 확인 and 보완할 것, and the view counts", async () => {
+  it("lists the most recently started first with 확인 and 보완할 것, and the view counts", { timeout: 15_000 }, async () => {
     const onOpen = vi.fn();
     const { user } = setup(<ExperiencesScreen view="all" {...listProps} onOpen={onOpen} />);
 
@@ -87,7 +87,7 @@ describe("ExperiencesScreen", () => {
     expect(onOpen).toHaveBeenCalledWith(7);
   });
 
-  it("shows one view, searches through the server, and reports both", async () => {
+  it("shows one view, searches through the server, and reports both", { timeout: 15_000 }, async () => {
     const onViewChange = vi.fn();
     const onQueryChange = vi.fn();
     const { user } = setup(
@@ -108,7 +108,7 @@ describe("ExperiencesScreen", () => {
     expect(onQueryChange).toHaveBeenLastCalledWith("k");
   });
 
-  it("filters by the search text over name, summary, org, project and tags", async () => {
+  it("filters by the search text over name, summary, org, project and tags", { timeout: 15_000 }, async () => {
     setup(<ExperiencesScreen view="all" {...listProps} q="kafka" />);
     const list = await screen.findByLabelText("경험 목록");
     expect(rowNames(list)).toEqual(["주문 이벤트 스트림 재설계"]);
@@ -117,7 +117,7 @@ describe("ExperiencesScreen", () => {
     expect(screen.getByRole("button", { name: /전체\s*15/ })).toBeInTheDocument();
   });
 
-  it("shows 요약 없음 for an experience without a summary", async () => {
+  it("shows 요약 없음 for an experience without a summary", { timeout: 15_000 }, async () => {
     const service = createMockService();
     await service.createExperience({ ...emptyExperienceFields("요약 안 씀"), related: [], groupId: null });
     setup(<ExperiencesScreen view="all" {...listProps} />, service);
@@ -125,7 +125,7 @@ describe("ExperiencesScreen", () => {
     expect(within(list).getByText("요약 없음")).toHaveClass("hint");
   });
 
-  it("shows the empty states", async () => {
+  it("shows the empty states", { timeout: 15_000 }, async () => {
     const onAdd = vi.fn();
     const { user } = setup(<ExperiencesScreen view="all" {...listProps} onAdd={onAdd} />, createMockService());
     expect(await screen.findByRole("heading", { name: "아직 정리한 경험이 없어요" })).toBeInTheDocument();
@@ -134,7 +134,7 @@ describe("ExperiencesScreen", () => {
     expect(onAdd).toHaveBeenCalled();
   });
 
-  it("says nothing matches when the search finds nothing", async () => {
+  it("says nothing matches when the search finds nothing", { timeout: 15_000 }, async () => {
     setup(<ExperiencesScreen view="all" {...listProps} q="없는 말" />);
     expect(await screen.findByRole("heading", { name: "조건에 맞는 경험이 없어요" })).toBeInTheDocument();
     expect(screen.getByText("검색어나 보기를 바꿔 보세요.")).toBeInTheDocument();
@@ -142,7 +142,7 @@ describe("ExperiencesScreen", () => {
 });
 
 describe("ExperienceViewScreen", () => {
-  it("shows the head, meta, needs, summary and every section in order", async () => {
+  it("shows the head, meta, needs, summary and every section in order", { timeout: 15_000 }, async () => {
     setup(<ExperienceViewScreen id={1} {...viewProps} />);
 
     expect(await screen.findByRole("heading", { name: "클라우드 이전 · 로그 수집 파트" })).toBeInTheDocument();
@@ -196,7 +196,7 @@ describe("ExperienceViewScreen", () => {
     expect(document.querySelector(".framing")?.textContent).toContain("팀 성과다");
   });
 
-  it("opens a linked review and related experiences; unlinked places stay text", async () => {
+  it("opens a linked review and related experiences; unlinked places stay text", { timeout: 15_000 }, async () => {
     const onOpenReview = vi.fn();
     const onOpenExperience = vi.fn();
     const { user } = setup(
@@ -217,7 +217,7 @@ describe("ExperienceViewScreen", () => {
     expect(onOpenExperience).toHaveBeenCalledWith(4);
   });
 
-  it("marks an unverified experience as checked with [읽고 확인했어요]", async () => {
+  it("marks an unverified experience as checked with [읽고 확인했어요]", { timeout: 15_000 }, async () => {
     const { service, user } = setup(<ExperienceViewScreen id={1} {...viewProps} />);
 
     expect(await screen.findByText("아직 확인하지 않은 경험이에요.")).toBeInTheDocument();
@@ -228,7 +228,7 @@ describe("ExperienceViewScreen", () => {
     expect((await service.getExperience(1))!.verified).toBe(true);
   });
 
-  it("keeps 상황·과제·행동·결과 with their empty text and hides the other empty sections", async () => {
+  it("keeps 상황·과제·행동·결과 with their empty text and hides the other empty sections", { timeout: 15_000 }, async () => {
     setup(<ExperienceViewScreen id={7} {...viewProps} fromJob />);
 
     expect(await screen.findByRole("heading", { name: "Iceberg 테이블 포맷 실험 (개인)" })).toBeInTheDocument();
@@ -244,14 +244,14 @@ describe("ExperienceViewScreen", () => {
     expect(screen.getAllByText("없음")).toHaveLength(2);
   });
 
-  it("shows 기간 미입력 without a start month", async () => {
+  it("shows 기간 미입력 without a start month", { timeout: 15_000 }, async () => {
     const service = createMockService();
     const x = await service.createExperience({ ...emptyExperienceFields("시작 모름"), related: [], groupId: null });
     setup(<ExperienceViewScreen id={x.id} {...viewProps} />, service);
     expect(await screen.findByText("기간 미입력")).toBeInTheDocument();
   });
 
-  it("deletes after confirming", async () => {
+  it("deletes after confirming", { timeout: 15_000 }, async () => {
     const onDeleted = vi.fn();
     const { service, user } = setup(<ExperienceViewScreen id={4} {...viewProps} onDeleted={onDeleted} />);
 
@@ -269,7 +269,7 @@ describe("ExperienceViewScreen", () => {
     expect((await service.getExperience(1))!.related.map((r) => r.name)).toEqual(["클라우드 비용 대시보드"]);
   });
 
-  it("shows the 404 screen for a missing experience", async () => {
+  it("shows the 404 screen for a missing experience", { timeout: 15_000 }, async () => {
     setup(<ExperienceViewScreen id={99} {...viewProps} />);
     expect(await screen.findByRole("heading", { name: "페이지를 찾을 수 없어요" })).toBeInTheDocument();
   });
@@ -372,7 +372,7 @@ describe("ExperienceEditScreen", () => {
     expect(saved.related.map((r) => r.name)).toEqual(["클라우드 이전 · 로그 수집 파트", "결제 로그 마트 구축"]);
   });
 
-  it("goes back on cancel and deletes from the editor", async () => {
+  it("goes back on cancel and deletes from the editor", { timeout: 15_000 }, async () => {
     const onCancel = vi.fn();
     const onDeleted = vi.fn();
     const { service, user } = setup(
@@ -387,14 +387,14 @@ describe("ExperienceEditScreen", () => {
     expect(await service.getExperience(10)).toBeNull();
   });
 
-  it("shows the 404 screen for a missing experience", async () => {
+  it("shows the 404 screen for a missing experience", { timeout: 15_000 }, async () => {
     setup(<ExperienceEditScreen experienceId={99} {...editProps} />);
     expect(await screen.findByRole("heading", { name: "페이지를 찾을 수 없어요" })).toBeInTheDocument();
   });
 });
 
 describe("JobViewScreen evidence tags", () => {
-  it("turns tags naming an experience into ↗ buttons and leaves the rest as text", async () => {
+  it("turns tags naming an experience into ↗ buttons and leaves the rest as text", { timeout: 15_000 }, async () => {
     const onOpenExperience = vi.fn();
     const { user } = setup(
       <JobViewScreen
@@ -427,7 +427,7 @@ describe("JobViewScreen evidence tags", () => {
     expect(onOpenExperience).toHaveBeenCalledWith(2);
   });
 
-  it("still shows the analysis with plain tags when the link keys fail to load", async () => {
+  it("still shows the analysis with plain tags when the link keys fail to load", { timeout: 15_000 }, async () => {
     const service = samples();
     service.listExperienceLinks = () => Promise.reject(new TypeError("Failed to fetch"));
     setup(

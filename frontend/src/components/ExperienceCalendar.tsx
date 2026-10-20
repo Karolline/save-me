@@ -3,8 +3,6 @@ import {
   calendarAxis,
   calendarUnits,
   careerBands,
-  careerColor,
-  careersByStart,
   experienceBar,
   experienceIssues,
   groupSpan,
@@ -155,7 +153,8 @@ export function ExperienceCalendar({
   const flagged = inOrder.map((x) => ({ x, list: issuesOf(x) })).filter((v) => v.list.length);
   const axis = calendarAxis(experiences, careers, today);
   const W = axis.width;
-  const ordered = careersByStart(careers);
+  // 범례는 띠가 있는 경력만 (입사가 없는 경력은 띠가 없다). 색은 띠·막대와 같다.
+  const bands = careerBands(careers, axis, today);
 
   const openQuick = (x: ExperienceSummary) =>
     setQuick({
@@ -311,10 +310,10 @@ export function ExperienceCalendar({
       )}
       <div className="toolbar">
         <div className="legend">
-          {ordered.map((c, k) => (
+          {bands.map((b, k) => (
             <span key={k} className="sw">
-              <i className={careerColor(k)} />
-              {c.company}
+              <i className={b.color} />
+              {b.company}
             </span>
           ))}
           <span className="sw">
@@ -388,7 +387,7 @@ export function ExperienceCalendar({
                   <span className="hint">이력에서</span>
                 </div>
                 <div className="cal-track" style={{ width: W }}>
-                  {careerBands(careers, axis, today).map((b, k) => (
+                  {bands.map((b, k) => (
                     <span key={k}>
                       <span className={`cal-cbar ${b.color}`} style={{ left: b.left, width: b.width }}>
                         {b.company}
