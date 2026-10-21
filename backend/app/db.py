@@ -611,6 +611,121 @@ class PersonalityAnswerRow(Base):
     lesson: Mapped[str] = mapped_column(Text, default="", server_default="")
 
 
+class DocumentGroupRow(Base):
+    """지원서류 묶음 (기획안 S2 13번, 5.13): (회사, 작성날짜)마다 하나. 서류는 종류마다
+    최대 하나. 공고분석과 이을 수 있고 (같은 사용자 것만), 분석을 지우면 이음만 풀린다."""
+
+    __tablename__ = "document_groups"
+    __table_args__ = (UniqueConstraint("user_id", "company", "written_on"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    company: Mapped[str] = mapped_column(Text)
+    written_on: Mapped[date] = mapped_column(Date)
+    job_analysis_id: Mapped[int | None] = mapped_column(
+        ForeignKey("job_analyses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+    job: Mapped["JobAnalysisRow | None"] = relationship(lazy="joined", viewonly=True)
+    documents: Mapped[list["DocumentRow"]] = relationship(
+        cascade="all, delete-orphan", passive_deletes=True, lazy="selectin"
+    )
+    reviews: Mapped[list["DocumentReviewRow"]] = relationship(
+        order_by=lambda: DocumentReviewRow.id,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class DocumentRow(Base):
+    """서류 하나 (이력서, 경력기술서, 포트폴리오). 글 전체를 마크다운 비슷한 글 하나로 갖는다."""
+
+    __tablename__ = "documents"
+    __table_args__ = (UniqueConstraint("group_id", "type"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    group_id: Mapped[int] = mapped_column(ForeignKey("document_groups.id", ondelete="CASCADE"))
+    # resume / career / portfolio (검증은 models.py).
+    type: Mapped[str] = mapped_column(String(20))
+    body: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # written(직접 작성) / imported(가져옴) / imported_edited(가져온 것을 고쳐 저장).
+    source: Mapped[str] = mapped_column(String(20))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
+class DocumentReviewRow(Base):
+    """서류 리뷰 한 번. 다시 적으면 새 행이 생기고 화면은 가장 새 것만 보여 준다."""
+
+    __tablename__ = "document_reviews"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    group_id: Mapped[int] = mapped_column(
+        ForeignKey("document_groups.id", ondelete="CASCADE"), index=True
+    )
+    # 검토한 곳. 기본값 "직접 작성", 나중에 서류검토 에이전트 등.
+    reviewer: Mapped[str] = mapped_column(Text)
+    reviewed_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+    parts: Mapped[list["DocumentReviewPartRow"]] = relationship(
+        order_by=lambda: DocumentReviewPartRow.position,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class DocumentReviewPartRow(Base):
+    """리뷰의 서류별 덩어리: 서류 하나, 판정 하나."""
+
+    __tablename__ = "document_review_parts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    review_id: Mapped[int] = mapped_column(
+        ForeignKey("document_reviews.id", ondelete="CASCADE"), index=True
+    )
+    position: Mapped[int] = mapped_column(Integer)
+    document_type: Mapped[str] = mapped_column(String(20))
+    # fix(보완 권장) / ok(이대로 제출 가능) / redo(다시 쓰기 권장).
+    verdict: Mapped[str] = mapped_column(String(10))
+    # 면접관이 동료에게 할 한 줄 소개 (맨 첫 덩어리에만 있다).
+    intro: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 좋은 신호: 글 목록.
+    good: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+
+    items: Mapped[list["DocumentReviewItemRow"]] = relationship(
+        order_by=lambda: [DocumentReviewItemRow.kind, DocumentReviewItemRow.position],
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class DocumentReviewItemRow(Base):
+    """덩어리 안의 지적 하나: 먼저 고칠 것(fix) 또는 읽다 막히는 곳(stuck). [반영함]은 `done`."""
+
+    __tablename__ = "document_review_items"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    part_id: Mapped[int] = mapped_column(
+        ForeignKey("document_review_parts.id", ondelete="CASCADE"), index=True
+    )
+    kind: Mapped[str] = mapped_column(String(10))
+    position: Mapped[int] = mapped_column(Integer)
+    # fix: 위치(예: "경력기술서 3-2"), 한 줄 판단, 이유 목록. stuck: label에 글 한 줄.
+    label: Mapped[str] = mapped_column(Text, default="", server_default="")
+    headline: Mapped[str] = mapped_column(Text, default="", server_default="")
+    details: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
+    # [편집기에서 찾기]가 선택할 서류와 말. 없으면 jump_find가 비어 있다.
+    jump_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    jump_find: Mapped[str] = mapped_column(Text, default="", server_default="")
+    done: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+
+
 def database_url() -> str:
     return os.environ.get("DATABASE_URL", DEFAULT_DATABASE_URL)
 

@@ -898,3 +898,192 @@ class Resume(ApiModel):
     certificates: list[Certificate]
     skills: list[SkillGroup]
     personality: list[PersonalityAnswer]
+
+
+# ── 지원서류 ───────────────────────────────────────────────────────────
+
+DocumentType = Literal["resume", "career", "portfolio"]
+DOCUMENT_TYPES: tuple[str, ...] = ("resume", "career", "portfolio")
+# written(직접 작성), imported(가져옴), imported_edited(가져온 것을 고쳐 저장). AI 작성은 4단계.
+DocumentSource = Literal["written", "imported", "imported_edited"]
+# fix(보완 권장), ok(이대로 제출 가능), redo(다시 쓰기 권장).
+ReviewVerdict = Literal["fix", "ok", "redo"]
+
+
+def _clean_lines(values: list[str]) -> list[str]:
+    """앞뒤 공백을 떼고 빈 줄은 뺀다."""
+    return [v.strip() for v in values if v.strip()]
+
+
+class DocumentGroupInput(ApiModel):
+    """묶음 만들기·바꾸기. 회사와 작성날짜가 필수. 공고분석(`jobAnalysisId`)은 선택."""
+
+    company: str
+    written_on: _Date
+    job_analysis_id: int | None = None
+
+    @field_validator("company")
+    @classmethod
+    def company_required(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("company is required")
+        return value
+
+
+class DocumentSlot(ApiModel):
+    """묶음 안의 서류 한 칸: 작성 출처, 고친 날, 리뷰 판정과 남은 지적 수."""
+
+    type: DocumentType
+    source: DocumentSource
+    updated_at: datetime
+    # 가장 새 리뷰에 이 서류의 덩어리가 있으면 그 판정과 [반영함] 안 한 지적 수. 없으면 None.
+    verdict: ReviewVerdict | None = None
+    remaining: int | None = None
+
+
+class DocumentGroupSummary(ApiModel):
+    id: int
+    company: str
+    written_on: _Date
+    job_analysis_id: int | None = None
+    created_at: datetime
+
+
+class ReviewFixInput(ApiModel):
+    """먼저 고칠 것: 위치, 한 줄 판단, 이유(여러 줄), 편집기에서 찾을 말(선택)."""
+
+    label: str
+    headline: str
+    details: list[str] = []
+    # 찾을 말이 있으면 어느 서류에서 찾을지 (없으면 그 덩어리의 서류).
+    jump_type: DocumentType | None = None
+    jump_find: str = ""
+
+    @field_validator("label", "headline")
+    @classmethod
+    def required(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("must not be empty")
+        return value
+
+    @field_validator("details")
+    @classmethod
+    def clean_details(cls, value: list[str]) -> list[str]:
+        return _clean_lines(value)
+
+    @field_validator("jump_find")
+    @classmethod
+    def strip_find(cls, value: str) -> str:
+        return value.strip()
+
+
+class ReviewPartInput(ApiModel):
+    """리뷰의 서류별 덩어리. 서류 하나에 하나."""
+
+    document_type: DocumentType
+    verdict: ReviewVerdict
+    intro: str = ""
+    fixes: list[ReviewFixInput] = []
+    stuck: list[str] = []
+    good: list[str] = []
+
+    @field_validator("intro")
+    @classmethod
+    def strip_intro(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("stuck", "good")
+    @classmethod
+    def clean_lines(cls, value: list[str]) -> list[str]:
+        return _clean_lines(value)
+
+
+class DocumentReviewInput(ApiModel):
+    reviewer: str = "직접 작성"
+    parts: list[ReviewPartInput] = Field(min_length=1)
+
+    @field_validator("reviewer")
+    @classmethod
+    def reviewer_default(cls, value: str) -> str:
+        return value.strip() or "직접 작성"
+
+    @model_validator(mode="after")
+    def one_part_per_document(self) -> "DocumentReviewInput":
+        types = [p.document_type for p in self.parts]
+        if len(types) != len(set(types)):
+            raise ValueError("a document can have only one part")
+        return self
+
+
+class ReviewFix(ApiModel):
+    id: int
+    label: str
+    headline: str
+    details: list[str]
+    jump_type: DocumentType | None = None
+    jump_find: str = ""
+    done: bool
+
+
+class ReviewStuck(ApiModel):
+    id: int
+    text: str
+    done: bool
+
+
+class ReviewPart(ApiModel):
+    document_type: DocumentType
+    verdict: ReviewVerdict
+    intro: str
+    fixes: list[ReviewFix]
+    stuck: list[ReviewStuck]
+    good: list[str]
+    # 이 덩어리에서 [반영함] 안 한 지적 (먼저 고칠 것 + 막히는 곳).
+    remaining: int
+
+
+class DocumentReview(ApiModel):
+    id: int
+    reviewer: str
+    reviewed_at: datetime
+    parts: list[ReviewPart]
+
+
+class DocumentGroup(DocumentGroupSummary):
+    """묶음 하나: 서류 칸들과 가장 새 리뷰 (화면은 늘 가장 새 리뷰만 보인다)."""
+
+    job_title: str | None = None
+    updated_at: datetime
+    documents: list[DocumentSlot]
+    # 모든 서류의 [반영함] 안 한 지적 수. 리뷰가 없으면 0.
+    remaining: int = 0
+    review: DocumentReview | None = None
+
+
+class DocumentBody(ApiModel):
+    """서류 글 저장. 글 전체를 마크다운 비슷한 글 하나로."""
+
+    body: str
+
+
+class DocumentCreate(ApiModel):
+    """서류 만들기: 종류와 처음 글(화면이 틀을 보낸다)."""
+
+    type: DocumentType
+    body: str = ""
+
+
+class Document(ApiModel):
+    id: int
+    group_id: int
+    type: DocumentType
+    body: str
+    source: DocumentSource
+    created_at: datetime
+    updated_at: datetime
+
+
+class ReviewDone(ApiModel):
+    done: bool

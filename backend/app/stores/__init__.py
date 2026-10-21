@@ -8,6 +8,15 @@ from sqlalchemy import Connection, Engine
 from app.db import make_engine
 from app.stores.applications import ApplicationStore, DuplicateApplicationError
 from app.stores.base import Clock, utc_now
+from app.stores.documents import (
+    DocumentStore,
+    DuplicateDocumentError,
+    DuplicateGroupError,
+    ImportedDocument,
+    ImportedGroup,
+    JobAnalysisNotFoundError,
+    ReviewDocumentMissingError,
+)
 from app.stores.experiences import (
     ExperienceStore,
     GroupMemberNotFoundError,
@@ -36,16 +45,23 @@ __all__ = [
     "Card",
     "Clock",
     "DEV_IDENTITY",
+    "DocumentStore",
     "DuplicateApplicationError",
+    "DuplicateDocumentError",
+    "DuplicateGroupError",
     "ExperienceStore",
     "GroupMemberNotFoundError",
     "GroupNotFoundError",
     "ImportAction",
+    "ImportedDocument",
+    "ImportedGroup",
+    "JobAnalysisNotFoundError",
     "JobStore",
     "ListCard",
     "RelatedExperienceNotFoundError",
     "ResumeImportAction",
     "ResumeStore",
+    "ReviewDocumentMissingError",
     "ReviewNotFoundError",
     "ReviewStore",
     "SelfRelatedError",
@@ -65,6 +81,7 @@ class Stores:
     jobs: JobStore
     experiences: ExperienceStore
     resume: ResumeStore
+    documents: DocumentStore
 
     @classmethod
     def create(cls, engine: Engine | Connection | None = None, clock: Clock = utc_now) -> "Stores":
@@ -76,4 +93,5 @@ class Stores:
             jobs=JobStore(engine, clock),
             experiences=ExperienceStore(engine, clock),
             resume=ResumeStore(engine, clock),
+            documents=DocumentStore(engine, clock),
         )

@@ -12,6 +12,16 @@ def test_defaults_are_local_without_dev_login(monkeypatch):
     assert settings.secure_cookies is False
 
 
+def test_pdf_frontend_url_defaults_to_the_apps_own_address(monkeypatch):
+    monkeypatch.delenv("PDF_FRONTEND_URL", raising=False)
+    monkeypatch.delenv("PORT", raising=False)
+    assert settings_from_env().pdf_frontend_url == "http://127.0.0.1:8000"
+    monkeypatch.setenv("PORT", "9090")
+    assert settings_from_env().pdf_frontend_url == "http://127.0.0.1:9090"
+    monkeypatch.setenv("PDF_FRONTEND_URL", "http://127.0.0.1:5180")
+    assert settings_from_env().pdf_frontend_url == "http://127.0.0.1:5180"
+
+
 @pytest.mark.parametrize("value", ["true", "1", "TRUE", "yes", "on"])
 def test_dev_login_flag(monkeypatch, value):
     monkeypatch.setenv("DEV_LOGIN", value)
