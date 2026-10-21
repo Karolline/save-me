@@ -256,21 +256,23 @@ PC는 오른쪽 슬라이드 패널(상세와 같은 자리), 모바일은 전�
 - **메뉴 이름**: "지원서류" (이력서·경력기술서·포트폴리오를 묶는 말). 경로 `/documents`. 메뉴 순서는 3.2 (지원현황 · 공고분석 · **지원서류** · 면접후기 | 경험 · 이력).
 - **묶음 = (회사, 작성날짜)**. 한 회사에 서류가 여러 개라 묶어서 다룬다. 같은 회사라도 날짜가 다르면 다른 묶음. (회사, 작성날짜)가 겹치면 만들 수 없다.
 - **목록** (`/documents`): 묶음마다 한 줄, **회사와 작성날짜만** 보인다. 최근 날짜가 위. [+ 새 묶음]: 공고분석에서 고르면 회사가 채워지고 그 공고와 이어진다. 회사·작성날짜 필수.
-- **묶음 화면** (`/documents/:groupId`): 회사 · 작성날짜 · 공고분석 링크. **서류 칸 3개**(이력서 · 경력기술서 · 포트폴리오, 묶음마다 종류별로 최대 1개). 있는 칸은 작성 출처 · 고친 날 · 리뷰 판정 · 남은 지적 수, 누르면 서류 상세. 없는 칸은 [○○ 만들기]. 아래에 **묶음 전체 리뷰**. [검토 받기] / [다시 검토 받기], […]에 [묶음 삭제].
+- **묶음 화면** (`/documents/:groupId`): 회사 · 작성날짜 · 공고분석 링크. **서류 칸 3개**(이력서 · 경력기술서 · 포트폴리오, 묶음마다 종류별로 최대 1개). 있는 칸은 작성 출처 · 고친 날 · 리뷰 판정 · 남은 지적 수, 누르면 서류 상세. 없는 칸은 [○○ 만들기]. 아래에 **서류별 리뷰**(묶음 전체 리뷰가 아니라 서류마다 덩어리). [리뷰 적기] / [리뷰 다시 적기] (AI가 하는 [검토 받기]는 4단계), […]에 [묶음 정보 고치기] [묶음 삭제].
 - **서류 상세** (`/documents/:groupId/:type`): 위쪽에 같은 묶음의 서류 전환 탭, 자동 저장 표시, [PDF로 내려받기]. 본문은 **세로 3분할**:
   - **왼쪽 PDF 미리보기**: 실제로 나갈 A4 모습을 쪽으로 나눠 보여준다(쪽 번호, "n쪽"). 편집하면 바로 바뀐다. 빈 쪽이 생기는 것도 여기서 보인다.
-  - **가운데 편집기**: 서류 전체를 글 하나로 고친다. `#` 제목, `##` 섹션, `###` 소제목, `- ` 목록, `---` 쪽 나눔. 자동 저장.
+  - **가운데 편집기**: 서류 전체를 글 하나로 고친다. `#` 제목, `##` 섹션, `###` 소제목, `- ` 목록, `1. ` 번호 목록, `---` 쪽 나눔, `> ` 보조줄(회색 작은 글), `| 표 |`, `**굵게**`, `[글자](http(s) 주소)` 링크 (5.12). 입력을 멈추고 잠깐 뒤 자동 저장 (실패하면 "저장 안 됨 · 다시 시도", 글은 남는다). [서식 안내] 버튼이 이 문법을 한 장으로 보여 준다. 한 블록(문단·목록 한 항목·표)이 한 쪽보다 길면 새 쪽에 혼자 놓고 미리보기 위에 "이 문단이 한 쪽보다 길어요. 나눠 쓰면 좋아요" 경고.
   - **오른쪽 리뷰**: **지금 연 서류의 리뷰만** (2026-10-15: 이력서·경력기술서 리뷰를 합쳐 보여주지 않고 서류별로 나눔). 위쪽 서류 탭을 바꾸면 리뷰도 그 서류 것으로 바뀐다.
   - 화면이 좁으면(모바일) 세 칸 대신 [미리보기] [편집] [리뷰] 탭.
-- **리뷰 형식** (서류검토 에이전트가 이렇게 보낸다. **"제안대로 고치기"는 없다**):
+- **리뷰 입력 (MVP)**: 화면에서 직접 적는다 ([리뷰 적기]): 검토한 곳(기본값 "직접 작성"), 서류별 덩어리 [+ 서류 리뷰 추가] (서류는 묶음에 있는 것만, 서류 하나에 덩어리 하나. 서류가 없으면 "서류가 없어서 리뷰를 적을 수 없어요"), 덩어리마다 판정 · 한 줄 소개(맨 첫 덩어리에만) · 먼저 고칠 것(위치, 한 줄 판단, 이유, 편집기에서 찾을 말(선택)) · 막히는 곳 · 좋은 신호. 저장하면 새 `document_reviews` 행이 생기고 화면은 최신 것만 보인다 (이전 것은 DB에 남고, 이전 [반영함]은 새 리뷰에 이어지지 않는다). 리뷰 붙여넣기 파싱은 GitHub 이슈 #5.
+- **리뷰 형식** (나중에 서류검토 에이전트가 이렇게 보낸다. **"제안대로 고치기"는 없다**):
   - **서류 하나에 덩어리 하나**: 번호 · 서류(예: "1. 이력서", "2. 경력기술서") · **판정**(보완 권장 / 이대로 제출 가능 / 다시 쓰기 권장). 에이전트가 "이력서·경력기술서"처럼 묶어서 보내더라도, 항목마다 어느 서류 이야기인지 정해 서류별 덩어리로 나눠 저장한다. 공고 요건처럼 두 서류에 다 걸리는 지적은 고쳐야 할 쪽 서류에 둔다.
   - **면접관이 동료에게 할 한 줄 소개** (인용, 지원자 전체에 대한 말이라 묶음의 첫 덩어리에만)
   - **먼저 고칠 것**: 항목마다 위치(예: "경력기술서 3-2 (클라우드 이전)", "자격요건 5", "우대사항"), 한 줄 판단(예: "앞뒤가 맞지 않게 읽힙니다."), 이유 목록. 위치가 서류 안이면 [편집기에서 찾기](그 섹션 제목을 선택) 또는 [다른 서류에서 보기 ↗].
   - **그 밖에 읽다 막히는 곳**: 목록 (약어 설명 없음, 반복 문구, 거의 빈 쪽 등)
   - **면접관이 궁금해할 곳 (좋은 신호)**: 목록
   - 먼저 고칠 것·막히는 곳 항목마다 **[반영함] 체크**. 체크하면 흐리게, 묶음·서류 칸의 "남은 지적" 수가 줄어든다.
-- **PDF로 내려받기**: 미리보기와 같은 쪽 나눔으로 확인 → [내려받기]. 파일 이름 `회사_서류종류_작성날짜.pdf`. 실제 앱은 **서버에서 PDF를 만든다**(서류 HTML 템플릿 → 헤드리스 브라우저 또는 WeasyPrint, 한글 글꼴 내장). 미리보기와 PDF가 같은 템플릿·같은 쪽 나눔 규칙을 써야 "미리보기에서 본 대로" 나온다. 목업은 파일을 내려받을 수 없어 확인 창까지만.
-- AI 초안 작성과 서류검토 에이전트는 4단계. MVP에서는 틀로 만들어 직접 쓰고, 리뷰는 붙여 넣을 수 있게 할지 검토한다 (아래 5.13 `document_reviews`).
+- **PDF로 내려받기**: 미리보기와 같은 쪽 나눔으로 확인 → [내려받기]. 파일 이름 `회사_서류종류_작성날짜.pdf`. 실제 앱은 **서버에서 PDF를 만든다**: 프런트엔드에 인쇄용 경로(`/print/documents/:묶음/:종류`, 사이드바 없이 쪽만, 로그인한 세션으로만)를 두고, 서버가 헤드리스 Chromium(Playwright)으로 그 경로를 열어 `page.pdf()`로 만든다. 미리보기와 같은 코드가 쪽(595×842)을 그리므로 "미리보기에서 본 대로" 나온다. Docker 이미지에 Chromium과 한글 글꼴(Noto Sans CJK)이 들어 있다. 실패하면 토스트 "PDF를 만들지 못했어요. 잠시 뒤 다시 해 주세요." 목업은 파일을 내려받을 수 없어 확인 창까지만.
+- **작성 출처**: 새로 [만들기]로 만든 서류는 "직접 작성", 가져온 서류는 "가져옴", 가져온 것을 고쳐 저장하면 "가져옴 · 내가 수정" (`documents.source` = `written`/`imported`/`imported_edited`). AI 작성은 4단계.
+- AI 초안 작성과 서류검토 에이전트는 4단계. MVP에서는 틀로 만들어 직접 쓰고, 리뷰는 화면 폼으로 직접 적는다 (위 "리뷰 입력", 붙여넣기 파싱은 이슈 #5, 아래 5.13 `document_reviews`).
 
 ## 목업에서 확인할 것
 - 로그인 → 초대 코드 → 약관 → 지원현황 빈 상태 → 지원 추가 → 타임라인에 한 줄 생김, 흐름이 이어지는지
@@ -484,7 +486,7 @@ PC는 오른쪽 슬라이드 패널(상세와 같은 자리), 모바일은 전�
 - PC: 왼쪽 고정 사이드바, 모바일: 하단 탭 바. 메뉴는 설정 목록 하나 (3.3). 레이아웃 라우트 + `<Outlet/>`, `/applications/:id`와 `/applications/:id/edit`는 `/applications`의 자식 라우트(PC 슬라이드 패널). 로그인·가입·약관 화면은 레이아웃 밖.
 - 패널 vs 전체 화면 분기는 `matchMedia` 훅 하나 (테스트에서 교체).
 - 색은 CSS 변수. MVP는 라이트만, 다크는 2단계.
-- 마크다운: `Text` 컬럼에 문자열, `react-markdown` + `remark-gfm`, **raw HTML 렌더링 안 함**, 링크 `rel="noopener noreferrer"`. 후기 블록(`내 답` / `다시 답한다면` / 나중에 `AI 첨언`)은 블록 이름 목록을 받는 순수 함수로 잘라 렌더링. 편집은 textarea + 미리보기.
+- 마크다운: `Text` 컬럼에 문자열, `react-markdown` + `remark-gfm`, **raw HTML 렌더링 안 함**, 링크 `rel="noopener noreferrer"`. 후기 블록(`내 답` / `다시 답한다면` / 나중에 `AI 첨언`)은 블록 이름 목록을 받는 순수 함수로 잘라 렌더링. 편집은 textarea + 미리보기. **서류 글(지원서류, S2 13)에 한해** 번호 목록(`1. `), `**굵게**`, `[글자](http(s) 주소)` 링크(그 밖의 주소는 글자 그대로), `| 표 |`(머리글 줄 + `| --- |` 줄), `>` 보조줄(연달아 쓰면 한 덩어리)을 더 허용한다. raw HTML은 서류 글에서도 쓰지 않는다 (글자로 보임). 파싱·렌더는 `frontend/src/lib/documents.ts` 한 곳이고, 미리보기와 PDF가 같은 코드를 쓴다.
 
 ### 5.13 데이터 모델
 
@@ -503,7 +505,7 @@ PC는 오른쪽 슬라이드 패널(상세와 같은 자리), 모바일은 전�
 | `interview_answers` | id, user_id, question_id, position, kind(`follow`/`interviewer`/`mine`/`retry`/`memo`/`ai`), body | 질문 아래 말풍선. `interviewer`(면접관이 한 말·반응, 왼쪽)와 `ai`(AI 첨언, 가운데, "AI가 쓴 글 · 경험 근거 아님")는 2026-10-15 추가. `ai`는 아직 추가 버튼이 없다 (AI 단계에서) |
 
 **MVP (2026-10-15 출시 범위 결정)**: `experiences`(id, user_id, name, project, link_key, started_on, ended_on, org, role, verified, summary, situation, scope, task, actions_intro, numbers, appeal_main_use, appeal_strength, created_at, updated_at + JSON 칸: result_mine, result_team, appeal_questions, framing, missing), `experience_actions`(id, user_id, experience_id, position, title, points(JSON), note, source), `experience_tags`(experience_id, tag), `experience_asked`(id, user_id, experience_id, position, question, where_text, interview_review_id(nullable)), `experience_qas`(id, user_id, experience_id, position, question, answer, caution), `experience_links`(experience_id, related_experience_id, note), `experience_groups`(id, user_id, name, created_at) + `experiences.group_id`(nullable, 경험 하나는 그룹 하나), 이력: `resume_basics`(user_id 하나에 한 줄), `careers`, `educations`, `certificates`, `skill_groups`, `career_direction`(basics에 칸으로 둬도 됨), `personality_answers`.
-지원서류: `document_groups`(id, user_id, company, written_on, job_analysis_id(nullable), created_at, updated_at, **UNIQUE(user_id, company, written_on)**), `documents`(id, user_id, group_id, type(`resume`/`career`/`portfolio`), body(서류 글 전체, 마크다운 비슷한 형식), source, created_at, updated_at, UNIQUE(group_id, type)), `document_reviews`(id, user_id, group_id, reviewer, reviewed_at), `document_review_parts`(id, review_id, position, document_type(서류 하나), verdict, intro, good(JSON)), `document_review_items`(id, part_id, kind(`fix`/`stuck`), position, label, headline, details(JSON), jump_type, jump_find, done). 리뷰를 다시 받으면 새 `document_reviews` 행이 생기고 화면은 최신 것만 보여준다.
+지원서류: `document_groups`(id, user_id, company, written_on, job_analysis_id(nullable), created_at, updated_at, **UNIQUE(user_id, company, written_on)**), `documents`(id, user_id, group_id, type(`resume`/`career`/`portfolio`), body(서류 글 전체, 마크다운 비슷한 형식), source, created_at, updated_at, UNIQUE(group_id, type)), `document_reviews`(id, user_id, group_id, reviewer, reviewed_at), `document_review_parts`(id, user_id, review_id, position, document_type(서류 하나), verdict(`fix`/`ok`/`redo` = 보완 권장/이대로 제출 가능/다시 쓰기 권장), intro, good(JSON)), `document_review_items`(id, user_id, part_id, kind(`fix`/`stuck`), position, label(stuck은 글 한 줄), headline, details(JSON), jump_type, jump_find, done). 하위 테이블도 `user_id`를 갖고, 공고분석을 지우면 `document_groups.job_analysis_id`는 NULL이 된다. `documents.source`는 `written`/`imported`/`imported_edited`. 리뷰를 다시 받으면 새 `document_reviews` 행이 생기고 화면은 최신 것만 보여준다.
 **나중 단계에서 추가**: `files`(2), `ai_usage`(4). 모두 `user_id`를 가진다.
 
 - 날짜는 `Date`, 시각은 UTC. enum은 문자열 + Pydantic 검증 (DB 중립).
@@ -604,7 +606,7 @@ PC는 오른쪽 슬라이드 패널(상세와 같은 자리), 모바일은 전�
 10. **이력**: 기본 정보·경력·학력·자격증 등. + 9단계에서 넘어온 경험 캘린더·경험 그룹 (S2 11번). 2026-10-16 둘로 나눔:
     - 10-1. ~~**이력**~~ (2026-10-16 완료, v0.5.0. 기존 이력을 진짜 DB에 넣음): 카드마다 그 자리에서 편집. 목업에 더한 칸: 이력서 요약문, 경력의 휴직 기간(총 경력에 "휴직 n 포함"), 자격번호, 기술 스택 메모, 인성 답변 주제(주제별로 묶고 빈 답은 "답변 작성 필요"). 경력의 회사 이름은 경험의 소속과 똑같이 적는다(캘린더가 이름이 같은지로 비교).
     - 10-2. **경험 캘린더·경험 그룹** (S2 11번).
-11. **지원서류**: (회사, 작성날짜) 묶음, 서류 3분할(미리보기·편집기·리뷰), 리뷰 [반영함], 서버 PDF 생성 (S2 13번).
+11. **지원서류**: (회사, 작성날짜) 묶음, 서류 3분할(미리보기·편집기·리뷰), 리뷰 [반영함], 서버 PDF 생성 (S2 13번). 리뷰는 화면 폼으로 직접 적는다. 기존 서류 가져오기는 이력서·경력기술서만 (포트폴리오는 GitHub 이슈 #4).
 
 각 단계에서 테이블이 바뀌면: 마이그레이션 → `saveme_dev`에서 확인 → `saveme` 백업 → `saveme` 적용.
 
@@ -617,7 +619,7 @@ PC는 오른쪽 슬라이드 패널(상세와 같은 자리), 모바일은 전�
 | 8 공고분석 | `AI산출물/공고분석/` |
 | 9 경험 | `나/경험/`, `핵심경험list.txt` |
 | 10 이력 | `나/프로필/` |
-| 11 지원서류 | 회사별 폴더의 `이력서`·`경력기술서` `.md` (PDF 원본은 제출 파일 단계 2) |
+| 11 지원서류 | 회사별 폴더의 `이력서`·`경력기술서` `.md` (PDF 원본은 제출 파일 단계 2). 이번에는 오늘의집 이력서·경력기술서만, 포트폴리오는 이슈 #4 |
 
 **배포 (나중에)**
 

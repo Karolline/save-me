@@ -723,8 +723,8 @@ textarea.ed::selection { background: #FFE58A; }
 .pg-in .note { color: #667085; font-size: 9px; margin: 0 0 4px; }
 .pg-in ol, .pg-in ul { margin: 0 0 1px; padding-left: 15px; }
 .pg-in a { color: #2F5FD0; text-decoration: none; }
-.pg-in table { border-collapse: collapse; width: 100%; margin: 2px 0 6px; font-size: 9px; }
-.pg-in th, .pg-in td { border: 1px solid #D5DAE3; padding: 3px 6px; text-align: left; vertical-align: top; }
+.pg-in table { border-collapse: collapse; width: 100%; min-width: 0; margin: 2px 0 6px; }
+.pg-in th, .pg-in td { border: 1px solid #D5DAE3; padding: 3px 6px; text-align: left; vertical-align: top; font-size: 9px; line-height: 1.6; color: inherit; }
 .pg-in th { background: #F3F5F9; font-weight: 700; }
 .pg-no { position: absolute; bottom: 16px; left: 0; right: 0; text-align: center; font-size: 9px; color: #9AA1B0; }
 

@@ -6,6 +6,9 @@
 """
 
 import os
+from urllib.parse import urlparse
+
+from app.auth import SESSION_COOKIE
 
 DOCUMENT_LABELS = {"resume": "이력서", "career": "경력기술서", "portfolio": "포트폴리오"}
 
@@ -43,7 +46,11 @@ def render_document_pdf(base_url: str, group_id: int, type: str, session_token: 
                     viewport={"width": PAGE_WIDTH_PX, "height": PAGE_HEIGHT_PX}, locale="ko-KR"
                 )
                 if session_token:
-                    context.add_cookies([{"name": "saveme_session", "value": session_token, "url": url}])
+                    # url로 주면 쿠키 경로가 그 주소의 폴더가 돼서 /api에 안 간다: 도메인과 경로를 따로 준다.
+                    host = urlparse(url).hostname or "127.0.0.1"
+                    context.add_cookies(
+                        [{"name": SESSION_COOKIE, "value": session_token, "domain": host, "path": "/"}]
+                    )
                 page = context.new_page()
                 page.set_default_timeout(TIMEOUT_MS)
                 page.goto(url, wait_until="load")

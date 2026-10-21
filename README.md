@@ -32,6 +32,8 @@ make run front               # http://localhost:5180
 
 개발 서버는 실험용 데이터베이스(`saveme_dev`)를 쓰므로 실제 데이터(`saveme`)에는 영향이 없습니다.
 
+지원서류 PDF는 서버가 헤드리스 Chromium으로 만듭니다. 개발 PC에서는 한 번 `backend/`에서 `uv run playwright install chromium`을 해 두세요 (Docker 이미지에는 들어 있습니다). PDF를 만들려면 두 개발 서버가 모두 떠 있어야 합니다.
+
 테스트: `backend/`에서 `uv run pytest`, `frontend/`에서 `npm test`. 자세한 내용은 [`docs/testing.md`](docs/testing.md)에 있습니다.
 
 ## 데이터와 백업

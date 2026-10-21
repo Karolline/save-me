@@ -91,6 +91,23 @@ def test_both_databases_exist(stack) -> None:
     assert names.split() == ["saveme", "saveme_dev"]
 
 
+def test_the_image_makes_a_pdf_with_korean_fonts(stack) -> None:
+    """서버가 같은 앱의 인쇄용 화면을 이미지 안의 Chromium으로 열어 PDF를 만든다."""
+    with httpx.Client(base_url=APP_URL, headers=CSRF, timeout=120) as client:
+        assert client.post("/api/auth/dev-login").status_code == 200
+        group = client.post("/api/document-groups", json={"company": "오늘의집", "writtenOn": "2026-10-14"}).json()
+        body = "# 김지원\n한글 글꼴 확인 **굵게**\n\n## 요약\n주문·정산 데이터를 다루는 데이터 엔지니어입니다.\n---\n둘째 쪽"
+        assert client.post(f"/api/document-groups/{group['id']}/documents", json={"type": "resume", "body": body}).status_code == 201
+
+        pdf = client.get(f"/api/document-groups/{group['id']}/documents/resume/pdf")
+
+    assert pdf.status_code == 200, pdf.text
+    assert pdf.content.startswith(b"%PDF")
+    assert len(re.findall(rb"/Type\s*/Page(?![s\w])", pdf.content)) == 2  # --- 로 나눈 두 쪽
+    # 한글 글꼴이 PDF에 들어 있다 (인터넷이 되면 IBM Plex Sans KR, 안 되면 이미지의 Noto Sans CJK).
+    assert re.search(rb"/FontName\s*/[A-Z]{6}\+(IBMPlexSansKR|NotoSansCJK)", pdf.content)
+
+
 def test_the_app_stores_applications_in_the_saveme_database(stack) -> None:
     with httpx.Client(base_url=APP_URL, headers=CSRF) as client:
         assert client.post("/api/auth/dev-login").status_code == 200

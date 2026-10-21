@@ -263,6 +263,27 @@ uv run python -m app.importers.resume ../private/resume.json --database-url post
 uv run python -m app.importers.resume ../private/resume.json --replace
 ```
 
+### 지원서류 (`app.importers.documents`)
+
+파일은 `{"groups": [...]}`이고, 묶음마다 `company`, `writtenOn`(작성날짜), `jobCompany`(선택), `documents`(`[{"type": "resume" | "career" | "portfolio", "body": "..."}]`)를 갖는다. `body`는 서류 글 전체이고, 서식은 편집기의 [서식 안내]와 같다 (`# 제목`, `## 섹션`, `### 소제목`, `- 목록`, `1. 번호 목록`, `---` 쪽 나눔, `> 보조줄`, `| 표 |`, `**굵게**`, `[글자](주소)`). 원본 `.md`는 제목에 `#`가 없는 글자 형태라서, PDF와 견주어 가며 이 서식으로 바꿔 JSON에 담는다.
+
+- `jobCompany`와 같은 회사의 공고분석이 정확히 하나면 새 묶음에 이어 준다. 없거나 여럿이면 잇지 않고 알린다 (`공고분석을 잇지 못함: ...`).
+- 이미 있는 (회사, 작성날짜) 묶음은 그대로 두고 없는 서류만 더한다. 이미 있는 서류는 건너뛴다: 앱에서 고친 글을 덮어쓰지 않으므로 두 번 돌려도 달라지지 않는다.
+- `--replace`는 "가져옴"인 서류의 글만 파일의 것으로 덮어쓴다. 직접 쓴 서류와 가져온 뒤 고친 서류("가져옴 · 내가 수정")는 지킨다.
+- 출력: `saveme_dev: 묶음 추가 2, 서류 추가 3, 바꿈 0, 건너뜀 0 (파일 묶음 2건)`, 건너뛴 서류마다 한 줄. 파일에 같은 (회사, 작성날짜)가 둘이거나 한 묶음에 같은 종류의 서류가 둘이면 아무것도 쓰지 않는다. 트랜잭션 하나, `--dry-run`은 다른 가져오기와 같다.
+
+```
+cd backend
+uv run python -m app.importers.documents ../private/documents.json
+uv run python -m app.importers.documents ../private/documents.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme --dry-run
+uv run python -m app.importers.documents ../private/documents.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
+uv run python -m app.importers.documents ../private/documents.json --replace
+```
+
+### 서류 PDF
+
+[PDF로 내려받기]는 서버가 헤드리스 Chromium(Playwright)으로 프런트엔드의 인쇄용 화면(`/print/documents/:묶음/:종류`)을 열어 만든다. Docker 이미지에는 Chromium과 한글 글꼴(Noto Sans CJK)이 들어 있고, 같은 앱의 자기 주소(`http://127.0.0.1:$PORT`, `PDF_FRONTEND_URL`로 바꿈)로 화면을 연다. 개발 PC에서는 한 번 `cd backend` 후 `uv run playwright install chromium`을 하고, 개발 서버(`make run back`)는 Vite 개발 서버(`make run front`, 5180)를 쓴다 (둘 다 떠 있어야 PDF가 된다). 쪽 글꼴은 IBM Plex Sans KR(구글 폰트)이 먼저이고, 못 받으면 Noto Sans CJK KR로 돌아간다: 미리보기와 PDF의 쪽 나눔이 같으려면 같은 글꼴이어야 하므로, 컨테이너가 인터넷에 닿아야 한다.
+
 ---
 
 # Local operations (English)
@@ -422,3 +443,24 @@ uv run python -m app.importers.resume ../private/resume.json --database-url post
 uv run python -m app.importers.resume ../private/resume.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
 uv run python -m app.importers.resume ../private/resume.json --replace
 ```
+
+### Documents (`app.importers.documents`)
+
+The file is `{"groups": [...]}`; each group has `company`, `writtenOn`, `jobCompany` (optional) and `documents` (`[{"type": "resume" | "career" | "portfolio", "body": "..."}]`). `body` is the whole document text in the editor's format (see [서식 안내] in the editor: `# title`, `## section`, `### subheading`, `- list`, `1. numbered list`, `---` page break, `> note`, `| table |`, `**bold**`, `[text](url)`). The original `.md` files are plain text without `#` headings, so convert them to this format against the PDF before putting them in the JSON.
+
+- When exactly one job analysis of the `jobCompany` company exists, a new group is linked to it. Otherwise it is not linked and the importer says so (`공고분석을 잇지 못함: ...`).
+- An existing (company, written date) group is left alone and only gets the documents it lacks. Existing documents are skipped: text edited in the app is never overwritten, so a rerun changes nothing.
+- `--replace` overwrites the text only of documents still "가져옴". Documents the user wrote or edited after importing ("가져옴 · 내가 수정") are kept.
+- Output: `saveme_dev: 묶음 추가 2, 서류 추가 3, 바꿈 0, 건너뜀 0 (파일 묶음 2건)`, then a line per skipped document. A repeated (company, written date) in the file, or two documents of one type in a group, writes nothing. One transaction; `--dry-run` works as for the other importers.
+
+```
+cd backend
+uv run python -m app.importers.documents ../private/documents.json
+uv run python -m app.importers.documents ../private/documents.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme --dry-run
+uv run python -m app.importers.documents ../private/documents.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
+uv run python -m app.importers.documents ../private/documents.json --replace
+```
+
+### Document PDF
+
+[PDF로 내려받기] has the server open the frontend's print screen (`/print/documents/:group/:type`) in headless Chromium (Playwright) and print it. The Docker image contains Chromium and a Korean font (Noto Sans CJK) and opens the screen at the app's own address (`http://127.0.0.1:$PORT`, overridable with `PDF_FRONTEND_URL`). On a dev PC, run `uv run playwright install chromium` once in `backend/`; the dev server (`make run back`) uses the Vite dev server (`make run front`, port 5180), so both must be running for the PDF to work. Pages use IBM Plex Sans KR (Google Fonts) first and fall back to Noto Sans CJK KR: the preview and the PDF only paginate the same when they use the same font, so the container needs internet access.

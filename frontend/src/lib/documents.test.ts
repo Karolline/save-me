@@ -2,13 +2,19 @@ import { describe, expect, it } from "vitest";
 import {
   DOC_BLANK,
   PAGE_CAPACITY,
+  draftToInput,
+  emptyFixDraft,
   findLine,
   forcedBreaks,
+  newPartDraft,
   paginate,
   parseDocument,
   parseInline,
   pdfFileName,
+  reviewDraftError,
+  seoulDay,
   type DocBlock,
+  type PartDraft,
 } from "./documents";
 
 const text = (t: string) => ({ kind: "text", text: t });
@@ -146,6 +152,61 @@ describe("paginate", () => {
 
   it("uses the content height of a 595x842 page by default", () => {
     expect(PAGE_CAPACITY).toBe(842 - 44 - 40);
+  });
+});
+
+describe("review draft", () => {
+  const part = (changes: Partial<PartDraft> = {}): PartDraft => ({ ...newPartDraft("resume"), ...changes });
+
+  it("turns the form draft into the input: lines split, blank fixes dropped, find defaults to this document", () => {
+    const input = draftToInput({
+      reviewer: " ",
+      parts: [
+        part({
+          intro: " 소개 ",
+          verdict: "redo",
+          fixes: [
+            { label: " 요약 ", headline: "약함", details: "이유 1\n\n 이유 2 ", jumpType: "", jumpFind: " ## 요약 " },
+            emptyFixDraft(),
+            { label: "경력", headline: "숫자", details: "", jumpType: "career", jumpFind: "" },
+          ],
+          stuck: "막힘 1\n막힘 2\n",
+          good: "좋음",
+        }),
+      ],
+    });
+
+    expect(input).toEqual({
+      reviewer: "직접 작성",
+      parts: [
+        {
+          documentType: "resume",
+          verdict: "redo",
+          intro: "소개",
+          fixes: [
+            { label: "요약", headline: "약함", details: ["이유 1", "이유 2"], jumpType: "resume", jumpFind: "## 요약" },
+            // 찾을 말이 없으면 찾을 서류도 없다.
+            { label: "경력", headline: "숫자", details: [], jumpType: null, jumpFind: "" },
+          ],
+          stuck: ["막힘 1", "막힘 2"],
+          good: ["좋음"],
+        },
+      ],
+    });
+  });
+
+  it("explains what blocks saving: no part, or a fix without its location and one-line verdict", () => {
+    expect(reviewDraftError({ reviewer: "", parts: [] })).toBe("서류 리뷰를 하나 이상 추가해 주세요");
+    expect(reviewDraftError({ reviewer: "", parts: [part()] })).toBe("");
+    const half = part({ fixes: [{ ...emptyFixDraft(), label: "위치만" }] });
+    expect(reviewDraftError({ reviewer: "", parts: [half] })).toContain("위치와 한 줄 판단");
+    // 아무것도 안 적은 지적은 그냥 빠진다.
+    expect(reviewDraftError({ reviewer: "", parts: [part({ fixes: [emptyFixDraft()] })] })).toBe("");
+  });
+
+  it("formats the time as a Seoul date", () => {
+    expect(seoulDay("2026-10-14T16:00:00Z")).toBe("2026-10-15");
+    expect(seoulDay("2026-10-14T14:59:00Z")).toBe("2026-10-14");
   });
 });
 

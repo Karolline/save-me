@@ -9,7 +9,7 @@ info:
     Every endpoint except `GET /auth/config` and `POST /auth/dev-login` needs a
     session (the `saveme_session` HttpOnly cookie); without one it returns 401.
     Requests other than GET must send `X-Requested-With: SaveMe` (403 otherwise).
-    Another user's application, review, question, job analysis or experience is a 404, as if it didn't exist.
+    Another user's application, review, question, job analysis, experience, document group, document or review item is a 404, as if it didn't exist.
     The resume has no ids: `/resume` always reads and writes the logged-in user's own.
 servers:
   - url: /api
@@ -619,6 +619,182 @@ paths:
       responses:
         "200": { $ref: "#/components/responses/Resume" }
         "422": { description: "A row without question; nothing is written" }
+
+  /document-groups:
+    get:
+      summary: "지원서류 묶음 list: newest 작성날짜 first, same day newest created first"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DocumentGroupSummary" }
+    post:
+      summary: Create a group of documents for (company, written date)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentGroupInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentGroup" }
+        "404": { description: The job analysis to link is missing or another user's }
+        "409": { description: "같은 회사, 같은 날짜의 묶음이 이미 있어요 (UNIQUE user, company, writtenOn)" }
+        "422": { description: Invalid input (empty company, bad date) }
+  /document-groups/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    get:
+      summary: A group with its document slots and its newest review
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentGroup" }
+        "404": { description: Not found (or another user's) }
+    put:
+      summary: Change company, written date and the linked job analysis
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentGroupInput" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentGroup" }
+        "404": { description: Group or job analysis not found (or another user's) }
+        "409": { description: Another group already has this company and date }
+        "422": { description: Invalid input }
+    delete:
+      summary: Delete the group with its documents and reviews
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found (or another user's) }
+  /document-groups/{id}/documents:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    post:
+      summary: "Add a document to the group (source is 직접 작성); the screen sends its blank template as body"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type]
+              properties:
+                type: { $ref: "#/components/schemas/DocumentType" }
+                body: { type: string, default: "" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "404": { description: Group not found (or another user's) }
+        "409": { description: The group already has a document of this type }
+        "422": { description: Unknown type }
+  /document-groups/{id}/documents/{type}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+      - { name: type, in: path, required: true, schema: { $ref: "#/components/schemas/DocumentType" } }
+    get:
+      summary: A document with its whole text
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "404": { description: Not found (or another user's) }
+    put:
+      summary: "Save the text (autosave). updatedAt changes only when the text changed; an imported document becomes imported_edited"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Document" }
+        "404": { description: Not found (or another user's) }
+    delete:
+      summary: Delete the document and its review parts (a review left with no part is deleted)
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found (or another user's) }
+  /document-groups/{id}/documents/{type}/pdf:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+      - { name: type, in: path, required: true, schema: { $ref: "#/components/schemas/DocumentType" } }
+    get:
+      summary: "The PDF, made by the server: headless Chromium opens the frontend's print screen /print/documents/{id}/{type} with the caller's session, so the pages are the preview's pages (A4, 595x842pt)"
+      description: Content-Disposition names the file `회사_서류종류_작성날짜.pdf` (e.g. 오늘의집_이력서_2026-10-14.pdf).
+      responses:
+        "200":
+          description: The PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        "404": { description: Group or document not found (or another user's) }
+        "502": { description: The PDF could not be made }
+  /document-groups/{id}/reviews:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    post:
+      summary: "Write a review (리뷰 적기): a new review is created and the group shows only the newest one (older ones stay in the database; [반영함] marks do not carry over)"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DocumentReviewInput" }
+      responses:
+        "201":
+          description: The group with the new review
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentGroup" }
+        "404": { description: Group not found (or another user's) }
+        "422": { description: "Invalid input: no part, a document twice, a fix without label or headline, or a part for a document the group does not have" }
+  /document-groups/{id}/review-items/{itemId}/done:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+      - { name: itemId, in: path, required: true, schema: { type: integer } }
+    put:
+      summary: "[반영함] on or off for a fix or stuck item; the counts of what is left change"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [done]
+              properties:
+                done: { type: boolean }
+      responses:
+        "200":
+          description: The group
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentGroup" }
+        "404": { description: Group or item not found (or another user's) }
 
 components:
   responses:
@@ -1256,3 +1432,136 @@ components:
         certificates: { type: array, items: { $ref: "#/components/schemas/Certificate" } }
         skills: { type: array, items: { $ref: "#/components/schemas/SkillGroup" } }
         personality: { type: array, items: { $ref: "#/components/schemas/PersonalityAnswer" } }
+    DocumentType:
+      type: string
+      enum: [resume, career, portfolio]
+      description: 이력서, 경력기술서, 포트폴리오. A group has at most one of each.
+    DocumentSource:
+      type: string
+      enum: [written, imported, imported_edited]
+      description: 작성 출처 - 직접 작성, 가져옴, 가져옴 · 내가 수정 (AI 작성 comes in stage 4)
+    ReviewVerdict:
+      type: string
+      enum: [fix, ok, redo]
+      description: 보완 권장, 이대로 제출 가능, 다시 쓰기 권장
+    DocumentGroupInput:
+      type: object
+      required: [company, writtenOn]
+      properties:
+        company: { type: string, description: Required, trimmed }
+        writtenOn: { type: string, format: date, description: 작성날짜 }
+        jobAnalysisId: { type: [integer, "null"], default: null, description: One of the user's job analyses, or null. Deleting the analysis sets it to null }
+    DocumentGroupSummary:
+      type: object
+      required: [id, company, writtenOn, jobAnalysisId, createdAt]
+      properties:
+        id: { type: integer }
+        company: { type: string }
+        writtenOn: { type: string, format: date }
+        jobAnalysisId: { type: [integer, "null"] }
+        createdAt: { type: string, format: date-time }
+    DocumentSlot:
+      type: object
+      required: [type, source, updatedAt, verdict, remaining]
+      properties:
+        type: { $ref: "#/components/schemas/DocumentType" }
+        source: { $ref: "#/components/schemas/DocumentSource" }
+        updatedAt: { type: string, format: date-time }
+        verdict:
+          oneOf: [{ $ref: "#/components/schemas/ReviewVerdict" }, { type: "null" }]
+          description: From the newest review's part for this document; null when it has none
+        remaining: { type: [integer, "null"], description: "[반영함] not yet checked in that part (fixes + stuck); null when there is no part" }
+    ReviewFix:
+      type: object
+      required: [id, label, headline, details, jumpType, jumpFind, done]
+      properties:
+        id: { type: integer }
+        label: { type: string, description: "위치, e.g. 경력기술서 3-2" }
+        headline: { type: string, description: 한 줄 판단 }
+        details: { type: array, items: { type: string }, description: 이유 }
+        jumpType:
+          oneOf: [{ $ref: "#/components/schemas/DocumentType" }, { type: "null" }]
+          description: Where [편집기에서 찾기] looks; null when jumpFind is empty
+        jumpFind: { type: string, description: The phrase to select in the editor; empty means no button }
+        done: { type: boolean }
+    ReviewStuck:
+      type: object
+      required: [id, text, done]
+      properties:
+        id: { type: integer }
+        text: { type: string }
+        done: { type: boolean }
+    ReviewPart:
+      type: object
+      required: [documentType, verdict, intro, fixes, stuck, good, remaining]
+      description: One document's chunk of a review (one per document)
+      properties:
+        documentType: { $ref: "#/components/schemas/DocumentType" }
+        verdict: { $ref: "#/components/schemas/ReviewVerdict" }
+        intro: { type: string, description: 면접관이 동료에게 할 한 줄 소개 (only the first part has one) }
+        fixes: { type: array, items: { $ref: "#/components/schemas/ReviewFix" }, description: 먼저 고칠 것 }
+        stuck: { type: array, items: { $ref: "#/components/schemas/ReviewStuck" }, description: 읽다 막히는 곳 }
+        good: { type: array, items: { type: string }, description: 좋은 신호 }
+        remaining: { type: integer, description: Fixes and stuck items not yet 반영함 }
+    DocumentReview:
+      type: object
+      required: [id, reviewer, reviewedAt, parts]
+      properties:
+        id: { type: integer }
+        reviewer: { type: string, description: 검토한 곳, default "직접 작성" }
+        reviewedAt: { type: string, format: date-time }
+        parts: { type: array, items: { $ref: "#/components/schemas/ReviewPart" } }
+    DocumentGroup:
+      type: object
+      required: [id, company, writtenOn, jobAnalysisId, createdAt, jobTitle, updatedAt, documents, remaining, review]
+      properties:
+        id: { type: integer }
+        company: { type: string }
+        writtenOn: { type: string, format: date }
+        jobAnalysisId: { type: [integer, "null"] }
+        createdAt: { type: string, format: date-time }
+        jobTitle: { type: [string, "null"], description: Title of the linked job analysis }
+        updatedAt: { type: string, format: date-time }
+        documents: { type: array, items: { $ref: "#/components/schemas/DocumentSlot" }, description: Only the documents that exist, in the order resume, career, portfolio }
+        remaining: { type: integer, description: 남은 지적 over all documents (0 without a review) }
+        review: { oneOf: [{ $ref: "#/components/schemas/DocumentReview" }, { type: "null" }], description: The newest review }
+    Document:
+      type: object
+      required: [id, groupId, type, body, source, createdAt, updatedAt]
+      description: >
+        The whole text of one document. Format: `# 제목`, `## 섹션`, `### 소제목`, `- 목록`, `1. 번호 목록`,
+        `---` (page break), `> 보조줄`, `| 표 |` (header row then `| --- |`), `**굵게**`, `[글자](http(s) 주소)`.
+        Raw HTML is not rendered.
+      properties:
+        id: { type: integer }
+        groupId: { type: integer }
+        type: { $ref: "#/components/schemas/DocumentType" }
+        body: { type: string }
+        source: { $ref: "#/components/schemas/DocumentSource" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ReviewFixInput:
+      type: object
+      required: [label, headline]
+      properties:
+        label: { type: string, description: Required, trimmed }
+        headline: { type: string, description: Required, trimmed }
+        details: { type: array, items: { type: string }, default: [], description: Blank lines are dropped }
+        jumpType: { oneOf: [{ $ref: "#/components/schemas/DocumentType" }, { type: "null" }], default: null, description: Defaults to the part's document when jumpFind is given }
+        jumpFind: { type: string, default: "" }
+    ReviewPartInput:
+      type: object
+      required: [documentType, verdict]
+      properties:
+        documentType: { $ref: "#/components/schemas/DocumentType" }
+        verdict: { $ref: "#/components/schemas/ReviewVerdict" }
+        intro: { type: string, default: "" }
+        fixes: { type: array, items: { $ref: "#/components/schemas/ReviewFixInput" }, default: [] }
+        stuck: { type: array, items: { type: string }, default: [] }
+        good: { type: array, items: { type: string }, default: [] }
+    DocumentReviewInput:
+      type: object
+      required: [parts]
+      properties:
+        reviewer: { type: string, default: 직접 작성, description: Blank becomes the default }
+        parts: { type: array, minItems: 1, items: { $ref: "#/components/schemas/ReviewPartInput" }, description: One per document, only documents the group has }
