@@ -19,6 +19,7 @@
   --memo: #FBF5E6; --memo-line: #EBDDB5;
   --ai: #F3F0FB; --ai-line: #D9D0F2;
   --kakao: #FEE500;
+  --stage: #D9DDE5;
   --font: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
   --r: 10px;
@@ -637,3 +638,100 @@ td.mono { white-space: nowrap; }
   .tsrc-ed > :nth-child(4) { grid-column: 1 / -1; justify-self: end; }
   .tsrc-ed + .tsrc-ed { border-top: 1px dashed var(--line); padding-top: 6px; }
 }
+
+/* ── 지원서류: 묶음 목록 · 묶음 · 서류 상세(미리보기 · 편집 · 리뷰) ── */
+.dt-resume { background: var(--accent-weak); color: var(--accent); }
+.dt-career { background: var(--retry); color: var(--ing); }
+.dt-portfolio { background: var(--memo); color: var(--closed); }
+.dgrow { grid-template-columns: minmax(0,1fr) auto; }
+.dgrow b { font-size: 15px; }
+.dslots { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+@media (max-width: 1040px) { .dslots { grid-template-columns: minmax(0,1fr); } }
+.dslot { text-align: left; padding: 16px; display: flex; flex-direction: column; gap: 8px; min-height: 150px; cursor: pointer; }
+.dslot:hover { border-color: var(--d2); }
+.dslot-t { font-size: 16px; font-weight: 700; }
+.dslot-go { margin-top: auto; color: var(--accent); font-weight: 600; font-size: 13px; }
+.dslot.empty-slot { cursor: default; border-style: dashed; background: var(--bg); align-items: flex-start; }
+.dslot.empty-slot:hover { border-color: var(--line); }
+.vd-fix { background: var(--memo); color: var(--closed); } .vd-ok { background: var(--retry); color: var(--ing); } .vd-redo { background: #FBECEA; color: var(--fail); }
+.rpart { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 14px; border-bottom: 1px solid var(--grid); }
+.rpart:last-child { border-bottom: 0; padding-bottom: 0; }
+.rpart-h { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.rintro { background: var(--accent-weak); border-radius: 8px; padding: 10px 12px; }
+.rintro .k { font-size: 11px; font-weight: 700; color: var(--accent); }
+.rintro p { margin: 4px 0 0; line-height: 1.65; }
+.rblock h4 { margin: 0 0 6px; font-size: 13px; }
+.rblock ul { margin: 0; padding-left: 18px; line-height: 1.65; font-size: 13px; }
+.rblock.good h4 { color: var(--ing); }
+.rfix { border: 1px solid var(--line); border-left: 4px solid var(--fail); border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; background: var(--surface); }
+.rfix.done, .rstuck li.done { opacity: .5; }
+.rfix-h { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.rfix-h b { font-size: 13px; }
+.rfix-head { margin: 0; font-weight: 600; font-size: 13px; }
+.rfix ul { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.6; }
+.rstuck { list-style: none; padding: 0 !important; display: flex; flex-direction: column; gap: 6px; }
+.rstuck li { display: flex; gap: 8px; justify-content: space-between; align-items: flex-start; border-bottom: 1px dashed var(--grid); padding-bottom: 6px; }
+.rchk { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); white-space: nowrap; cursor: pointer; }
+.rchk input { accent-color: var(--ing); }
+.main-inner.wide { max-width: none; }
+.dp3 { display: flex; flex-direction: column; gap: 10px; }
+.dp3-top { display: flex; flex-direction: column; gap: 8px; }
+.dp3-top .back { align-self: flex-start; font-size: 13px; }
+.dp3-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dp3-bar .hint { margin-left: auto; }
+.dp3-bar .hint.fail { color: var(--fail); font-weight: 600; }
+.pane-tabs { display: none; align-self: flex-start; }
+.d3 { display: grid; grid-template-columns: minmax(0,.95fr) minmax(0,1.1fr) minmax(0,.95fr); gap: 10px; }
+.pane { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.pane-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--bg); flex-wrap: wrap; }
+.pane-h .hint { font-size: 11px; }
+.pane-b { height: calc(100vh - 300px); min-height: 440px; overflow: auto; }
+.pv-wrap { background: var(--stage); padding: 12px; }
+.pv-warn { margin: 0 0 10px; padding: 8px 10px; border-radius: 8px; background: #FBECEA; color: var(--fail); font-size: 13px; line-height: 1.5; }
+textarea.ed { display: block; width: 100%; height: 100%; border: 0; resize: none; padding: 14px 16px; font-family: var(--font); font-size: 16px; line-height: 1.7; color: var(--fg); background: var(--surface); }
+textarea.ed:focus { outline: none; }
+textarea.ed::selection { background: #FFE58A; }
+.rv-pane { padding: 12px 14px; display: flex; flex-direction: column; gap: 4px; }
+@media (max-width: 1200px) {
+  .pane-tabs { display: inline-flex; }
+  .d3 { grid-template-columns: minmax(0,1fr); }
+  .d3.show-preview .pane:not(.p-preview), .d3.show-edit .pane:not(.p-edit), .d3.show-review .pane:not(.p-review) { display: none; }
+  .pane-b { height: 68vh; }
+  .dp3-bar .hint { margin-left: 0; }
+}
+.modal:has(.fmt-help) { max-width: 560px; }
+.fmt-help { margin: 0; padding: 12px; background: var(--bg); border-radius: 8px; font-family: var(--mono); font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow: auto; max-height: 52vh; }
+.modal:has(.rform) { max-width: 640px; max-height: calc(100vh - 32px); overflow: auto; }
+.rform { display: flex; flex-direction: column; gap: 14px; }
+.rform-part { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+.rform-part > header { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.rform-part h3 { margin: 0; font-size: 14px; }
+.rform-fix { border: 1px dashed var(--line); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+
+/* 쪽 (595×842): 미리보기와 서버 PDF가 같은 규칙으로 그린다. 글은 쪽 안에서 위에서 아래로 쌓고,
+   블록 사이 여백이 겹치지 않아야 높이를 블록마다 재서 쪽 나눔을 계산할 수 있다 (flex 열). */
+.pv { width: 595px; }
+.pg { width: 595px; height: 842px; background: #fff; box-shadow: 0 2px 8px rgba(20,28,45,.18); margin: 0 auto 14px; position: relative; padding: 44px 46px 40px; box-sizing: border-box; color: #1B2130; font-family: "IBM Plex Sans KR", "Noto Sans CJK KR", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+.pg-in { height: 100%; overflow: hidden; font-size: 9.5px; line-height: 1.7; display: flex; flex-direction: column; }
+.pg-in > * { flex: none; }
+.pg-in > :first-child { margin-top: 0; }
+.pg-measure { position: absolute; left: -10000px; top: 0; visibility: hidden; width: 503px; height: auto; overflow: visible; pointer-events: none; }
+.pg-in h1 { font-size: 19px; margin: 0 0 4px; font-weight: 700; letter-spacing: .04em; line-height: 1.4; }
+.pg-in h2 { font-size: 12px; margin: 14px 0 8px; padding-bottom: 4px; border-bottom: 1.5px solid #1B2130; font-weight: 700; line-height: 1.5; }
+.pg-in h3 { font-size: 10.5px; margin: 10px 0 1px; font-weight: 700; }
+.pg-in p { margin: 0 0 4px; }
+.pg-in .note { color: #667085; font-size: 9px; margin: 0 0 4px; }
+.pg-in ol, .pg-in ul { margin: 0 0 1px; padding-left: 15px; }
+.pg-in a { color: #2F5FD0; text-decoration: none; }
+.pg-in table { border-collapse: collapse; width: 100%; margin: 2px 0 6px; font-size: 9px; }
+.pg-in th, .pg-in td { border: 1px solid #D5DAE3; padding: 3px 6px; text-align: left; vertical-align: top; }
+.pg-in th { background: #F3F5F9; font-weight: 700; }
+.pg-no { position: absolute; bottom: 16px; left: 0; right: 0; text-align: center; font-size: 9px; color: #9AA1B0; }
+
+/* 인쇄용 화면 (/print/documents/...): 사이드바 없이 쪽만, 쪽마다 새 쪽으로 이어 붙인다. */
+.print-root .pg { margin: 0; box-shadow: none; break-after: page; }
+.print-root .pg:last-child { break-after: auto; }
+.print-root { background: #fff; }
+.print-msg { padding: 24px; font-family: var(--font); }
+@page { margin: 0; }
+@media print { body { background: #fff; } .pg-measure { display: none; } }

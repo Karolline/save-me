@@ -1,4 +1,4 @@
-import type { DocumentGroupSummary, DocumentType, ReviewVerdict } from "@/services/types";
+import type { DocumentGroupSummary, DocumentReviewInput, DocumentType, ReviewVerdict } from "@/services/types";
 
 /**
  * 지원서류 글(마크다운 비슷한 형식)의 파싱과 쪽 나눔. 순수 함수만 있다 (기획안 S2 13번, 5.12).
@@ -42,6 +42,109 @@ export const SOURCE_LABELS = {
 export function pdfFileName(group: Pick<DocumentGroupSummary, "company" | "writtenOn">, type: DocumentType): string {
   const company = group.company.replace(/[\\/:*?"<>|]/g, "").trim() || "서류";
   return `${company}_${DOC_LABELS[type]}_${group.writtenOn}.pdf`;
+}
+
+/** [서식 안내]: 쓰는 법과 그 결과. */
+export const FORMAT_GUIDE: [syntax: string, effect: string][] = [
+  ["# 이름이나 제목", "맨 위 굵은 제목"],
+  ["## 섹션", "아래에 구분선이 있는 섹션 제목"],
+  ["### 소제목", "작은 굵은 제목"],
+  ["- 항목", "점 목록 (한 항목이 한 줄)"],
+  ["1. 항목", "번호 목록 (1. 2. 3. 순서로 이어져요)"],
+  ["> 보조 설명", "회색 작은 글. 연달아 쓰면 한 덩어리"],
+  ["| 분류 | 기술 |\n| --- | --- |\n| 언어 | Python |", "표 (머리글 줄 다음에 | --- | 줄)"],
+  ["**굵게**", "굵은 글씨"],
+  ["[글자](https://주소)", "링크. http, https 주소만 링크가 되고 나머지는 글자 그대로"],
+  ["---", "여기서 새 쪽을 시작해요"],
+];
+
+/** 시각(UTC ISO)을 서울 날짜(YYYY-MM-DD)로. */
+export function seoulDay(iso: string): string {
+  return new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+}
+
+// ── 리뷰 적기 폼의 초안 ──
+
+export interface FixDraft {
+  label: string;
+  headline: string;
+  /** 이유: 한 줄에 하나. */
+  details: string;
+  /** 편집기에서 찾을 서류 ("" = 이 덩어리의 서류). */
+  jumpType: DocumentType | "";
+  jumpFind: string;
+}
+
+export interface PartDraft {
+  documentType: DocumentType;
+  verdict: ReviewVerdict;
+  intro: string;
+  fixes: FixDraft[];
+  /** 막히는 곳, 좋은 신호: 한 줄에 하나. */
+  stuck: string;
+  good: string;
+}
+
+export interface ReviewDraft {
+  reviewer: string;
+  parts: PartDraft[];
+}
+
+export const DEFAULT_REVIEWER = "직접 작성";
+
+export const emptyFixDraft = (): FixDraft => ({ label: "", headline: "", details: "", jumpType: "", jumpFind: "" });
+
+export const newPartDraft = (documentType: DocumentType): PartDraft => ({
+  documentType,
+  verdict: "fix",
+  intro: "",
+  fixes: [],
+  stuck: "",
+  good: "",
+});
+
+const lines = (text: string) =>
+  text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+const fixIsBlank = (f: FixDraft) => !f.label.trim() && !f.headline.trim() && !f.details.trim() && !f.jumpFind.trim();
+
+/** 폼에서 막혀 있는 까닭 (없으면 ""): 위치와 한 줄 판단은 함께 있어야 한다. */
+export function reviewDraftError(draft: ReviewDraft): string {
+  if (draft.parts.length === 0) return "서류 리뷰를 하나 이상 추가해 주세요";
+  for (const part of draft.parts) {
+    for (const fix of part.fixes) {
+      if (!fixIsBlank(fix) && (!fix.label.trim() || !fix.headline.trim())) {
+        return `${DOC_LABELS[part.documentType]}의 먼저 고칠 것에는 위치와 한 줄 판단을 적어 주세요`;
+      }
+    }
+  }
+  return "";
+}
+
+/** 폼 초안을 보낼 입력으로: 빈 지적은 빼고, 한 줄씩 적은 칸은 줄로 나눈다. */
+export function draftToInput(draft: ReviewDraft): DocumentReviewInput {
+  return {
+    reviewer: draft.reviewer.trim() || DEFAULT_REVIEWER,
+    parts: draft.parts.map((p) => ({
+      documentType: p.documentType,
+      verdict: p.verdict,
+      intro: p.intro.trim(),
+      fixes: p.fixes
+        .filter((f) => !fixIsBlank(f))
+        .map((f) => ({
+          label: f.label.trim(),
+          headline: f.headline.trim(),
+          details: lines(f.details),
+          jumpType: f.jumpFind.trim() ? (f.jumpType || p.documentType) : null,
+          jumpFind: f.jumpFind.trim(),
+        })),
+      stuck: lines(p.stuck),
+      good: lines(p.good),
+    })),
+  };
 }
 
 // ── 글 한 줄 안: **굵게**, [글자](주소) ──

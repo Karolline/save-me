@@ -104,7 +104,8 @@ export function Shell({
             {menuAt === "top" && accountMenu}
           </header>
           <main className="main">
-            <div className="main-inner">{children}</div>
+            {/* 서류 상세(/documents/:묶음/:종류)는 세로 3분할이라 폭을 다 쓴다. */}
+            <div className={`main-inner${/^\/documents\/[^/]+\/[^/]+$/.test(pathname) ? " wide" : ""}`}>{children}</div>
           </main>
         </div>
       </div>

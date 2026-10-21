@@ -11,6 +11,10 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { ApplicationDetailPanel } from "@/components/ApplicationDetailPanel";
 import { ApplicationFormPanel } from "@/components/ApplicationFormPanel";
 import { ApplicationsScreen } from "@/components/ApplicationsScreen";
+import { DocumentGroupScreen } from "@/components/DocumentGroupScreen";
+import { DocumentPrintScreen } from "@/components/DocumentPrintScreen";
+import { DocumentScreen } from "@/components/DocumentScreen";
+import { DocumentsScreen } from "@/components/DocumentsScreen";
 import { ExperienceEditScreen } from "@/components/ExperienceEditScreen";
 import { ExperiencesScreen } from "@/components/ExperiencesScreen";
 import { ExperienceViewScreen } from "@/components/ExperienceViewScreen";
@@ -26,7 +30,7 @@ import { LoginScreen } from "@/components/LoginScreen";
 import { SESSION_EXPIRED, SessionContext, useSession } from "@/components/session";
 import { NotFoundScreen, SettingsScreen } from "@/components/SettingsScreen";
 import { Shell } from "@/components/Shell";
-import { useService, type ExperienceView, type JobStatusFilter, type User } from "@/services";
+import { useService, type DocumentType, type ExperienceView, type JobStatusFilter, type User } from "@/services";
 
 // 이동은 라우트 컴포넌트가 맡고, 화면은 콜백만 받는다.
 // 그래서 화면은 라우터 없이 테스트할 수 있다.
@@ -626,6 +630,86 @@ const editExperienceRoute = createRoute({
   },
 });
 
+/** 지원서류: 묶음 목록 → 묶음 → 서류 상세. 서류 상세에는 열자마자 찾을 말(`find`)을 search로 넘길 수 있다. */
+const documentsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/documents",
+  component: function DocumentsPage() {
+    const navigate = useNavigate();
+    return (
+      <DocumentsScreen
+        onOpen={(groupId) => navigate({ to: "/documents/$groupId", params: { groupId: String(groupId) } })}
+      />
+    );
+  },
+});
+
+const documentGroupRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/documents/$groupId",
+  component: function DocumentGroupPage() {
+    const { groupId } = documentGroupRoute.useParams();
+    const navigate = useNavigate();
+    return (
+      <DocumentGroupScreen
+        key={groupId}
+        id={toId(groupId)}
+        onBack={() => navigate({ to: "/documents" })}
+        onOpenDocument={(type, find) =>
+          navigate({ to: "/documents/$groupId/$type", params: { groupId, type }, search: find ? { find } : {} })
+        }
+        onOpenJob={(jobId) => navigate({ to: "/jobs/$jobId", params: { jobId: String(jobId) } })}
+        onDeleted={() => navigate({ to: "/documents" })}
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
+const DOCUMENT_TYPES: DocumentType[] = ["resume", "career", "portfolio"];
+const asDocumentType = (value: string): DocumentType | null =>
+  (DOCUMENT_TYPES as string[]).includes(value) ? (value as DocumentType) : null;
+
+const documentRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/documents/$groupId/$type",
+  validateSearch: (search: Record<string, unknown>): { find?: string } =>
+    typeof search.find === "string" && search.find ? { find: search.find } : {},
+  component: function DocumentPage() {
+    const { groupId, type } = documentRoute.useParams();
+    const { find } = documentRoute.useSearch();
+    const navigate = useNavigate();
+    const documentType = asDocumentType(type);
+    if (!documentType) return <NotFoundScreen onHome={() => navigate({ to: "/applications" })} />;
+    return (
+      <DocumentScreen
+        key={`${groupId}/${type}`}
+        groupId={toId(groupId)}
+        type={documentType}
+        find={find}
+        onBack={() => navigate({ to: "/documents/$groupId", params: { groupId } })}
+        onOpenDocument={(next, text) =>
+          navigate({ to: "/documents/$groupId/$type", params: { groupId, type: next }, search: text ? { find: text } : {} })
+        }
+        onDeleted={() => navigate({ to: "/documents/$groupId", params: { groupId } })}
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
+/** 서버가 PDF를 만들 때 여는 인쇄용 화면: 사이드바 없이 쪽만 (로그인한 세션 쿠키로만 열린다). */
+const printDocumentRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/print/documents/$groupId/$type",
+  component: function PrintDocumentPage() {
+    const { groupId, type } = printDocumentRoute.useParams();
+    const documentType = asDocumentType(type);
+    if (!documentType) return <div className="print-msg" data-print-error="true">서류를 열지 못했어요.</div>;
+    return <DocumentPrintScreen groupId={toId(groupId)} type={documentType} />;
+  },
+});
+
 /** 이력: 카드 한 페이지. 편집도 이 페이지 안에서 한다. */
 const resumeRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -681,10 +765,14 @@ const routeTree = rootRoute.addChildren([
     newExperienceRoute,
     experienceRoute,
     editExperienceRoute,
+    documentsRoute,
+    documentGroupRoute,
+    documentRoute,
     resumeRoute,
     settingsRoute,
     notFoundRoute,
   ]),
+  printDocumentRoute,
 ]);
 
 export const router = createRouter({ routeTree, scrollRestoration: true });
