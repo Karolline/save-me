@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import Settings, settings_from_env
 from app.frontend import mount_frontend
-from app.routers import applications, auth, experiences, jobs, resume, reviews
+from app.routers import applications, auth, experience_groups, experiences, jobs, resume, reviews
 from app.stores import Stores
 
 API_PREFIX = "/api"
@@ -36,7 +36,7 @@ def create_app(
     docs = settings.app_env != "prod"
     app = FastAPI(
         title="SaveMe API",
-        version="0.5.1",
+        version="0.6.0",
         docs_url="/docs" if docs else None,
         redoc_url=None,
         openapi_url="/openapi.json" if docs else None,
@@ -61,6 +61,7 @@ def create_app(
     app.include_router(reviews.router, prefix=API_PREFIX)
     app.include_router(jobs.router, prefix=API_PREFIX)
     app.include_router(experiences.router, prefix=API_PREFIX)
+    app.include_router(experience_groups.router, prefix=API_PREFIX)
     app.include_router(resume.router, prefix=API_PREFIX)
     if frontend_dist is not None:
         mount_frontend(app, frontend_dist)

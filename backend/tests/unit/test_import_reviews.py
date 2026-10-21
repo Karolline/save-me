@@ -2,7 +2,6 @@ import json
 from datetime import date
 
 import pytest
-from sqlalchemy import create_engine
 
 from app.importers.reviews import DuplicateReviewError, MissingApplicationError, import_reviews, load, main
 from app.stores import ReviewStore, Stores
@@ -121,12 +120,10 @@ def test_a_failure_while_writing_leaves_nothing(stores: Stores, user_id: int, ra
     assert after == before
 
 
-def test_main_migrates_and_imports_for_the_local_user(tmp_path, capsys):
-    url = f"sqlite:///{tmp_path / 'import.db'}"
-    engine = create_engine(url)
+def test_main_imports_for_the_local_user(db_file, tmp_path, capsys):
+    url, engine, stores = db_file
     with pytest.raises(SystemExit, match="라온소프트"):
         main([str(write(tmp_path)), "--database-url", url])
-    stores = Stores.create(engine)
     user = stores.users.dev_user()
     stores.applications.create(user.id, application("라온소프트", date(2026, 7, 13)))
 
@@ -135,7 +132,6 @@ def test_main_migrates_and_imports_for_the_local_user(tmp_path, capsys):
 
     assert "0 added, 2 replaced" in capsys.readouterr().out
     assert stores.reviews.list(user.id).total == 2
-    engine.dispose()
 
 
 def test_imports_the_verified_flag_and_defaults_to_verified(stores: Stores, user_id: int, raon, tmp_path):

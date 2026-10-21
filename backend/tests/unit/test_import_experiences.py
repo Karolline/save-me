@@ -1,6 +1,5 @@
 import json
 from datetime import date
-from pathlib import Path
 
 import pytest
 from alembic import command
@@ -20,7 +19,7 @@ from app.importers.experiences import (
 from app.migrate import alembic_config, upgrade
 from app.models import ReviewInput
 from app.stores import Stores
-from tests.conftest import TEST_DATABASE_URL, application, drop_everything
+from tests.conftest import application
 
 FILE = {
     "experiences": [
@@ -191,7 +190,8 @@ def test_the_summary_lines():
     ],
 )
 def test_a_malformed_file_fails_in_one_line_without_writing(tmp_path, content, message):
-    url = f"sqlite:///{tmp_path / 'bad.db'}"
+    # 파일을 읽기 전에 멈추므로 DB에 연결하지도 않는다 (닿지 않는 주소여도 이 오류가 나온다).
+    url = "postgresql://nobody:x@127.0.0.1:1/none"
     path = tmp_path / "experiences.json"
     path.write_text(content, encoding="utf-8")
 
@@ -200,30 +200,13 @@ def test_a_malformed_file_fails_in_one_line_without_writing(tmp_path, content, m
 
     text = str(exit_info.value.code)
     assert message in text and "\n" not in text
-    assert not (tmp_path / "bad.db").exists()
 
 
 # ── main() ──
 
 
-@pytest.fixture
-def db_file(tmp_path):
-    """head까지 올린 DB: TEST_DATABASE_URL이 PostgreSQL이면 그것을 비우고, 아니면 SQLite 파일."""
-    if TEST_DATABASE_URL.startswith("sqlite"):
-        url = f"sqlite:///{tmp_path / 'import.db'}"
-    else:
-        url = TEST_DATABASE_URL
-        old = make_engine(url)
-        drop_everything(old)
-        old.dispose()
-    upgrade(url)
-    engine = make_engine(url)
-    yield url, engine, Stores.create(engine)
-    engine.dispose()
-
-
 def db_name(url: str) -> str:
-    return Path(make_url(url).database).name
+    return make_url(url).database
 
 
 def snapshot(engine, skip: tuple[str, ...] = ()) -> dict[str, list]:
@@ -289,8 +272,8 @@ def test_dry_run_reports_the_same_and_writes_nothing(db_file, tmp_path, capsys):
     assert snapshot(engine) == before
 
 
-def test_dry_run_on_an_old_database_stops_without_migrating(tmp_path):
-    url = f"sqlite:///{tmp_path / 'old.db'}"
+def test_dry_run_on_an_old_database_stops_without_migrating(mig_url, tmp_path):
+    url = mig_url
     command.upgrade(alembic_config(url), "cc6caf8ab092")
     engine = make_engine(url)
     before = snapshot(engine)

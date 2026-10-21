@@ -320,6 +320,7 @@ describe("mockService experiences", () => {
   const input = (changes: Partial<ExperienceInput> = {}): ExperienceInput => ({
     ...emptyExperienceFields("새 경험"),
     related: [],
+    groupId: null,
     ...changes,
   });
   const status = (error: unknown) => (error as { status?: number }).status;
@@ -329,15 +330,15 @@ describe("mockService experiences", () => {
     await service.createExperience(input({ name: "시작 모름" }));
 
     const all = await service.listExperiences();
-    expect(all.items.map((x) => x.id)).toEqual([7, 11, 9, 5, 3, 6, 2, 10, 4, 8, 1, 12, 13]);
-    expect(all.counts).toEqual({ all: 13, unv: 4, need: 11 });
+    expect(all.items.map((x) => x.id)).toEqual([15, 7, 11, 9, 5, 3, 6, 2, 10, 4, 13, 8, 1, 12, 16, 14]);
+    expect(all.counts).toEqual({ all: 16, unv: 4, need: 14 });
 
     expect((await service.listExperiences("unv")).items.map((x) => x.id)).toEqual([7, 3, 10, 1]);
     expect((await service.listExperiences("need")).items.map((x) => x.id)).not.toContain(2);
     const searched = await service.listExperiences("all", " KAFKA ");
     expect(searched.items.map((x) => x.name)).toEqual(["주문 이벤트 스트림 재설계"]);
     expect(searched.counts).toEqual(all.counts);
-    expect((await service.listExperiences("all", "다올")).items).toHaveLength(4);
+    expect((await service.listExperiences("all", "다올")).items).toHaveLength(5);
   });
 
   it("computes the needs like the server", async () => {
@@ -417,6 +418,76 @@ describe("mockService experiences", () => {
     expect(status(await service.updateExperience(2, itself).catch((e: unknown) => e))).toBe(422);
     expect(status(await service.createExperience(input({ name: " " })).catch((e: unknown) => e))).toBe(422);
     expect(status(await service.createExperience(input({ startedOn: "2021-13" })).catch((e: unknown) => e))).toBe(422);
+  });
+
+  it("seeds the mockup's groups and puts groupId on list rows and the detail", async () => {
+    const service = withExperiences();
+    expect(await service.listExperienceGroups()).toEqual([
+      { id: 1, name: "데이터 품질·모니터링" },
+      { id: 2, name: "정산·결제 데이터" },
+    ]);
+    const rows = (await service.listExperiences()).items;
+    expect(rows.filter((x) => x.groupId === 1).map((x) => x.name).sort()).toEqual(["데이터 품질 검사 도입", "수집 지연 알림 도입"]);
+    expect((await service.getExperience(4))!.groupId).toBe(2);
+    expect((await service.getExperience(1))!.groupId).toBeNull();
+  });
+
+  it("groups, renames and ungroups without touching 확인 상태, dropping groups left empty", async () => {
+    const service = withExperiences();
+    // 3(미확인)과 5는 그룹 1. 3과 1을 새 그룹으로 옮겨도 그룹 1에는 5가 남는다.
+    const made = await service.createExperienceGroup("  클라우드 ", [3, 1, 3]);
+    expect(made).toEqual({ id: 3, name: "클라우드" });
+    expect((await service.getExperience(3))!).toMatchObject({ groupId: 3, verified: false });
+    expect((await service.listExperienceGroups()).map((g) => g.id)).toEqual([1, 2, 3]);
+    // 5까지 옮기면 그룹 1은 비어서 지워진다.
+    await service.createExperienceGroup("품질", [5, 2]);
+    expect((await service.listExperienceGroups()).map((g) => g.id)).toEqual([2, 3, 4]);
+
+    expect(await service.renameExperienceGroup(3, "클라우드 이전")).toEqual({ id: 3, name: "클라우드 이전" });
+    await service.deleteExperienceGroup(3);
+    expect((await service.getExperience(1))!).toMatchObject({ groupId: null, verified: false });
+    expect((await service.listExperienceGroups()).map((g) => g.id)).toEqual([2, 4]);
+
+    expect(status(await service.createExperienceGroup("그룹", [1]).catch((e: unknown) => e))).toBe(422);
+    expect(status(await service.createExperienceGroup(" ", [1, 2]).catch((e: unknown) => e))).toBe(422);
+    expect(isNotFound(await service.createExperienceGroup("그룹", [1, 99]).catch((e: unknown) => e))).toBe(true);
+    expect(status(await service.renameExperienceGroup(2, "").catch((e: unknown) => e))).toBe(422);
+    expect(isNotFound(await service.renameExperienceGroup(99, "이름").catch((e: unknown) => e))).toBe(true);
+    expect(isNotFound(await service.deleteExperienceGroup(3).catch((e: unknown) => e))).toBe(true);
+  });
+
+  it("drops a group whose last member is edited out or deleted", async () => {
+    const service = withExperiences();
+    const four = (await service.getExperience(4))!;
+    await service.updateExperience(4, { ...four, groupId: null });
+    expect((await service.listExperienceGroups()).map((g) => g.id)).toEqual([1, 2]);
+    await service.deleteExperience(8);
+    expect((await service.listExperienceGroups()).map((g) => g.id)).toEqual([1]);
+    expect(isNotFound(await service.createExperience(input({ groupId: 2 })).catch((e: unknown) => e))).toBe(true);
+    expect((await service.createExperience(input({ groupId: 1 }))).groupId).toBe(1);
+  });
+
+  it("changes only the four placement fields and keeps 확인 상태 and updatedAt", async () => {
+    const service = withExperiences();
+    const before = (await service.getExperience(3))!;
+    const after = await service.setExperiencePlacement(3, {
+      startedOn: "2024-05",
+      endedOn: "2024-01",
+      org: "  미담플랫폼 ",
+      groupId: 2,
+    });
+    expect(after).toEqual({ ...before, startedOn: "2024-05", endedOn: "2024-01", org: "미담플랫폼", groupId: 2 });
+    expect(after.verified).toBe(false);
+
+    // 5만 남은 그룹 1에서 5도 빼면 그룹 1이 지워진다.
+    await service.setExperiencePlacement(5, { startedOn: "", endedOn: "", org: "", groupId: null });
+    expect((await service.getExperience(5))!).toMatchObject({ startedOn: null, endedOn: null, groupId: null });
+    expect((await service.listExperienceGroups()).map((g) => g.id)).toEqual([2]);
+
+    const placement = { startedOn: null, endedOn: null, org: "", groupId: null };
+    expect(isNotFound(await service.setExperiencePlacement(99, placement).catch((e: unknown) => e))).toBe(true);
+    expect(isNotFound(await service.setExperiencePlacement(3, { ...placement, groupId: 1 }).catch((e: unknown) => e))).toBe(true);
+    expect(status(await service.setExperiencePlacement(3, { ...placement, startedOn: "2024-13" }).catch((e: unknown) => e))).toBe(422);
   });
 });
 

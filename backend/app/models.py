@@ -585,6 +585,8 @@ class ExperienceInput(ExperienceFields):
     사람 확인은 True가 된다. 후기와 관련 경험은 내 것이어야 하고, 자기 자신은 관련 경험이 될 수 없다."""
 
     related: list[ExperienceLinkInput] = []
+    # 경험 그룹 (내 그룹이어야 한다). 비우면 그룹 없음. 비게 된 그룹은 지워진다.
+    group_id: int | None = None
 
 
 class ExperienceNeed(ApiModel):
@@ -615,6 +617,8 @@ class ExperienceSummary(ApiModel):
     ended_on: str | None
     verified: bool
     needs: list[ExperienceNeed]
+    # 경험 캘린더가 그룹끼리 붙여 보이는 데 쓴다.
+    group_id: int | None = None
 
 
 class Experience(ExperienceFields):
@@ -622,6 +626,7 @@ class Experience(ExperienceFields):
 
     id: int
     verified: bool
+    group_id: int | None = None
     related: list[RelatedExperience]
     needs: list[ExperienceNeed]
     created_at: datetime
@@ -646,6 +651,61 @@ class ExperienceLinkKey(ApiModel):
 
     id: int
     link_key: str
+
+
+class ExperiencePlacement(ApiModel):
+    """경험 캘린더의 바로 고치기: 시작·끝·소속·그룹만 바꾼다. 확인 상태와 updatedAt은 그대로.
+    끝이 시작보다 빨라도 저장한다 (흐름 점검이 보여 준다)."""
+
+    started_on: Month = None
+    ended_on: Month = None
+    org: str = ""
+    group_id: int | None = None
+
+    @field_validator("org")
+    @classmethod
+    def strip(cls, value: str) -> str:
+        return value.strip()
+
+    @field_validator("started_on", "ended_on", mode="before")
+    @classmethod
+    def empty_month_is_none(cls, value: object) -> object:
+        return None if value == "" else value
+
+
+class ExperienceGroup(ApiModel):
+    """경험 그룹: 비슷한 경험을 묶는 이름 (경험 하나는 그룹 하나에만)."""
+
+    id: int
+    name: str
+
+
+class ExperienceGroupName(ApiModel):
+    """그룹 이름 바꾸기. 앞뒤 빈칸을 떼고, 비면 안 된다. 다른 그룹과 같아도 된다."""
+
+    name: str
+
+    @field_validator("name")
+    @classmethod
+    def name_required(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("name is required")
+        return value
+
+
+class ExperienceGroupInput(ExperienceGroupName):
+    """그룹으로 묶기: 이름과 묶을 내 경험 (2개 이상). 다른 그룹에 있던 경험은 옮겨진다."""
+
+    experience_ids: list[int]
+
+    @field_validator("experience_ids")
+    @classmethod
+    def at_least_two(cls, value: list[int]) -> list[int]:
+        unique = list(dict.fromkeys(value))
+        if len(unique) < 2:
+            raise ValueError("pick at least two experiences")
+        return unique
 
 
 # ── 이력 ──────────────────────────────────────────────────────────────

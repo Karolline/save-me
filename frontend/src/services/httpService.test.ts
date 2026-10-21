@@ -164,6 +164,31 @@ describe("httpService", () => {
     expect(deleting.mock.calls[0]).toMatchObject(["/api/experiences/4", { method: "DELETE" }]);
   });
 
+  it("calls the experience group and placement endpoints", async () => {
+    const fetch = stubFetch(200, {});
+    const service = createHttpService("/api", fetch);
+    const placement = { startedOn: "2024-02", endedOn: null, org: "SSG.COM · 데이터팀", groupId: 2 };
+
+    await service.setExperiencePlacement(3, placement);
+    await service.listExperienceGroups();
+    await service.createExperienceGroup("데이터 품질", [3, 5]);
+    await service.renameExperienceGroup(2, "모니터링");
+
+    expect(fetch.mock.calls.map(([url, init]) => [url, init?.method ?? "GET"])).toEqual([
+      ["/api/experiences/3/placement", "PUT"],
+      ["/api/experience-groups", "GET"],
+      ["/api/experience-groups", "POST"],
+      ["/api/experience-groups/2", "PUT"],
+    ]);
+    expect(JSON.parse(String(fetch.mock.calls[0][1]?.body))).toEqual(placement);
+    expect(JSON.parse(String(fetch.mock.calls[2][1]?.body))).toEqual({ name: "데이터 품질", experienceIds: [3, 5] });
+    expect(JSON.parse(String(fetch.mock.calls[3][1]?.body))).toEqual({ name: "모니터링" });
+    expect(fetch.mock.calls[2][1]?.headers).toMatchObject({ "X-Requested-With": "SaveMe" });
+    const deleting = stubFetch(204);
+    await createHttpService("/api", deleting).deleteExperienceGroup(2);
+    expect(deleting.mock.calls[0]).toMatchObject(["/api/experience-groups/2", { method: "DELETE" }]);
+  });
+
   it("calls the resume endpoints, one PUT per card", async () => {
     const fetch = stubFetch(200, {});
     const service = createHttpService("/api", fetch);

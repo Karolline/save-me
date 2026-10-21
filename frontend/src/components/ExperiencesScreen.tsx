@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { useService, type ExperienceList, type ExperienceView } from "@/services";
+import { useEffect, useState, type ReactNode } from "react";
+import { useService, type ExperienceList as ExperienceListData, type ExperienceView } from "@/services";
+import { ExperienceCalendar } from "./ExperienceCalendar";
 import { VerifiedPill } from "./reviewParts";
 import { useSessionErrors } from "./session";
 
@@ -9,11 +10,65 @@ const VIEWS: [ExperienceView, string][] = [
   ["need", "보완 필요"],
 ];
 
+export type ExperiencesMode = "list" | "calendar";
+
+/**
+ * 경험 화면 (기획안 S2 11번, 목업 expHead): 머리 아래 [목록] [경험 캘린더] 전환.
+ * 목록은 보기·검색이 있는 게시판, 캘린더는 `ExperienceCalendar`.
+ */
+export function ExperiencesScreen({
+  mode,
+  onModeChange,
+  ...list
+}: {
+  mode: ExperiencesMode;
+  onModeChange: (mode: ExperiencesMode) => void;
+  view: ExperienceView;
+  q: string;
+  onViewChange: (view: ExperienceView) => void;
+  onQueryChange: (q: string) => void;
+  onOpen: (experienceId: number) => void;
+  onAdd: () => void;
+}) {
+  const calendar = mode === "calendar";
+  const top = (
+    <>
+      <div className="ph">
+        <div>
+          <h1>경험</h1>
+          <p>
+            {calendar
+              ? "모든 경험을 연월 위에 늘어놓고, 이력의 재직 기간과 흐름이 맞는지 점검해요."
+              : "서류와 면접의 근거가 되는 경험을 모아 둬요. 줄을 누르면 상황·과제·행동·결과까지 자세히 볼 수 있어요."}
+          </p>
+        </div>
+        <button type="button" className="btn btn-primary" onClick={list.onAdd}>
+          + 경험 추가
+        </button>
+      </div>
+      <div className="seg viewseg" role="group" aria-label="보기 방식">
+        <button type="button" aria-pressed={!calendar} onClick={() => calendar && onModeChange("list")}>
+          목록
+        </button>
+        <button type="button" aria-pressed={calendar} onClick={() => !calendar && onModeChange("calendar")}>
+          경험 캘린더
+        </button>
+      </div>
+    </>
+  );
+  return calendar ? (
+    <ExperienceCalendar top={top} onOpen={list.onOpen} onAdd={list.onAdd} />
+  ) : (
+    <ExperienceList top={top} {...list} />
+  );
+}
+
 /**
  * 경험 목록 (기획안 S2 11번, 목업 exps): 게시판형, 최근에 시작한 순. 보기·검색·수와
  * "보완할 것"은 서버가 준다. 검색어는 바로 바뀌고, 목록은 받는 대로 바꾼다.
  */
-export function ExperiencesScreen({
+function ExperienceList({
+  top,
   view,
   q,
   onViewChange,
@@ -21,6 +76,7 @@ export function ExperiencesScreen({
   onOpen,
   onAdd,
 }: {
+  top: ReactNode;
   view: ExperienceView;
   q: string;
   onViewChange: (view: ExperienceView) => void;
@@ -30,7 +86,7 @@ export function ExperiencesScreen({
 }) {
   const service = useService();
   const handleSessionError = useSessionErrors();
-  const [data, setData] = useState<{ view: ExperienceView; list: ExperienceList } | null>(null);
+  const [data, setData] = useState<{ view: ExperienceView; list: ExperienceListData } | null>(null);
   const [query, setQuery] = useState(q);
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -51,15 +107,7 @@ export function ExperiencesScreen({
   const counts = data?.list.counts;
   const head = (
     <>
-      <div className="ph">
-        <div>
-          <h1>경험</h1>
-          <p>서류와 면접의 근거가 되는 경험을 모아 둬요. 줄을 누르면 상황·과제·행동·결과까지 자세히 볼 수 있어요.</p>
-        </div>
-        <button type="button" className="btn btn-primary" onClick={onAdd}>
-          + 경험 추가
-        </button>
-      </div>
+      {top}
       <div className="toolbar">
         <div className="seg" role="group" aria-label="보기">
           {VIEWS.map(([key, label]) => (

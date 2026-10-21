@@ -13,9 +13,11 @@ import {
   type Education,
   type Experience,
   type ExperienceFields,
+  type ExperienceGroup,
   type ExperienceInput,
   type ExperienceList,
   type ExperienceNeed,
+  type ExperiencePlacement,
   type ExperienceSummary,
   type ExperienceView,
   type FavoriteQuestion,
@@ -376,6 +378,7 @@ function validateExperience(input: ExperienceInput): ExperienceInput {
 interface StoredExperience extends ExperienceFields {
   id: number;
   verified: boolean;
+  groupId: number | null;
   related: { experienceId: number; note: string }[];
   createdAt: string;
   updatedAt: string;
@@ -550,6 +553,8 @@ export function createMockService(options: MockOptions = {}): MockService {
   let nextJobId = 1;
   const experiences = new Map<number, StoredExperience>();
   let nextExperienceId = 1;
+  const experienceGroups = new Map<number, ExperienceGroup>();
+  let nextGroupId = 1;
   let resume = cleanResume(options.resume ?? emptyResume());
   /** 카드 하나를 바꾼다: 다듬다가 틀리면 422이고 이력은 그대로. */
   const saveCard = (change: Partial<Resume>) =>
@@ -569,7 +574,26 @@ export function createMockService(options: MockOptions = {}): MockService {
       endedOn: x.endedOn,
       verified: x.verified,
       needs: experienceNeeds(x),
+      groupId: x.groupId,
     };
+  }
+
+  /** 그룹은 내 것이어야 한다 (백엔드와 같은 404). */
+  function checkGroup(groupId: number | null) {
+    if (groupId !== null && !experienceGroups.has(groupId)) throw notFound("Experience group");
+  }
+
+  /** 경험이 하나도 없는 그룹을 지운다 (백엔드와 같음: 그룹이 바뀌는 길마다). */
+  function dropEmptyGroups() {
+    const used = new Set([...experiences.values()].map((x) => x.groupId));
+    for (const id of [...experienceGroups.keys()]) if (!used.has(id)) experienceGroups.delete(id);
+  }
+
+  /** 그룹 이름: 앞뒤 빈칸을 떼고, 비면 422. */
+  function groupName(name: string): string {
+    const clean = name.trim();
+    if (!clean) throw new ApiError(422, "Request failed (422): name is required");
+    return clean;
   }
 
   function experienceOf(x: StoredExperience): Experience {
@@ -600,7 +624,9 @@ export function createMockService(options: MockOptions = {}): MockService {
       throw new ApiError(422, "Request failed (422): An experience cannot be related to itself");
     }
     if (related.some((r) => !experiences.has(r.experienceId))) throw notFound("Related experience");
-    return { ...structuredClone(fields), related: structuredClone(related), ...base, updatedAt: now() };
+    const groupId = fields.groupId ?? null;
+    checkGroup(groupId);
+    return { ...structuredClone(fields), groupId, related: structuredClone(related), ...base, updatedAt: now() };
   }
 
   /** 지원 건에 연결된 분석 (jobId, jobAnalyzedAt)을 붙인다. */
@@ -832,6 +858,14 @@ export function createMockService(options: MockOptions = {}): MockService {
     );
   }
 
+  // 경험 그룹: 샘플에 처음 나오는 이름 순서대로 만든다.
+  for (const name of new Set((options.experiences ?? []).flatMap((s) => (s.group ? [s.group] : [])))) {
+    const id = nextGroupId++;
+    experienceGroups.set(id, { id, name });
+  }
+  const seedGroupId = (name?: string) =>
+    name ? [...experienceGroups.values()].find((g) => g.name === name)!.id : null;
+
   // 경험: 먼저 모두 만들고, 그다음 제목으로 관련 경험을 잇는다.
   const seededExperiences = (options.experiences ?? []).map((seed) => {
     const id = nextExperienceId++;
@@ -842,7 +876,13 @@ export function createMockService(options: MockOptions = {}): MockService {
       if (!review) throw new Error(`no sample review ${ref.join(" ")}`);
       return { ...a, interviewReviewId: review.id };
     });
-    const input: ExperienceInput = { ...emptyExperienceFields(), ...seed.experience, asked, related: [] };
+    const input: ExperienceInput = {
+      ...emptyExperienceFields(),
+      ...seed.experience,
+      asked,
+      related: [],
+      groupId: seedGroupId(seed.group),
+    };
     experiences.set(id, fillExperience(input, { id, createdAt: now(), verified: seed.verified ?? true }));
     return { id, seed };
   });
@@ -1130,6 +1170,7 @@ export function createMockService(options: MockOptions = {}): MockService {
         if (!existing) throw notFound("Experience");
         const updated = fillExperience(input, { id, createdAt: existing.createdAt, verified: true });
         experiences.set(id, updated);
+        dropEmptyGroups();
         return experienceOf(updated);
       }),
 
@@ -1147,6 +1188,52 @@ export function createMockService(options: MockOptions = {}): MockService {
         if (!experiences.delete(id)) throw notFound("Experience");
         // 다른 경험의 관련 경험 줄 중 이것을 가리키던 것도 지워진다 (DB의 CASCADE).
         for (const x of experiences.values()) x.related = x.related.filter((r) => r.experienceId !== id);
+        dropEmptyGroups();
+      }),
+
+    setExperiencePlacement: (id: number, placement: ExperiencePlacement) =>
+      call(() => {
+        const x = experiences.get(id);
+        if (!x) throw notFound("Experience");
+        const startedOn = placement.startedOn || null;
+        const endedOn = placement.endedOn || null;
+        if ((startedOn !== null && !MONTH.test(startedOn)) || (endedOn !== null && !MONTH.test(endedOn))) {
+          throw new ApiError(422, "Request failed (422): invalid placement");
+        }
+        checkGroup(placement.groupId);
+        // 네 칸만 바꾼다. 확인 상태와 updatedAt은 그대로 (편집으로 치지 않는다).
+        Object.assign(x, { startedOn, endedOn, org: placement.org.trim(), groupId: placement.groupId });
+        dropEmptyGroups();
+        return experienceOf(x);
+      }),
+
+    listExperienceGroups: () => call(() => [...experienceGroups.values()].sort((a, b) => a.id - b.id).map((g) => ({ ...g }))),
+
+    createExperienceGroup: (name: string, experienceIds: number[]) =>
+      call((): ExperienceGroup => {
+        const clean = groupName(name);
+        const ids = [...new Set(experienceIds)];
+        if (ids.length < 2) throw new ApiError(422, "Request failed (422): pick at least two experiences");
+        if (ids.some((i) => !experiences.has(i))) throw notFound("Experience");
+        const group = { id: nextGroupId++, name: clean };
+        experienceGroups.set(group.id, group);
+        for (const i of ids) experiences.get(i)!.groupId = group.id;
+        dropEmptyGroups();
+        return { ...group };
+      }),
+
+    renameExperienceGroup: (id: number, name: string) =>
+      call((): ExperienceGroup => {
+        const group = experienceGroups.get(id);
+        if (!group) throw notFound("Experience group");
+        group.name = groupName(name);
+        return { ...group };
+      }),
+
+    deleteExperienceGroup: (id: number) =>
+      call(() => {
+        if (!experienceGroups.delete(id)) throw notFound("Experience group");
+        for (const x of experiences.values()) if (x.groupId === id) x.groupId = null;
       }),
 
     getResume: () => call(() => resume),

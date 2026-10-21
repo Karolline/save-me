@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { experiencePeriod, inlineParts } from "@/lib/experiences";
-import { useService, type Experience } from "@/services";
+import { useService, type Experience, type ExperienceGroup } from "@/services";
 import { ConfirmDialog, useEscape, useToast } from "./feedback";
 import { icons } from "./icons";
 import { VerifiedPill } from "./reviewParts";
@@ -99,6 +99,24 @@ export function ExperienceViewScreen({
       live = false;
     };
   }, [service, id, handleSessionError]);
+
+  // 그룹 이름: 못 받아도 경험은 보이고 그룹은 "–" (세션이 끝났으면 로그인으로).
+  const groupId = x?.groupId ?? null;
+  const [groups, setGroups] = useState<ExperienceGroup[]>([]);
+  useEffect(() => {
+    if (groupId === null) return;
+    let live = true;
+    service
+      .listExperienceGroups()
+      .then((list) => live && setGroups(list))
+      .catch((error) => {
+        if (live) handleSessionError(error);
+      });
+    return () => {
+      live = false;
+    };
+  }, [service, groupId, handleSessionError]);
+  const groupName = groups.find((g) => g.id === groupId)?.name ?? null;
 
   async function remove() {
     if (!x) return;
@@ -431,6 +449,10 @@ export function ExperienceViewScreen({
         <div>
           <span className="k">확인 상태</span>
           <VerifiedPill verified={x.verified} />
+        </div>
+        <div>
+          <span className="k">그룹</span>
+          {groupName ? <span className="pill grp">{groupName}</span> : "–"}
         </div>
         <div className="wide">
           <span className="k">태그</span>

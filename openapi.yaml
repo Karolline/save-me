@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SaveMe API
-  version: 0.5.1
+  version: 0.6.0
   description: |
     The contract between the frontend services layer and the FastAPI backend.
     JSON is camelCase. Dates are `YYYY-MM-DD`, times are ISO 8601 in UTC.
@@ -378,7 +378,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Experience" }
-        "404": { description: An interviewReviewId or related experienceId is missing or another user's }
+        "404": { description: An interviewReviewId, a related experienceId or the groupId is missing or another user's }
         "422": { description: Invalid input (empty name, bad month, ...) }
   /experiences/links:
     get:
@@ -421,7 +421,7 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Experience" }
-        "404": { description: The experience, an interviewReviewId or a related experienceId is missing or another user's }
+        "404": { description: The experience, an interviewReviewId, a related experienceId or the groupId is missing or another user's }
         "422": { description: Invalid input, or the experience is related to itself }
     delete:
       summary: Delete an experience (other experiences' related rows pointing at it go too)
@@ -448,6 +448,87 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Experience" }
+        "404": { description: Not found (or another user's) }
+  /experiences/{id}/placement:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    put:
+      summary: "경험 캘린더의 바로 고치기: change only startedOn, endedOn, org and groupId (verified and updatedAt stay)"
+      description: An end before the start is saved as is (the calendar's 흐름 점검 shows it). A group left with no experiences is deleted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExperiencePlacement" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Experience" }
+        "404": { description: The experience or the groupId is missing or another user's }
+        "422": { description: Invalid input }
+  /experience-groups:
+    get:
+      summary: The user's experience groups, by id
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ExperienceGroup" }
+    post:
+      summary: "그룹으로 묶기: create a group and move the picked experiences into it"
+      description: Experiences already in another group move to the new one; groups left with no experiences are deleted. Verified stays.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, experienceIds]
+              properties:
+                name: { type: string, description: "Required, trimmed. Duplicates are allowed" }
+                experienceIds:
+                  type: array
+                  items: { type: integer }
+                  description: At least two different experiences of the user (repeats count once)
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExperienceGroup" }
+        "404": { description: An experience is missing or another user's }
+        "422": { description: Invalid input (empty name, fewer than two experiences) }
+  /experience-groups/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer } }
+    put:
+      summary: Rename a group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, description: "Required, trimmed. Duplicates are allowed" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExperienceGroup" }
+        "404": { description: Not found (or another user's) }
+        "422": { description: Empty name }
+    delete:
+      summary: "묶음 풀기: delete the group; its experiences get no group (verified stays)"
+      responses:
+        "204": { description: Deleted }
         "404": { description: Not found (or another user's) }
   /resume:
     get:
@@ -1036,9 +1117,27 @@ components:
                 properties:
                   experienceId: { type: integer }
                   note: { type: string, default: "", description: 어떻게 이어지나 }
+            groupId:
+              type: [integer, "null"]
+              default: null
+              description: One of the user's experience groups, or null for 그룹 없음. A group left with no experiences is deleted.
+    ExperiencePlacement:
+      type: object
+      properties:
+        startedOn: { $ref: "#/components/schemas/Month" }
+        endedOn: { $ref: "#/components/schemas/Month", description: null means 진행 중 }
+        org: { type: string, default: "", description: Trimmed }
+        groupId: { type: [integer, "null"], default: null, description: One of the user's experience groups, or null }
+    ExperienceGroup:
+      type: object
+      required: [id, name]
+      description: 경험 그룹. An experience is in at most one group; a group always has experiences (empty ones are deleted).
+      properties:
+        id: { type: integer }
+        name: { type: string }
     ExperienceSummary:
       type: object
-      required: [id, name, summary, project, org, startedOn, endedOn, verified, needs]
+      required: [id, name, summary, project, org, startedOn, endedOn, verified, needs, groupId]
       properties:
         id: { type: integer }
         name: { type: string }
@@ -1049,13 +1148,15 @@ components:
         endedOn: { $ref: "#/components/schemas/Month" }
         verified: { type: boolean }
         needs: { type: array, items: { $ref: "#/components/schemas/ExperienceNeed" } }
+        groupId: { type: [integer, "null"], description: The experience group, or null }
     Experience:
       allOf:
         - $ref: "#/components/schemas/ExperienceFields"
         - type: object
-          required: [id, verified, related, needs, createdAt, updatedAt]
+          required: [id, verified, groupId, related, needs, createdAt, updatedAt]
           properties:
             id: { type: integer }
+            groupId: { type: [integer, "null"], description: The experience group, or null }
             verified: { type: boolean, description: "false for imported experiences, true once created or saved on screen or marked with PUT /experiences/{id}/verified" }
             related:
               type: array

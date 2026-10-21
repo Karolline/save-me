@@ -9,7 +9,7 @@ import {
   whereFromReview,
   type ExperienceDraft,
 } from "@/lib/experiences";
-import { useService, type ReviewSummary } from "@/services";
+import { useService, type ExperienceGroup, type ReviewSummary } from "@/services";
 import { ConfirmDialog, useToast } from "./feedback";
 import { Field } from "./JobEditScreen";
 import { useSessionErrors } from "./session";
@@ -137,6 +137,7 @@ export function ExperienceEditScreen({
   const [draft, setDraft] = useState<ExperienceDraft | null>(null);
   const [reviews, setReviews] = useState<ReviewSummary[]>([]);
   const [relatedChoices, setRelatedChoices] = useState<[string, string][]>([]);
+  const [groups, setGroups] = useState<ExperienceGroup[]>([]);
   const [missing, setMissing] = useState(false);
   const [failed, setFailed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -148,15 +149,17 @@ export function ExperienceEditScreen({
     Promise.all([
       service.listReviews(),
       service.listExperiences(),
+      service.listExperienceGroups(),
       experienceId === undefined ? Promise.resolve(null) : service.getExperience(experienceId),
     ])
-      .then(([reviewList, experienceList, x]) => {
+      .then(([reviewList, experienceList, groupList, x]) => {
         if (!live) return;
         if (experienceId !== undefined && !x) {
           setMissing(true);
           return;
         }
         setReviews(reviewList.groups.flatMap((g) => g.reviews));
+        setGroups(groupList);
         setRelatedChoices(relatedOptions(experienceList.items, experienceId));
         setDraft(toExperienceDraft(x));
       })
@@ -337,6 +340,21 @@ export function ExperienceEditScreen({
         {field("org", "소속", "회사 · 팀, 또는 개인 프로젝트", "예: 미담플랫폼 · 데이터플랫폼팀")}
         {field("role", "역할", "내가 맡은 범위를 짧게", "예: 설계·구현 주도")}
         {field("tags", "태그", "쉼표로 구분. 검색에 써요", "예: 스트리밍, Kafka, 장애 대응", { wide: true })}
+        <Field
+          id={fid("groupId")}
+          label="그룹"
+          help="비슷한 경험끼리 묶어 경험 캘린더에서 붙여 보여요. 새 그룹은 캘린더의 [비슷한 경험 묶기]에서 만들어요"
+          wide
+        >
+          <select className="select" id={fid("groupId")} value={d.groupId} onChange={(e) => set("groupId", e.target.value)}>
+            <option value="">그룹 없음</option>
+            {groups.map((g) => (
+              <option key={g.id} value={String(g.id)}>
+                {g.name}
+              </option>
+            ))}
+          </select>
+        </Field>
         {field(
           "linkKey",
           "공고분석 연결 이름",

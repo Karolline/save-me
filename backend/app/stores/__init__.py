@@ -10,6 +10,8 @@ from app.stores.applications import ApplicationStore, DuplicateApplicationError
 from app.stores.base import Clock, utc_now
 from app.stores.experiences import (
     ExperienceStore,
+    GroupMemberNotFoundError,
+    GroupNotFoundError,
     RelatedExperienceNotFoundError,
     ReviewNotFoundError,
     SelfRelatedError,
@@ -36,6 +38,8 @@ __all__ = [
     "DEV_IDENTITY",
     "DuplicateApplicationError",
     "ExperienceStore",
+    "GroupMemberNotFoundError",
+    "GroupNotFoundError",
     "ImportAction",
     "JobStore",
     "ListCard",

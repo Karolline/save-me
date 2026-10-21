@@ -8,9 +8,11 @@ import type {
   Certificate,
   Education,
   Experience,
+  ExperienceGroup,
   ExperienceInput,
   ExperienceLinkKey,
   ExperienceList,
+  ExperiencePlacement,
   ExperienceView,
   FavoriteQuestion,
   Job,
@@ -91,6 +93,7 @@ export function createHttpService(
   const reviewPath = (id: number) => `/reviews/${encodeURIComponent(String(id))}`;
   const jobPath = (id: number) => `/jobs/${encodeURIComponent(String(id))}`;
   const experiencePath = (id: number) => `/experiences/${encodeURIComponent(String(id))}`;
+  const groupPath = (id: number) => `/experience-groups/${encodeURIComponent(String(id))}`;
 
   return {
     async getAuthConfig() {
@@ -237,6 +240,26 @@ export function createHttpService(
 
     async deleteExperience(id: number) {
       await empty(await request(experiencePath(id), send("DELETE")));
+    },
+
+    async setExperiencePlacement(id: number, placement: ExperiencePlacement) {
+      return json<Experience>(await request(`${experiencePath(id)}/placement`, send("PUT", placement)));
+    },
+
+    async listExperienceGroups() {
+      return json<ExperienceGroup[]>(await request("/experience-groups"));
+    },
+
+    async createExperienceGroup(name: string, experienceIds: number[]) {
+      return json<ExperienceGroup>(await request("/experience-groups", send("POST", { name, experienceIds })));
+    },
+
+    async renameExperienceGroup(id: number, name: string) {
+      return json<ExperienceGroup>(await request(groupPath(id), send("PUT", { name })));
+    },
+
+    async deleteExperienceGroup(id: number) {
+      await empty(await request(groupPath(id), send("DELETE")));
     },
 
     async getResume() {

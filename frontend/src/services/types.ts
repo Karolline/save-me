@@ -471,6 +471,8 @@ export interface ExperienceFields {
 export interface ExperienceInput extends ExperienceFields {
   /** 내 다른 경험 (자기 자신은 안 된다). 저장하면 하위 줄이 통째로 바뀐다. */
   related: { experienceId: number; note: string }[];
+  /** 내 경험 그룹, null이면 그룹 없음. 비게 된 그룹은 지워진다. */
+  groupId: number | null;
 }
 
 export interface RelatedExperience {
@@ -492,12 +494,15 @@ export interface ExperienceSummary {
   endedOn: string | null;
   verified: boolean;
   needs: ExperienceNeed[];
+  /** 경험 그룹, 없으면 null (경험 캘린더가 그룹끼리 붙여 보인다). */
+  groupId: number | null;
 }
 
 export interface Experience extends ExperienceFields {
   id: number;
   /** 사람 확인: 가져온 경험은 false, 화면에서 저장하거나 [읽고 확인했어요]를 누르면 true. */
   verified: boolean;
+  groupId: number | null;
   related: RelatedExperience[];
   needs: ExperienceNeed[];
   createdAt: string;
@@ -515,6 +520,21 @@ export interface ExperienceList {
 export interface ExperienceLinkKey {
   id: number;
   linkKey: string;
+}
+
+/** 경험 캘린더의 바로 고치기: 이 네 칸만 바뀌고 확인 상태와 updatedAt은 그대로. */
+export interface ExperiencePlacement {
+  startedOn: string | null;
+  /** null이면 진행 중. 시작보다 빨라도 저장된다 (흐름 점검이 보여 준다). */
+  endedOn: string | null;
+  org: string;
+  groupId: number | null;
+}
+
+/** 경험 그룹: 비슷한 경험을 묶는 이름. 경험 하나는 그룹 하나에만, 빈 그룹은 지워진다. */
+export interface ExperienceGroup {
+  id: number;
+  name: string;
 }
 
 // ── 이력 ──
@@ -663,6 +683,16 @@ export interface SaveMeService {
   setExperienceVerified(id: number, verified: boolean): Promise<Experience>;
   /** 다른 경험의 관련 경험 줄 중 이것을 가리키던 것도 지워진다. */
   deleteExperience(id: number): Promise<void>;
+  /** 바로 고치기 (시작·끝·소속·그룹만). 확인 상태는 그대로. 그룹이 없거나 남의 것이면 404. */
+  setExperiencePlacement(id: number, placement: ExperiencePlacement): Promise<Experience>;
+
+  /** 내 경험 그룹 (id 순). */
+  listExperienceGroups(): Promise<ExperienceGroup[]>;
+  /** 그룹으로 묶기: 고른 경험(2개 이상)을 새 그룹으로 옮긴다. 이름이 비면 422, 남의 경험이면 404. */
+  createExperienceGroup(name: string, experienceIds: number[]): Promise<ExperienceGroup>;
+  renameExperienceGroup(id: number, name: string): Promise<ExperienceGroup>;
+  /** 묶음 풀기: 그룹을 지우고 그 경험들은 그룹이 없게 된다. */
+  deleteExperienceGroup(id: number): Promise<void>;
 
   /** 이력 전체. 아직 적은 것이 없으면 빈 칸과 빈 목록. */
   getResume(): Promise<Resume>;

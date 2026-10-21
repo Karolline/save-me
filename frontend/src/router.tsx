@@ -495,7 +495,9 @@ const editJobRoute = createRoute({
 const experiencesRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/experiences",
-  validateSearch: (search: Record<string, unknown>): { view?: "unv" | "need"; q?: string } => {
+  validateSearch: (search: Record<string, unknown>): { view?: "unv" | "need" | "calendar"; q?: string } => {
+    // 경험 캘린더(view=calendar)에는 목록의 보기와 검색이 없다.
+    if (search.view === "calendar") return { view: "calendar" };
     const out: { view?: "unv" | "need"; q?: string } = {};
     if (search.view === "unv" || search.view === "need") out.view = search.view;
     if (typeof search.q === "string" && search.q) out.q = search.q;
@@ -513,14 +515,25 @@ const experiencesRoute = createRoute({
         },
         replace: true,
       });
+    const calendar = view === "calendar";
+    const listView = calendar ? undefined : view;
     return (
       <ExperiencesScreen
-        view={view ?? "all"}
+        mode={calendar ? "calendar" : "list"}
+        view={listView ?? "all"}
         q={q ?? ""}
+        // 보기 방식은 뒤로 가기로 돌아올 수 있게 기록에 남긴다. 목록으로 돌아오면 전체.
+        onModeChange={(mode) =>
+          navigate({ to: "/experiences", search: mode === "calendar" ? { view: "calendar" } : {} })
+        }
         onViewChange={(next) => go({ view: next, q })}
-        onQueryChange={(next) => go({ view, q: next })}
+        onQueryChange={(next) => go({ view: listView, q: next })}
         onOpen={(experienceId) =>
-          navigate({ to: "/experiences/$experienceId", params: { experienceId: String(experienceId) } })
+          navigate({
+            to: "/experiences/$experienceId",
+            params: { experienceId: String(experienceId) },
+            search: calendar ? { from: "calendar" } : {},
+          })
         }
         onAdd={() => navigate({ to: "/experiences/new" })}
       />
@@ -528,13 +541,17 @@ const experiencesRoute = createRoute({
   },
 });
 
-/** 경험을 어디서 열었는지 (`from=job`과 그 분석 `jobId`: 공고분석의 근거 경험 태그). */
+/**
+ * 경험을 어디서 열었는지: 공고분석의 근거 경험 태그(`from=job`과 그 분석 `jobId`), 또는 경험 캘린더
+ * (`from=calendar`, 돌아가면 캘린더).
+ */
 interface ExperienceSearch {
-  from?: "job";
+  from?: "job" | "calendar";
   jobId?: number;
 }
 
 function parseExperienceSearch(search: Record<string, unknown>): ExperienceSearch {
+  if (search.from === "calendar") return { from: "calendar" };
   const jobId = Number(search.jobId);
   return search.from === "job" && search.jobId !== undefined && Number.isInteger(jobId) ? { from: "job", jobId } : {};
 }
@@ -573,7 +590,7 @@ const experienceRoute = createRoute({
         onBack={() =>
           search.jobId !== undefined
             ? navigate({ to: "/jobs/$jobId", params: { jobId: String(search.jobId) } })
-            : navigate({ to: "/experiences" })
+            : navigate({ to: "/experiences", search: search.from === "calendar" ? { view: "calendar" } : {} })
         }
         onEdit={() => navigate({ to: "/experiences/$experienceId/edit", params: { experienceId }, search })}
         onOpenReview={(reviewId) => navigate({ to: "/reviews/$reviewId", params: { reviewId: String(reviewId) } })}

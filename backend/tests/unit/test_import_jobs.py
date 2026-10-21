@@ -1,6 +1,5 @@
 import json
 from datetime import date
-from pathlib import Path
 
 import pytest
 from alembic import command
@@ -21,7 +20,7 @@ from app.importers.jobs import (
 from app.migrate import alembic_config, upgrade
 from app.models import JobInput
 from app.stores import Stores
-from tests.conftest import TEST_DATABASE_URL, application, drop_everything
+from tests.conftest import application
 
 FILE = {
     "jobs": [
@@ -314,7 +313,8 @@ def test_the_summary_lines():
     ],
 )
 def test_a_malformed_file_fails_in_one_line_without_writing(tmp_path, content, message):
-    url = f"sqlite:///{tmp_path / 'bad.db'}"
+    # 파일을 읽기 전에 멈추므로 DB에 연결하지도 않는다 (닿지 않는 주소여도 이 오류가 나온다).
+    url = "postgresql://nobody:x@127.0.0.1:1/none"
     path = tmp_path / "jobs.json"
     path.write_text(content, encoding="utf-8")
 
@@ -323,33 +323,14 @@ def test_a_malformed_file_fails_in_one_line_without_writing(tmp_path, content, m
 
     text = str(exit_info.value.code)
     assert message in text and "\n" not in text
-    # 파일을 읽기 전에 멈춰서 DB를 만들지도 않는다.
-    assert not (tmp_path / "bad.db").exists()
 
 
-# ── main(): SQLite 파일에서 ──
-
-
-@pytest.fixture
-def db_file(tmp_path):
-    """head까지 올린 DB: TEST_DATABASE_URL이 PostgreSQL이면 그것을 비우고, 아니면
-    SQLite 파일. (url, engine, stores)."""
-    if TEST_DATABASE_URL.startswith("sqlite"):
-        url = f"sqlite:///{tmp_path / 'import.db'}"
-    else:
-        url = TEST_DATABASE_URL
-        old = make_engine(url)
-        drop_everything(old)
-        old.dispose()
-    upgrade(url)
-    engine = make_engine(url)
-    yield url, engine, Stores.create(engine)
-    engine.dispose()
+# ── main() ──
 
 
 def db_name(url: str) -> str:
     """요약 첫 줄에 나오는 DB 이름."""
-    return Path(make_url(url).database).name
+    return make_url(url).database
 
 
 def snapshot(engine, skip: tuple[str, ...] = ()) -> dict[str, list]:
@@ -368,29 +349,26 @@ def output(capsys) -> list[str]:
     return capsys.readouterr().out.splitlines()
 
 
-def test_main_migrates_and_imports_for_the_local_user(tmp_path, capsys):
-    url = f"sqlite:///{tmp_path / 'import.db'}"
+def test_main_imports_for_the_local_user(db_file, tmp_path, capsys):
+    url, engine, stores = db_file
     with pytest.raises(SystemExit, match="바른정보"):
         main([str(write(tmp_path)), "--database-url", url])
-    engine = make_engine(url)
-    stores = Stores.create(engine)
     user = stores.users.dev_user()
     stores.applications.create(user.id, application("바른정보", date(2026, 9, 7)))
 
     main([str(write(tmp_path)), "--database-url", url])
-    assert output(capsys) == ["import.db: 추가 2, 바꿈 0, 건너뜀 0 (파일 2건)"]
+    assert output(capsys) == [f"{db_name(url)}: 추가 2, 바꿈 0, 건너뜀 0 (파일 2건)"]
 
     # 두 번째는 아무것도 쓰지 않는다 (진짜 실행은 로컬 사용자의 로그인 시각만 적는다).
     before = snapshot(engine, skip=("users",))
     main([str(write(tmp_path)), "--database-url", url])
     assert output(capsys) == [
-        "import.db: 추가 0, 바꿈 0, 건너뜀 2 (파일 2건)",
+        f"{db_name(url)}: 추가 0, 바꿈 0, 건너뜀 2 (파일 2건)",
         "건너뜀: 바른정보 · 데이터 파이프라인 엔지니어 (이미 있음)",
         "건너뜀: 마루증권 · 데이터 엔지니어 (이미 있음)",
     ]
     assert snapshot(engine, skip=("users",)) == before
     assert len(stores.jobs.list(user.id).items) == 2
-    engine.dispose()
 
 
 def test_main_replace_skips_verified(db_file, tmp_path, capsys):
@@ -472,8 +450,8 @@ def test_dry_run_fails_like_a_real_run_without_writing(db_file, tmp_path):
     assert snapshot(engine) == before
 
 
-def test_dry_run_on_an_old_database_stops_without_migrating(tmp_path):
-    url = f"sqlite:///{tmp_path / 'old.db'}"
+def test_dry_run_on_an_old_database_stops_without_migrating(mig_url, tmp_path):
+    url = mig_url
     command.upgrade(alembic_config(url), "c51741d0146f")
     engine = make_engine(url)
     before = snapshot(engine)

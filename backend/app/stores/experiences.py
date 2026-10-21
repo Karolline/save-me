@@ -1,18 +1,23 @@
-"""경험과 행동·받은 질문·예상 질문·관련 경험 (기획안 S2 11번, 5.13).
+"""경험과 행동·받은 질문·예상 질문·관련 경험·경험 그룹 (기획안 S2 11번, 5.13).
 
 목록 정렬(최근에 시작한 순), 보기([전체] [미확인] [보완 필요])와 개수, 검색,
 "보완할 것" 계산은 여기서 한다 (기획안 5.11). 받은 질문이 가리키는 면접후기와
-관련 경험은 같은 사용자 것이어야 한다 (기획안 5.3).
+관련 경험, 경험 그룹은 같은 사용자 것이어야 한다 (기획안 5.3).
+
+경험 그룹: 경험 하나는 그룹 하나에만 들어간다. 경험의 그룹이 바뀌는 길(만들기,
+고치기, 바로 고치기, 지우기, 그룹으로 묶기)은 모두 같은 트랜잭션에서 비게 된
+그룹을 지운다.
 """
 
 from datetime import date, datetime
 
-from sqlalchemy import select
+from sqlalchemy import delete, exists, select, update
 from sqlalchemy.orm import Session
 
 from app.db import (
     ExperienceActionRow,
     ExperienceAskedRow,
+    ExperienceGroupRow,
     ExperienceLinkRow,
     ExperienceQaRow,
     ExperienceRow,
@@ -24,10 +29,13 @@ from app.models import (
     ExperienceAsked,
     ExperienceCounts,
     ExperienceFields,
+    ExperienceGroup,
+    ExperienceGroupInput,
     ExperienceInput,
     ExperienceLinkKey,
     ExperienceList,
     ExperienceNeed,
+    ExperiencePlacement,
     ExperienceQa,
     ExperienceSummary,
     ExperienceView,
@@ -72,6 +80,14 @@ class RelatedExperienceNotFoundError(LookupError):
 
 class SelfRelatedError(ValueError):
     """경험이 자기 자신을 관련 경험으로 가리킨다."""
+
+
+class GroupNotFoundError(LookupError):
+    """경험 그룹이 없거나 남의 것이다."""
+
+
+class GroupMemberNotFoundError(LookupError):
+    """그룹으로 묶을 경험이 없거나 남의 것이다."""
 
 
 class UnknownRelatedNameError(LookupError):
@@ -132,6 +148,7 @@ def to_summary(row: ExperienceRow) -> ExperienceSummary:
         ended_on=from_month(row.ended_on),
         verified=row.verified,
         needs=needs_of(row),
+        group_id=row.group_id,
     )
 
 
@@ -139,6 +156,7 @@ def to_experience(row: ExperienceRow) -> Experience:
     return Experience(
         **{name: getattr(row, name) for name in PLAIN_FIELDS},
         id=row.id,
+        group_id=row.group_id,
         started_on=from_month(row.started_on),
         ended_on=from_month(row.ended_on),
         verified=row.verified,
@@ -216,12 +234,14 @@ class ExperienceStore(BaseStore):
 
     def create(self, user_id: int, data: ExperienceInput) -> Experience:
         """새 경험. 화면에서 만든 것이라 사람 확인은 True. 후기나 관련 경험이 없거나
-        남의 것이면 ReviewNotFoundError / RelatedExperienceNotFoundError."""
+        남의 것이면 ReviewNotFoundError / RelatedExperienceNotFoundError, 그룹이 없거나
+        남의 것이면 GroupNotFoundError."""
         now = self.clock()
         with self.session() as db, db.begin():
             row = ExperienceRow(user_id=user_id, created_at=now, verified=True)
             self._fill(db, row, user_id, data, now)
             self._set_links(db, row, user_id, [(r.experience_id, r.note) for r in data.related])
+            self._set_group(db, row, user_id, data.group_id)
             return self._reload(db, user_id, row.id)
 
     def update(self, user_id: int, experience_id: int, data: ExperienceInput) -> Experience | None:
@@ -235,6 +255,21 @@ class ExperienceStore(BaseStore):
             row.verified = True
             self._fill(db, row, user_id, data, now)
             self._set_links(db, row, user_id, [(r.experience_id, r.note) for r in data.related])
+            self._set_group(db, row, user_id, data.group_id)
+            return self._reload(db, user_id, experience_id)
+
+    def set_placement(self, user_id: int, experience_id: int, data: ExperiencePlacement) -> Experience | None:
+        """경험 캘린더의 바로 고치기: 시작·끝·소속·그룹만 바꾼다. 사람 확인과 updated_at은
+        그대로 둔다 (편집으로 치지 않는다). 경험이 이 사용자 것이 아니면 None, 그룹이 없거나
+        남의 것이면 GroupNotFoundError."""
+        with self.session() as db, db.begin():
+            row = self._row(db, user_id, experience_id)
+            if row is None:
+                return None
+            row.started_on = to_month(data.started_on)
+            row.ended_on = to_month(data.ended_on)
+            row.org = data.org
+            self._set_group(db, row, user_id, data.group_id)
             return self._reload(db, user_id, experience_id)
 
     def set_verified(self, user_id: int, experience_id: int, verified: bool) -> Experience | None:
@@ -248,12 +283,70 @@ class ExperienceStore(BaseStore):
             return to_experience(row)
 
     def delete(self, user_id: int, experience_id: int) -> bool:
-        """경험을 지운다. 다른 경험의 관련 경험 줄 중 이것을 가리키던 것도 지워진다 (외래 키 CASCADE)."""
+        """경험을 지운다. 다른 경험의 관련 경험 줄 중 이것을 가리키던 것도 지워진다 (외래 키 CASCADE).
+        이 경험이 마지막이던 그룹도 지워진다."""
         with self.session() as db, db.begin():
             row = self._row(db, user_id, experience_id)
             if row is None:
                 return False
             db.delete(row)
+            db.flush()
+            self._drop_empty_groups(db, user_id)
+            return True
+
+    # ── 경험 그룹 ──
+
+    def list_groups(self, user_id: int) -> list[ExperienceGroup]:
+        """내 경험 그룹 (id 순)."""
+        with self.session() as db:
+            rows = db.scalars(
+                select(ExperienceGroupRow).where(ExperienceGroupRow.user_id == user_id).order_by(ExperienceGroupRow.id)
+            ).all()
+            return [ExperienceGroup(id=r.id, name=r.name) for r in rows]
+
+    def create_group(self, user_id: int, data: ExperienceGroupInput) -> ExperienceGroup:
+        """그룹을 만들고 고른 경험을 그 그룹으로 옮긴다 (다른 그룹에 있던 것도). 옮겨서 비게 된
+        그룹은 지운다. 경험이 없거나 남의 것이면 GroupMemberNotFoundError. 확인 상태는 그대로."""
+        ids = set(data.experience_ids)
+        with self.session() as db, db.begin():
+            rows = db.scalars(
+                select(ExperienceRow).where(ExperienceRow.id.in_(ids), ExperienceRow.user_id == user_id)
+            ).all()
+            if missing := ids - {r.id for r in rows}:
+                raise GroupMemberNotFoundError(min(missing))
+            group = ExperienceGroupRow(user_id=user_id, name=data.name, created_at=self.clock())
+            db.add(group)
+            db.flush()
+            for row in rows:
+                row.group_id = group.id
+            db.flush()
+            self._drop_empty_groups(db, user_id)
+            return ExperienceGroup(id=group.id, name=group.name)
+
+    def rename_group(self, user_id: int, group_id: int, name: str) -> ExperienceGroup | None:
+        """그룹 이름을 바꾼다. 그룹이 이 사용자 것이 아니면 None."""
+        with self.session() as db, db.begin():
+            group = self._group(db, user_id, group_id)
+            if group is None:
+                return None
+            group.name = name
+            db.flush()
+            return ExperienceGroup(id=group.id, name=group.name)
+
+    def delete_group(self, user_id: int, group_id: int) -> bool:
+        """묶음 풀기: 그룹을 지우고 그 경험들은 그룹이 없게 된다. 확인 상태는 그대로."""
+        with self.session() as db, db.begin():
+            group = self._group(db, user_id, group_id)
+            if group is None:
+                return False
+            # 외래 키(ON DELETE SET NULL)에 기대지 않고 먼저 푼다.
+            db.execute(
+                update(ExperienceRow)
+                .where(ExperienceRow.user_id == user_id, ExperienceRow.group_id == group_id)
+                .values(group_id=None)
+                .execution_options(synchronize_session=False)
+            )
+            db.delete(group)
             return True
 
     def find(self, user_id: int, name: str) -> Experience | None:
@@ -325,6 +418,30 @@ class ExperienceStore(BaseStore):
     def _row(db: Session, user_id: int, experience_id: int) -> ExperienceRow | None:
         return db.scalar(
             select(ExperienceRow).where(ExperienceRow.id == experience_id, ExperienceRow.user_id == user_id)
+        )
+
+    @staticmethod
+    def _group(db: Session, user_id: int, group_id: int) -> ExperienceGroupRow | None:
+        return db.scalar(
+            select(ExperienceGroupRow).where(ExperienceGroupRow.id == group_id, ExperienceGroupRow.user_id == user_id)
+        )
+
+    def _set_group(self, db: Session, row: ExperienceRow, user_id: int, group_id: int | None) -> None:
+        """경험의 그룹을 바꾸고 비게 된 그룹을 지운다. 그룹은 내 것이어야 한다."""
+        if group_id is not None and self._group(db, user_id, group_id) is None:
+            raise GroupNotFoundError(group_id)
+        row.group_id = group_id
+        db.flush()
+        self._drop_empty_groups(db, user_id)
+
+    @staticmethod
+    def _drop_empty_groups(db: Session, user_id: int) -> None:
+        """경험이 하나도 없는 내 그룹을 지운다."""
+        has_member = exists().where(ExperienceRow.group_id == ExperienceGroupRow.id)
+        db.execute(
+            delete(ExperienceGroupRow)
+            .where(ExperienceGroupRow.user_id == user_id, ~has_member)
+            .execution_options(synchronize_session=False)
         )
 
     @staticmethod

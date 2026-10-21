@@ -81,6 +81,7 @@ def test_list_with_views_search_and_counts(client: TestClient):
         "endedOn": "2022-02",
         "verified": True,
         "needs": first["needs"],
+        "groupId": None,
     }
     assert [x["name"] for x in client.get("/api/experiences?view=unv").json()["items"]] == ["Iceberg 실험"]
     assert [x["name"] for x in client.get("/api/experiences?view=need").json()["items"]] == [first["name"]]
