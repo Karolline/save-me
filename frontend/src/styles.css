@@ -535,3 +535,51 @@ td.mono { white-space: nowrap; }
   .rskill { grid-template-columns: minmax(0,1fr); gap: 2px; }
   .rcard { padding: 14px; }
 }
+
+/* ── 공고분석 회사 동향 탭 (2026-10-16 목업) ── */
+.jtabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.jtabs button { border: 0; background: none; padding: 10px 14px; font-weight: 600; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.jtabs button[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+.tr-intro { padding: 12px 16px; display: flex; gap: 10px 16px; flex-wrap: wrap; align-items: baseline; line-height: 1.6; }
+.tr-intro .k { font-size: 12px; color: var(--muted); }
+.tr-intro p { margin: 0; color: var(--muted); font-size: 13px; flex: 1 1 320px; min-width: 0; white-space: pre-wrap; }
+.tr-rows { display: flex; flex-direction: column; }
+.trow { display: grid; grid-template-columns: 112px minmax(0,1fr); gap: 4px 16px; padding: 10px 0; border-top: 1px solid var(--grid); }
+.trow:first-child { border-top: 0; padding-top: 0; }
+.trow.cont { border-top: 0; padding-top: 0; }
+.trow .tl { font-weight: 600; font-size: 13px; line-height: 1.7; }
+.trow .tb { display: flex; flex-direction: column; gap: 6px; min-width: 0; line-height: 1.7; word-break: break-word; }
+.trow .tb .nodata { color: var(--faint); }
+/* 출처 칩. 요구사항의 .reqv .src와 겹치지 않게 .srcs 안에서만. */
+.srcs { display: flex; flex-wrap: wrap; gap: 6px; }
+.srcs .src { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 1px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); text-decoration: none; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.srcs a.src:hover { border-color: var(--accent); color: var(--accent); }
+.srcs .src .d { font-family: var(--mono); }
+.srcs .src.old { background: var(--memo); border-color: var(--memo-line); color: var(--closed); }
+.quotes { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.quotes li { border-left: 3px solid var(--d1); padding: 2px 0 2px 10px; color: var(--muted); line-height: 1.6; }
+.reading { background: var(--accent-weak); border-radius: 8px; padding: 10px 14px; line-height: 1.7; }
+.reading b { color: var(--accent); margin-right: 6px; }
+.appeal { display: flex; flex-direction: column; gap: 10px; }
+.apc { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 4px 10px; }
+.apc .no { font-family: var(--mono); font-weight: 600; color: var(--accent); font-size: 15px; }
+.apc dl { margin: 0; display: grid; grid-template-columns: 70px minmax(0,1fr); gap: 6px 10px; line-height: 1.65; }
+.apc dt { font-size: 12px; color: var(--muted); padding-top: 2px; }
+.apc dd { margin: 0; min-width: 0; word-break: break-word; }
+.unused { margin: 0; }
+.unused-h { font-size: 13px; font-weight: 600; color: var(--muted); margin: 4px 0 0; }
+.tr-empty { padding: 28px 18px; text-align: center; color: var(--muted); line-height: 1.7; }
+/* 편집: 출처 한 줄 (이름 · 날짜 · 링크 · ✕). */
+.tsrc-ed { display: grid; grid-template-columns: minmax(0,1.2fr) 150px minmax(0,2fr) 36px; gap: 6px; align-items: center; }
+@media (max-width: 640px) {
+  .trow { grid-template-columns: minmax(0,1fr); }
+  .apc { grid-template-columns: minmax(0,1fr); }
+  .apc dl { grid-template-columns: minmax(0,1fr); gap: 2px; }
+  .apc dd { margin-bottom: 6px; }
+  /* 이름과 날짜를 나란히, 링크는 아래 한 줄 전체, ✕는 그 아래 오른쪽 (목업). 출처 사이는 점선. */
+  .tsrc-ed { grid-template-columns: minmax(0,1fr) minmax(0,1.2fr); }
+  .tsrc-ed input[type="date"] { padding-inline: 6px; }
+  .tsrc-ed > :nth-child(3) { grid-column: 1 / -1; }
+  .tsrc-ed > :nth-child(4) { grid-column: 1 / -1; justify-self: end; }
+  .tsrc-ed + .tsrc-ed { border-top: 1px dashed var(--line); padding-top: 6px; }
+}

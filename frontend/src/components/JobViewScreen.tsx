@@ -13,8 +13,16 @@ import { experienceForTag } from "@/lib/experiences";
 import { RESULTS, useService, type ExperienceLinkKey, type Job, type LevelCounts, type RequirementLevel } from "@/services";
 import { ConfirmDialog, useEscape, useToast } from "./feedback";
 import { icons } from "./icons";
+import { JobTrendsTab } from "./JobTrendsTab";
 import { useSessionErrors } from "./session";
 import { NotFoundScreen } from "./SettingsScreen";
+
+/** 상세의 탭: 공고 분석(기본), 회사 동향. 주소의 `tab=trends`로 고른다. */
+export type JobTab = "analysis" | "trends";
+const TABS: { id: JobTab; label: string }[] = [
+  { id: "analysis", label: "공고 분석" },
+  { id: "trends", label: "회사 동향" },
+];
 
 /** 내 해당도 기호와 이름. 미평가는 "–". */
 export function LevelMark({ level }: { level: RequirementLevel }) {
@@ -79,12 +87,15 @@ const List = ({ items }: { items: string[] }) => (
 );
 
 /**
- * 공고 분석 상세 (기획안 S2 10번, 목업 job): 요약 카드 3개, 한 줄 결론, 섹션 칩,
- * 공고 문장마다 내 해당도, 표와 목록 섹션, 기타 메모, 공고 원문, 연결된 지원.
+ * 공고 분석 상세 (기획안 S2 10번, 목업 job): 머리 아래 [공고 분석] [회사 동향] 탭.
+ * 공고 분석 탭은 요약 카드 3개, 한 줄 결론, 섹션 칩, 공고 문장마다 내 해당도, 표와
+ * 목록 섹션, 기타 메모, 공고 원문, 연결된 지원. 회사 동향 탭은 `JobTrendsTab`.
  * 빈 섹션은 숨기고 이름만 알려 준다. 다른 분석을 열 때는 `key={id}`로 그린다.
  */
 export function JobViewScreen({
   id,
+  tab = "analysis",
+  onTabChange,
   fromDetail,
   onBack,
   onEdit,
@@ -94,6 +105,10 @@ export function JobViewScreen({
   onHome,
 }: {
   id: number;
+  /** 보이는 탭 (주소가 정한다). */
+  tab?: JobTab;
+  /** 탭을 바꾼다 (라우트가 주소의 `tab`을 바꾼다). */
+  onTabChange: (tab: JobTab) => void;
   /** 지원 상세에서 열었다 (돌아가기 문구가 바뀐다). */
   fromDetail: boolean;
   /** 온 곳으로. 지원 상세에서 왔으면 연결된 지원 건 id (없으면 null). */
@@ -496,99 +511,118 @@ export function JobViewScreen({
           )}
         </div>
       </div>
-      <div className="jcards">
-        <section className="card jcard" aria-label="기술 핏 요약">
-          <span className="k">기술 핏</span>
-          <b className="jbig">{job.fit || "–"}</b>
-          <p>{mustSummary(job.counts.must)}</p>
-        </section>
-        <section className="card jcard" aria-label="성향 적합도 요약">
-          <span className="k">성향 적합도</span>
-          <b className={`jbig ${GRADE_CLASS[job.cultureGrade]}`}>{gradeLabel(job.cultureGrade, job.cultureScore, "점") || "–"}</b>
-          <p>{job.cultureType || "아직 평가하지 않았어요"}</p>
-        </section>
-        <section className="card jcard" aria-label="지원 조건 요약">
-          <span className="k">지원 조건</span>
-          {job.conditions.length ? (
-            <ul className="conds">
-              {job.conditions.map((c, i) => (
-                <li key={i}>
-                  <span className={`mk ${CONDITIONS[c.state].className}`} title={CONDITIONS[c.state].label}>
-                    {CONDITIONS[c.state].symbol}
-                  </span>
-                  <span>
-                    <b>{c.label}</b> {c.text}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>아직 적지 않았어요</p>
-          )}
-        </section>
-      </div>
-      {job.conclusion && (
-        <div className="conclusion">
-          <b>한 줄 결론</b> {job.conclusion}
-        </div>
-      )}
-      {filled.length > 0 && (
-        <nav className="toc" aria-label="이 분석의 섹션">
-          {filled.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => document.getElementById(`js-${s.id}`)?.scrollIntoView?.({ behavior: "smooth", block: "start" })}
-            >
-              {s.title}
-            </button>
-          ))}
-        </nav>
-      )}
-      <p className="legend-m">
-        <span className="m-full">● 충족</span>
-        <span className="m-part">◐ 부분·인접</span>
-        <span className="m-none">○ 없음 (경험에 근거 없음)</span>
-        {hasUnrated && <span className="m-unrated">– 미평가</span>}
-      </p>
-      {filled.map((s) => (
-        <section key={s.id} className="card jsec" id={`js-${s.id}`} aria-label={s.title}>
-          <div className="jsec-h">
-            <h2>{s.title}</h2>
-            {s.extra}
-          </div>
-          {s.body}
-        </section>
-      ))}
-      {emptyOnes.length > 0 && (
-        <p className="hint">비어 있는 섹션: {emptyOnes.map((s) => s.title).join(" · ")} — [편집]에서 채울 수 있어요.</p>
-      )}
-      <section className="card jsec" aria-label="연결된 지원">
-        <div className="jsec-h">
-          <h2>연결된 지원</h2>
-        </div>
-        {app && result ? (
-          <button type="button" className="rrow" onClick={() => onOpenApplication(app.id)}>
-            <span className="mono rdate">{app.appliedAt}</span>
-            <span className="rmain">
-              <b>
-                {app.company}
-                {app.sub && ` ${app.sub}`}
-              </b>
-              <span className="hint">서류 제출 {app.appliedAt}</span>
-            </span>
-            <span className="rmeta">
-              <span className={result.className}>
-                {result.symbol} {app.resultText || result.label}
-              </span>
-            </span>
+      <div className="jtabs" role="tablist" aria-label="분석 보기">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            onClick={() => tab !== t.id && onTabChange(t.id)}
+          >
+            {t.label}
           </button>
-        ) : (
-          <p className="hint" style={{ margin: 0 }}>
-            아직 지원 기록과 연결되지 않았어요. 지원했다면 [편집]에서 연결해 주세요.
+        ))}
+      </div>
+      {tab === "trends" ? (
+        <JobTrendsTab job={job} evidence={(text, key) => ev(text, key)} />
+      ) : (
+        <>
+          <div className="jcards">
+            <section className="card jcard" aria-label="기술 핏 요약">
+              <span className="k">기술 핏</span>
+              <b className="jbig">{job.fit || "–"}</b>
+              <p>{mustSummary(job.counts.must)}</p>
+            </section>
+            <section className="card jcard" aria-label="성향 적합도 요약">
+              <span className="k">성향 적합도</span>
+              <b className={`jbig ${GRADE_CLASS[job.cultureGrade]}`}>{gradeLabel(job.cultureGrade, job.cultureScore, "점") || "–"}</b>
+              <p>{job.cultureType || "아직 평가하지 않았어요"}</p>
+            </section>
+            <section className="card jcard" aria-label="지원 조건 요약">
+              <span className="k">지원 조건</span>
+              {job.conditions.length ? (
+                <ul className="conds">
+                  {job.conditions.map((c, i) => (
+                    <li key={i}>
+                      <span className={`mk ${CONDITIONS[c.state].className}`} title={CONDITIONS[c.state].label}>
+                        {CONDITIONS[c.state].symbol}
+                      </span>
+                      <span>
+                        <b>{c.label}</b> {c.text}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>아직 적지 않았어요</p>
+              )}
+            </section>
+          </div>
+          {job.conclusion && (
+            <div className="conclusion">
+              <b>한 줄 결론</b> {job.conclusion}
+            </div>
+          )}
+          {filled.length > 0 && (
+            <nav className="toc" aria-label="이 분석의 섹션">
+              {filled.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => document.getElementById(`js-${s.id}`)?.scrollIntoView?.({ behavior: "smooth", block: "start" })}
+                >
+                  {s.title}
+                </button>
+              ))}
+            </nav>
+          )}
+          <p className="legend-m">
+            <span className="m-full">● 충족</span>
+            <span className="m-part">◐ 부분·인접</span>
+            <span className="m-none">○ 없음 (경험에 근거 없음)</span>
+            {hasUnrated && <span className="m-unrated">– 미평가</span>}
           </p>
-        )}
-      </section>
+          {filled.map((s) => (
+            <section key={s.id} className="card jsec" id={`js-${s.id}`} aria-label={s.title}>
+              <div className="jsec-h">
+                <h2>{s.title}</h2>
+                {s.extra}
+              </div>
+              {s.body}
+            </section>
+          ))}
+          {emptyOnes.length > 0 && (
+            <p className="hint">비어 있는 섹션: {emptyOnes.map((s) => s.title).join(" · ")} — [편집]에서 채울 수 있어요.</p>
+          )}
+          <section className="card jsec" aria-label="연결된 지원">
+            <div className="jsec-h">
+              <h2>연결된 지원</h2>
+            </div>
+            {app && result ? (
+              <button type="button" className="rrow" onClick={() => onOpenApplication(app.id)}>
+                <span className="mono rdate">{app.appliedAt}</span>
+                <span className="rmain">
+                  <b>
+                    {app.company}
+                    {app.sub && ` ${app.sub}`}
+                  </b>
+                  <span className="hint">서류 제출 {app.appliedAt}</span>
+                </span>
+                <span className="rmeta">
+                  <span className={result.className}>
+                    {result.symbol} {app.resultText || result.label}
+                  </span>
+                </span>
+              </button>
+            ) : (
+              <p className="hint" style={{ margin: 0 }}>
+                아직 지원 기록과 연결되지 않았어요. 지원했다면 [편집]에서 연결해 주세요.
+              </p>
+            )}
+          </section>
+        </>
+      )}
       {confirmDelete && (
         <ConfirmDialog
           title="공고 분석을 삭제할까요?"

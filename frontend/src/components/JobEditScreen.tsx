@@ -22,6 +22,7 @@ import {
 import { applicationsOf, companiesNewestFirst } from "@/lib/reviews";
 import { isConflict, useService, type Application, type JobStatus, type RequirementCategory } from "@/services";
 import { ConfirmDialog, useToast } from "./feedback";
+import { JobTrendsEditor } from "./JobTrendsEditor";
 import { useSessionErrors } from "./session";
 import { NotFoundScreen } from "./SettingsScreen";
 
@@ -55,7 +56,7 @@ export function Field({
   );
 }
 
-interface ChoiceOption {
+export interface ChoiceOption {
   value: string;
   text: string;
   className?: string;
@@ -63,7 +64,7 @@ interface ChoiceOption {
 }
 
 /** 선택지가 몇 개 안 되는 칸은 드롭다운 대신 버튼으로. */
-function Choice({
+export function Choice({
   label,
   help,
   name,
@@ -852,10 +853,22 @@ export function JobEditScreen({
       </div>,
     ),
     section(
+      "trends",
+      "회사 동향",
+      "회사가 요즘 어디에 돈을 쓰는지, 경쟁사, 사용자 반응, 가는 방향. 상세의 [회사 동향] 탭에 보여요.",
+      <JobTrendsEditor
+        d={d}
+        update={(change) => setDraft((x) => x && change(x))}
+        focus={(id) => {
+          focusTarget.current = id;
+        }}
+      />,
+    ),
+    section(
       "notes",
       "기타 메모",
       "다른 칸에 맞지 않는 내용을 적어요. 상세 화면의 공고 원문 바로 위에 그대로 나와요.",
-      <Field id="j-notes" label="기타 메모" help="다른 칸에 맞지 않는 내용 (회사 동향, 어필 포인트 등)">
+      <Field id="j-notes" label="기타 메모" help="다른 칸에 맞지 않는 내용 (전형 절차 등)">
         <textarea className="textarea" id="j-notes" value={d.notes} onChange={(e) => set("notes", e.target.value)} />
       </Field>,
     ),

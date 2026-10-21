@@ -297,6 +297,14 @@ describe("mockService job analyses", () => {
     const service = withJobs();
     expect((await service.createJob(input({ company: " " })).catch((e) => e)).status).toBe(422);
     expect((await service.createJob(input({ fit: "최상" as never })).catch((e) => e)).status).toBe(422);
+    // 회사 동향: 모르는 구분, 틀린 출처 날짜와 조사일.
+    const trend = { kind: "spend" as const, label: "실적", text: "", sources: [] };
+    expect((await service.createJob(input({ trends: [{ ...trend, kind: "money" as never }] })).catch((e) => e)).status).toBe(422);
+    const badSource = { ...trend, sources: [{ name: "a", date: "2026-4-1", url: "" }] };
+    expect((await service.createJob(input({ trends: [badSource] })).catch((e) => e)).status).toBe(422);
+    expect((await service.createJob(input({ trendsCheckedOn: "어제" })).catch((e) => e)).status).toBe(422);
+    const withTrends = await service.createJob(input({ trends: [trend], appealGaps: ["SAP"], trendsCheckedOn: "2026-10-16" }));
+    expect([withTrends.trends, withTrends.appealGaps, withTrends.trendsCheckedOn]).toEqual([[trend], ["SAP"], "2026-10-16"]);
     const updated = await service.updateJob(
       1,
       input({ requirements: [{ category: "pref", level: "full", text: "Kafka", description: "", evidence: [], noEvidence: "", caution: "" }] }),

@@ -6,7 +6,7 @@ from sqlalchemy.orm.attributes import set_committed_value
 
 from app.db import ApplicationRow
 
-from app.models import JobCondition, JobFields, JobInput, Requirement
+from app.models import AppealPoint, JobCondition, JobFields, JobInput, Requirement, TrendItem, TrendSource
 from app.stores import (
     ApplicationAlreadyLinkedError,
     ApplicationNotFoundError,
@@ -75,6 +75,51 @@ def test_create_and_get_keep_every_field(stores: Stores, user_id: int):
     assert created.requirements[0].evidence == ["2023-04 스트림"]
     assert created.application is None and created.application_id is None
     assert stores.jobs.get(user_id, created.id) == created
+
+
+def trends(**changes) -> dict:
+    return {
+        "trends_checked_on": date(2026, 10, 16),
+        "trends_note": "기사로 대신했다",
+        "trends": [
+            TrendItem(
+                kind="spend",
+                label="물류",
+                text="여주 증설",
+                sources=[
+                    TrendSource(name="벤처스퀘어", date=date(2021, 6, 29), url="https://example.com/a"),
+                    TrendSource(name="App Store"),
+                ],
+            ),
+            TrendItem(kind="rival", label="물류 비교", text="자료 없음"),
+        ],
+        "direction_quotes": ["SSOT를 구축"],
+        "direction_reading": "추정",
+        "appeals": [AppealPoint(situation="상황", contribution="기여", evidence=["2021-11_UV"])],
+        "appeal_gaps": ["SAP"],
+        **changes,
+    }
+
+
+def test_company_trends_round_trip(stores: Stores, user_id: int):
+    created = stores.jobs.create(user_id, job(**trends()))
+
+    assert created.trends_checked_on == date(2026, 10, 16)
+    assert created.trends[0].sources[0].date == date(2021, 6, 29)
+    assert created.trends[0].sources[1].date is None
+    assert [t.kind for t in created.trends] == ["spend", "rival"]
+    assert created.appeals[0].evidence == ["2021-11_UV"]
+    assert (created.direction_quotes, created.appeal_gaps) == (["SSOT를 구축"], ["SAP"])
+    assert stores.jobs.get(user_id, created.id) == created
+
+    updated = stores.jobs.update(
+        user_id, created.id, job(**trends(trends=[TrendItem(kind="users", label="리뷰")], trends_note=""))
+    )
+    assert updated is not None
+    assert [t.label for t in updated.trends] == ["리뷰"] and updated.trends_note == ""
+    assert stores.jobs.get(user_id, created.id) == updated
+    # 다른 사용자에게는 없는 것과 같다.
+    assert stores.jobs.get(user_id + 1000, created.id) is None
 
 
 def test_counts_per_category_and_no_evidence(stores: Stores, user_id: int):

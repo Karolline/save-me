@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: SaveMe API
-  version: 0.5.0
+  version: 0.5.1
   description: |
     The contract between the frontend services layer and the FastAPI backend.
     JSON is camelCase. Dates are `YYYY-MM-DD`, times are ISO 8601 in UTC.
@@ -838,6 +838,42 @@ components:
           type: array
           items: { $ref: "#/components/schemas/Requirement" }
           description: Kept in this order; saving replaces them all.
+        trendsCheckedOn: { type: [string, "null"], format: date, description: 회사 동향 조사일 }
+        trendsNote: { type: string, default: "", description: 조사 메모 (which sources were used) }
+        trends:
+          type: array
+          default: []
+          description: 회사 동향 rows, kept in this order; the detail groups them by kind keeping relative order
+          items: { $ref: "#/components/schemas/TrendItem" }
+        directionQuotes: { type: array, items: { type: string }, default: [], description: "회사가 가는 방향: 공고 문구, one per item" }
+        directionReading: { type: string, default: "", description: "회사가 가는 방향: 해석 (추정)" }
+        appeals:
+          type: array
+          default: []
+          description: 어필 포인트 ("내가 필요하다")
+          items:
+            type: object
+            properties:
+              situation: { type: string, default: "", description: 회사 상황 }
+              contribution: { type: string, default: "", description: 내 기여 }
+              evidence: { type: array, items: { type: string }, default: [], description: 근거 경험 tags }
+        appealGaps: { type: array, items: { type: string }, default: [], description: 어필 포인트로 쓰지 않은 것 (갭) }
+    TrendItem:
+      type: object
+      description: One 회사 동향 row. Sources older than the 조사일 by more than a year are marked by the app, not stored.
+      properties:
+        kind: { type: string, enum: [spend, rival, users], default: spend, description: "돈을 쓰는 곳, 경쟁사 대비, 사용자 반응" }
+        label: { type: string, default: "", description: 분류 (left column, bold) }
+        text: { type: string, default: "", description: "내용; **bold** allowed; \"자료 없음\" when there is no data" }
+        sources:
+          type: array
+          default: []
+          items:
+            type: object
+            properties:
+              name: { type: string, default: "" }
+              date: { type: [string, "null"], format: date }
+              url: { type: string, default: "", description: Only http(s) URLs become links }
     JobInput:
       allOf:
         - $ref: "#/components/schemas/JobFields"

@@ -2,6 +2,7 @@
 camelCase(별칭)로 주고받는다."""
 
 from datetime import date, datetime
+from datetime import date as _Date
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -307,6 +308,36 @@ class ExpectedQuestion(ApiModel):
     answer: str = ""
 
 
+# 회사 동향 구분: 돈을 쓰는 곳 / 경쟁사 대비 / 사용자 반응.
+TrendKind = Literal["spend", "rival", "users"]
+
+
+class TrendSource(ApiModel):
+    """회사 동향 출처 하나. 날짜는 없을 수 있다 (오래된 자료 표시는 화면이 계산한다)."""
+
+    name: str = ""
+    # 칸 이름이 date라서 타입은 다른 이름(_Date)으로 쓴다.
+    date: _Date | None = None
+    url: str = ""
+
+
+class TrendItem(ApiModel):
+    """회사 동향 한 줄: 분류(왼쪽 칸), 내용, 출처들."""
+
+    kind: TrendKind = "spend"
+    label: str = ""
+    text: str = ""
+    sources: list[TrendSource] = []
+
+
+class AppealPoint(ApiModel):
+    """어필 포인트 하나: 회사 상황, 내 기여, 근거 경험 태그."""
+
+    situation: str = ""
+    contribution: str = ""
+    evidence: list[str] = []
+
+
 class Requirement(ApiModel):
     """공고 문장 하나와 내 해당도. 입력과 출력이 같은 모양이다."""
 
@@ -350,6 +381,14 @@ class JobFields(ApiModel):
     ask_back: list[str] = []
     checks: list[str] = []
     requirements: list[Requirement] = []
+    # 회사 동향 (상세의 [회사 동향] 탭).
+    trends_checked_on: date | None = None
+    trends_note: str = ""
+    trends: list[TrendItem] = []
+    direction_quotes: list[str] = []
+    direction_reading: str = ""
+    appeals: list[AppealPoint] = []
+    appeal_gaps: list[str] = []
 
     @field_validator("company", "team", "title", "url")
     @classmethod

@@ -150,15 +150,18 @@ uv run python -m app.importers.reviews ../private/reviews.json --database-url po
 - 같은 분석인지는 로컬 사용자의 (`company`, `title`)로 정한다. 새 분석은 사람 확인 N으로 만든다 (앱에서 [읽고 확인했어요]로 Y). 한 파일에 같은 (`company`, `title`)가 두 번 있으면 알려 주고 아무것도 쓰지 않는다.
 - 이미 있는 분석은 기본으로 **건너뛴다**: 내용, 사람 확인, 분석일, 지원 건 연결 모두 그대로. 그래서 같은 파일을 두 번 돌려도 두 번째는 모두 건너뛴다.
 - `--replace`: 사람 확인이 N인 기존 분석만 통째로 바꾼다 (다시 N). 사람이 확인한(Y) 분석은 `--replace`여도 그 항목만 건너뛰고, 다른 항목은 들어간다.
+- `--replace-verified`: `--replace`에 더해 사람이 확인한(Y) 분석도 바꾼다 (다시 N). 사용자가 확인한 분석을 바꿔 달라고 분명히 부탁할 때만 쓴다.
+- 바꾸는 항목의 `application`이 `null`이면 기존 분석의 지원 건 연결을 그대로 둔다 (풀지 않는다). `null`이 아니면 그 지원 건에 잇는다.
+- 회사 동향(`trendsCheckedOn`, `trendsNote`, `trends`, `directionQuotes`, `directionReading`, `appeals`, `appealGaps`)도 API와 같은 모양으로 받는다 (`openapi.yaml`의 `JobFields`, `TrendItem`).
 - 건너뛴 항목은 아무것도 쓰지 않는다: 지원 건도 잇지 않고, 아래 연결 검사에도 세지 않는다.
 - `application`은 연결할 지원 건 (`company`, `appliedAt`)이거나 `null`. 없는 지원 건이 있으면 (건너뛸 항목이라도) 알려 주고 아무것도 쓰지 않는다. 연결하면 지원 여부는 `applied`가 된다. 지원 건 하나에는 분석 하나: 쓰는 항목이 이미 다른 분석과 연결된 지원 건을 가리키거나, 쓰는 두 항목이 한 지원 건을 가리키면 아무것도 쓰지 않는다.
 - `--dry-run`: 모든 검사를 진짜처럼 하고 같은 요약을 보이지만 아무것도 쓰지 않는다 (트랜잭션을 되돌린다). `saveme`에 넣기 전에 먼저 돌려 본다. 마이그레이션은 하지 않아서, DB가 최신 버전이 아니면 `DB가 최신 버전이 아니에요. 앱을 먼저 업데이트하세요.`로 멈춘다. 그냥 돌리면 전처럼 먼저 마이그레이션한다.
-- 출력: 첫 줄에 수, 건너뛴 항목마다 한 줄 (파일 순서). 까닭은 `이미 있음` (`--replace` 없이 있는 분석, 확인된 것도) 또는 `확인됨이라 바꾸지 않음` (`--replace`인데 Y). `--dry-run`이면 첫 줄 앞에 `[시험] `, 끝에 `시험이라 아무것도 쓰지 않았어요.`
+- 출력: 첫 줄에 수, 건너뛴 항목마다 한 줄 (파일 순서). 까닭은 `이미 있음` (`--replace` 없이 있는 분석, 확인된 것도) 또는 `확인됨이라 바꾸지 않음, 바꾸려면 --replace-verified` (`--replace`인데 Y). `--dry-run`이면 첫 줄 앞에 `[시험] `, 끝에 `시험이라 아무것도 쓰지 않았어요.`
 
   ```
   saveme: 추가 2, 바꿈 1, 건너뜀 2 (파일 5건)
   건너뜀: 오늘의집 · 백엔드 개발자 (이미 있음)
-  건너뜀: 토스 · Server Developer (확인됨이라 바꾸지 않음)
+  건너뜀: 토스 · Server Developer (확인됨이라 바꾸지 않음, 바꾸려면 --replace-verified)
   ```
 - `level`: `full`(충족), `part`(부분·인접), `none`(없음), `""`(미평가). 해당도를 매기지 않은 기존 분석은 `""`로 둔다.
 - 파일 전체를 트랜잭션 하나로 쓴다. `company`와 `analyzedAt` 말고는 빼도 된다. 점수는 0~1000.
@@ -170,6 +173,7 @@ uv run python -m app.importers.jobs ../private/jobs.json
 uv run python -m app.importers.jobs ../private/jobs.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme --dry-run
 uv run python -m app.importers.jobs ../private/jobs.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
 uv run python -m app.importers.jobs ../private/jobs.json --replace
+uv run python -m app.importers.jobs ../private/jobs.json --replace-verified
 ```
 
 ### 경험 (`app.importers.experiences`)
@@ -362,10 +366,13 @@ Run it after the applications are imported when analyses link to them. The file 
 - The same analysis is the same (`company`, `title`) for the local user. New analyses are created unverified (N; the user marks them Y in the app with [읽고 확인했어요]). The same (`company`, `title`) twice in the file is named and nothing is written.
 - An existing analysis is **skipped** by default: its content, verified flag, analysis date and application link stay as they are. So running a file twice skips everything the second time.
 - `--replace`: an existing unverified (N) analysis is replaced as a whole (and stays N). A verified (Y) analysis is skipped even with `--replace`, just that item; the other items still go in.
+- `--replace-verified`: like `--replace`, but also replaces verified (Y) analyses (they become N). Use it only when the user explicitly asks to replace an analysis they confirmed.
+- When a replaced item's `application` is `null`, the existing analysis keeps its application link (it is not unlinked). A non-null `application` links that application.
+- The 회사 동향 fields (`trendsCheckedOn`, `trendsNote`, `trends`, `directionQuotes`, `directionReading`, `appeals`, `appealGaps`) are read in the same shape as the API (`JobFields` and `TrendItem` in `openapi.yaml`).
 - Skipped items write nothing: their application is not linked and they don't count in the link checks below.
 - `application` is the application to link (`company`, `appliedAt`) or `null`. A missing application (even on an item that would be skipped) is named and nothing is written. Linking stores the status as `applied`. One analysis per application: a written item pointing at an application already linked to another analysis, or two written items pointing at one application, write nothing.
 - `--dry-run`: runs every check like a real run and prints the same summary, but writes nothing (the transaction is rolled back). Run it before importing into `saveme`. It doesn't migrate: if the database isn't at the latest version it stops with `DB가 최신 버전이 아니에요. 앱을 먼저 업데이트하세요.` A normal run migrates first, as before.
-- Output: the counts on the first line, then one line per skipped item (in file order). The reason is `이미 있음` (existing, without `--replace`, verified or not) or `확인됨이라 바꾸지 않음` (verified, with `--replace`). With `--dry-run` the first line starts with `[시험] ` and a last line says `시험이라 아무것도 쓰지 않았어요.` (example in the Korean section above).
+- Output: the counts on the first line, then one line per skipped item (in file order). The reason is `이미 있음` (existing, without `--replace`, verified or not) or `확인됨이라 바꾸지 않음, 바꾸려면 --replace-verified` (verified, with `--replace`). With `--dry-run` the first line starts with `[시험] ` and a last line says `시험이라 아무것도 쓰지 않았어요.` (example in the Korean section above).
 - `level`: `full`, `part`, `none`, or `""` (not rated yet). Existing analyses without per-item ratings use `""`.
 - The whole file is written in one transaction. Everything but `company` and `analyzedAt` may be left out. Scores are 0-1000.
 - A malformed file (JSON, field shapes) prints a one-line error and writes nothing. Other errors are one line too, write nothing and exit non-zero.
@@ -376,6 +383,7 @@ uv run python -m app.importers.jobs ../private/jobs.json
 uv run python -m app.importers.jobs ../private/jobs.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme --dry-run
 uv run python -m app.importers.jobs ../private/jobs.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
 uv run python -m app.importers.jobs ../private/jobs.json --replace
+uv run python -m app.importers.jobs ../private/jobs.json --replace-verified
 ```
 
 ### Experiences (`app.importers.experiences`)

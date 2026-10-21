@@ -246,6 +246,13 @@ export function emptyJobFields(company = ""): JobFields {
     askBack: [],
     checks: [],
     requirements: [],
+    trendsCheckedOn: null,
+    trendsNote: "",
+    trends: [],
+    directionQuotes: [],
+    directionReading: "",
+    appeals: [],
+    appealGaps: [],
   };
 }
 
@@ -255,6 +262,7 @@ const GRADES = ["Green", "Yellow", "Red", ""];
 const CATEGORIES = ["duty", "must", "pref"];
 const LEVELS = ["full", "part", "none", ""];
 const CONDITION_STATES = ["ok", "check", "no"];
+const TREND_KINDS = ["spend", "rival", "users"];
 
 function validateJob(input: JobInput): JobInput {
   const clean = {
@@ -271,7 +279,11 @@ function validateJob(input: JobInput): JobInput {
     !FITS.includes(clean.fit) ||
     !GRADES.includes(clean.cultureGrade) ||
     clean.conditions.some((c) => !CONDITION_STATES.includes(c.state)) ||
-    clean.requirements.some((r) => !CATEGORIES.includes(r.category) || !LEVELS.includes(r.level))
+    clean.requirements.some((r) => !CATEGORIES.includes(r.category) || !LEVELS.includes(r.level)) ||
+    (clean.trendsCheckedOn !== null && !DAY.test(clean.trendsCheckedOn)) ||
+    clean.trends.some(
+      (t) => !TREND_KINDS.includes(t.kind) || t.sources.some((s) => s.date !== null && !DAY.test(s.date)),
+    )
   ) {
     throw new ApiError(422, "Request failed (422): invalid job analysis");
   }
