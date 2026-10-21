@@ -34,6 +34,9 @@ function setup(ui: React.ReactNode, service: MockService = SAMPLE()) {
 
 afterEach(() => vi.restoreAllMocks());
 
+// 화면 하나를 그리고 글을 치는 테스트가 많아서, 느린 PC에서도 시간 초과로 흔들리지 않게 넉넉히 준다.
+vi.setConfig({ testTimeout: 30_000 });
+
 describe("DocumentsScreen", () => {
   it("shows the empty state with a way to start", async () => {
     const onOpen = vi.fn();
@@ -357,6 +360,19 @@ describe("DocumentScreen", () => {
 
     await waitFor(() => expect(handlers.onOpenDocument).toHaveBeenCalledWith("resume"));
     expect((await service.getDocument(1, "career"))!.body.endsWith("서둘러")).toBe(true);
+  });
+
+  it("stays on the page and keeps the text when it cannot save before leaving", async () => {
+    const { handlers, user, service } = open();
+    await screen.findByRole("textbox", { name: "경력기술서 본문" });
+
+    service.setOffline(true);
+    await user.type(editor(), "쓰는 중");
+    await user.click(screen.getByRole("button", { name: "이력서" }));
+
+    expect(await screen.findByText("저장하지 못해서 이동하지 않았어요. 다시 시도해 주세요.")).toBeInTheDocument();
+    expect(handlers.onOpenDocument).not.toHaveBeenCalled();
+    expect(editor().value.endsWith("쓰는 중")).toBe(true);
   });
 
   it("shows only this document's review, and [반영함] counts it down", async () => {

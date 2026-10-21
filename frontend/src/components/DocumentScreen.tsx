@@ -135,6 +135,12 @@ export function DocumentScreen({
     }
   }, [find, doc, select]);
 
+  /** 저장 안 된 글을 먼저 저장하고 떠난다. 저장하지 못하면 글이 사라지지 않게 그대로 둔다. */
+  async function leave(go: () => void) {
+    if (await flush()) go();
+    else toast("저장하지 못해서 이동하지 않았어요. 다시 시도해 주세요.");
+  }
+
   async function toggleDone(itemId: number, done: boolean) {
     try {
       setGroup(await service.setReviewItemDone(groupId, itemId, done));
@@ -215,10 +221,7 @@ export function DocumentScreen({
         <button
           type="button"
           className="link back"
-          onClick={async () => {
-            await flush();
-            onBack();
-          }}
+          onClick={() => leave(onBack)}
         >
           ← {group.company} · {group.writtenOn} 묶음으로
         </button>
@@ -229,11 +232,7 @@ export function DocumentScreen({
                 type="button"
                 key={t}
                 aria-pressed={t === type}
-                onClick={async () => {
-                  if (t === type) return;
-                  await flush();
-                  onOpenDocument(t);
-                }}
+                onClick={() => t !== type && leave(() => onOpenDocument(t))}
               >
                 {DOC_LABELS[t]}
               </button>
@@ -316,10 +315,7 @@ export function DocumentScreen({
                   currentType={type}
                   onDone={toggleDone}
                   onFind={select}
-                  onOpenDocument={async (t, text) => {
-                    await flush();
-                    onOpenDocument(t, text);
-                  }}
+                  onOpenDocument={(t, text) => leave(() => onOpenDocument(t, text))}
                 />
               ) : (
                 <p className="hint">이 서류에 대한 리뷰가 없어요.</p>
