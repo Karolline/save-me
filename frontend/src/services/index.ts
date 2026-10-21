@@ -1,6 +1,7 @@
 import { createContext, useContext } from "react";
 import { createHttpService } from "./httpService";
 import { createMockService, SAMPLE_APPLICATIONS, SAMPLE_REVIEWS } from "./mockService";
+import { SAMPLE_DOCUMENTS } from "./sampleDocuments";
 import { SAMPLE_EXPERIENCES } from "./sampleExperiences";
 import { SAMPLE_JOBS } from "./sampleJobs";
 import { SAMPLE_RESUME } from "./sampleResume";
@@ -22,6 +23,7 @@ export const defaultService: SaveMeService = useMock
       jobs: SAMPLE_JOBS,
       experiences: SAMPLE_EXPERIENCES,
       resume: SAMPLE_RESUME,
+      documents: SAMPLE_DOCUMENTS,
     })
   : createHttpService(apiBaseUrl);
 

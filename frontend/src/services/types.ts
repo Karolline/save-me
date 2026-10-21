@@ -626,6 +626,125 @@ export interface Resume {
 /** 이력의 목록 카드. */
 export type ResumeListCard = "careers" | "educations" | "certificates" | "skills" | "personality";
 
+// ── 지원서류 (기획안 S2 13번) ──
+
+export type DocumentType = "resume" | "career" | "portfolio";
+/** written 직접 작성, imported 가져옴, imported_edited 가져온 것을 고쳐 저장. */
+export type DocumentSource = "written" | "imported" | "imported_edited";
+/** fix 보완 권장, ok 이대로 제출 가능, redo 다시 쓰기 권장. */
+export type ReviewVerdict = "fix" | "ok" | "redo";
+
+/** 목록의 묶음 한 줄: 회사와 작성날짜. */
+export interface DocumentGroupSummary {
+  id: number;
+  company: string;
+  writtenOn: string;
+  /** 이은 공고분석. */
+  jobAnalysisId: number | null;
+  createdAt: string;
+}
+
+export interface DocumentGroupInput {
+  company: string;
+  writtenOn: string;
+  jobAnalysisId: number | null;
+}
+
+/** 묶음 안의 서류 한 칸. */
+export interface DocumentSlot {
+  type: DocumentType;
+  source: DocumentSource;
+  updatedAt: string;
+  /** 가장 새 리뷰에 이 서류의 덩어리가 있을 때만. */
+  verdict: ReviewVerdict | null;
+  /** [반영함] 안 한 지적 수 (리뷰 덩어리가 있을 때만). */
+  remaining: number | null;
+}
+
+export interface ReviewFix {
+  id: number;
+  /** 위치 (예: "경력기술서 3-2"). */
+  label: string;
+  headline: string;
+  details: string[];
+  /** 편집기에서 찾을 서류와 말. 찾을 말이 없으면 jumpFind가 "". */
+  jumpType: DocumentType | null;
+  jumpFind: string;
+  done: boolean;
+}
+
+export interface ReviewStuck {
+  id: number;
+  text: string;
+  done: boolean;
+}
+
+/** 리뷰의 서류별 덩어리: 서류 하나, 판정 하나. */
+export interface ReviewPart {
+  documentType: DocumentType;
+  verdict: ReviewVerdict;
+  /** 면접관이 동료에게 할 한 줄 소개 (맨 첫 덩어리에만). */
+  intro: string;
+  fixes: ReviewFix[];
+  stuck: ReviewStuck[];
+  good: string[];
+  /** [반영함] 안 한 지적 수 (먼저 고칠 것 + 막히는 곳). */
+  remaining: number;
+}
+
+export interface DocumentReview {
+  id: number;
+  reviewer: string;
+  reviewedAt: string;
+  parts: ReviewPart[];
+}
+
+/** 묶음 하나: 서류 칸들과 가장 새 리뷰. */
+export interface DocumentGroup extends DocumentGroupSummary {
+  /** 이은 공고분석의 직무. */
+  jobTitle: string | null;
+  updatedAt: string;
+  /** 종류 순서(이력서·경력기술서·포트폴리오)로, 있는 서류만. */
+  documents: DocumentSlot[];
+  /** 모든 서류의 남은 지적 수. */
+  remaining: number;
+  review: DocumentReview | null;
+}
+
+/** 서류 하나 (글 전체). */
+export interface SavedDocument {
+  id: number;
+  groupId: number;
+  type: DocumentType;
+  body: string;
+  source: DocumentSource;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReviewFixInput {
+  label: string;
+  headline: string;
+  details: string[];
+  jumpType: DocumentType | null;
+  jumpFind: string;
+}
+
+export interface ReviewPartInput {
+  documentType: DocumentType;
+  verdict: ReviewVerdict;
+  intro: string;
+  fixes: ReviewFixInput[];
+  stuck: string[];
+  good: string[];
+}
+
+export interface DocumentReviewInput {
+  /** 검토한 곳 (비우면 "직접 작성"). */
+  reviewer: string;
+  parts: ReviewPartInput[];
+}
+
 /**
  * 백엔드 호출은 모두 이 인터페이스를 거친다. 세션 없이 부르면 status 401인
  * ApiError를 던진다 (`isUnauthorized` 참고).
@@ -704,4 +823,28 @@ export interface SaveMeService {
   saveCertificates(certificates: Certificate[]): Promise<Resume>;
   saveSkills(skills: SkillGroup[]): Promise<Resume>;
   savePersonality(personality: PersonalityAnswer[]): Promise<Resume>;
+
+  /** 지원서류 묶음 (최근 작성날짜가 위, 같은 날은 만든 순 최신이 위). */
+  listDocumentGroups(): Promise<DocumentGroupSummary[]>;
+  /** 없거나 남의 묶음이면 null. */
+  getDocumentGroup(id: number): Promise<DocumentGroup | null>;
+  /** 같은 (회사, 작성날짜)가 있으면 409, 이을 공고분석이 없으면 404인 ApiError. */
+  createDocumentGroup(input: DocumentGroupInput): Promise<DocumentGroup>;
+  updateDocumentGroup(id: number, input: DocumentGroupInput): Promise<DocumentGroup>;
+  /** 서류와 리뷰도 함께 지워진다. */
+  deleteDocumentGroup(id: number): Promise<void>;
+  /** 서류 만들기: 작성 출처는 "직접 작성". 같은 종류가 이미 있으면 409. */
+  createDocument(groupId: number, type: DocumentType, body: string): Promise<SavedDocument>;
+  /** 없으면 null. */
+  getDocument(groupId: number, type: DocumentType): Promise<SavedDocument | null>;
+  /** 글 저장 (자동 저장). 가져온 서류를 고치면 "가져옴 · 내가 수정"이 된다. */
+  saveDocument(groupId: number, type: DocumentType, body: string): Promise<SavedDocument>;
+  /** 그 서류의 리뷰 덩어리도 지워진다. */
+  deleteDocument(groupId: number, type: DocumentType): Promise<void>;
+  /** 새 리뷰를 쓰고 묶음을 돌려준다 (이전 리뷰는 남고 화면은 가장 새 것만 본다). 묶음에 없는 서류면 422. */
+  saveDocumentReview(groupId: number, input: DocumentReviewInput): Promise<DocumentGroup>;
+  /** [반영함]을 바꾸고 묶음을 돌려준다 (남은 지적 수가 같이 바뀐다). */
+  setReviewItemDone(groupId: number, itemId: number, done: boolean): Promise<DocumentGroup>;
+  /** 서버가 미리보기와 같은 쪽 나눔으로 만든 PDF. */
+  downloadDocumentPdf(groupId: number, type: DocumentType): Promise<Blob>;
 }

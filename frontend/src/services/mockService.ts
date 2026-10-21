@@ -10,6 +10,13 @@ import {
   type ApplicationStats,
   type Career,
   type Certificate,
+  type DocumentGroup,
+  type DocumentGroupInput,
+  type DocumentGroupSummary,
+  type DocumentReview,
+  type DocumentReviewInput,
+  type DocumentSlot,
+  type DocumentType,
   type Education,
   type Experience,
   type ExperienceFields,
@@ -38,7 +45,10 @@ import {
   type ReviewGroup,
   type ReviewInput,
   type ReviewList,
+  type ReviewPart,
   type ReviewSummary,
+  type ReviewVerdict,
+  type SavedDocument,
   type SaveMeService,
   type SkillGroup,
   type Stage,
@@ -46,6 +56,7 @@ import {
   type StatusFilter,
   type User,
 } from "./types";
+import type { DocumentSeed } from "./sampleDocuments";
 import type { ExperienceSeed } from "./sampleExperiences";
 import type { JobSeed } from "./sampleJobs";
 
@@ -160,6 +171,8 @@ export interface MockOptions {
   experiences?: ExperienceSeed[];
   /** 처음 이력 (기본: 빈 이력). */
   resume?: Resume;
+  /** 처음 지원서류 묶음 (기본: 없음). 공고분석은 `jobs`에서 회사로 찾는다. */
+  documents?: DocumentSeed[];
   /** 호출마다 기다리는 밀리초. 불러오는 중 화면을 보려고 (기본 0). */
   delay?: number;
 }
@@ -216,6 +229,59 @@ function validateReview(input: ReviewInput): ReviewInput {
 }
 
 const notFound = (what: string) => new ApiError(404, `Request failed (404): ${what} not found`);
+
+const DOCUMENT_TYPES: DocumentType[] = ["resume", "career", "portfolio"];
+const REVIEW_VERDICTS: ReviewVerdict[] = ["fix", "ok", "redo"];
+const DUPLICATE_DOCUMENT_GROUP = "같은 회사, 같은 날짜의 묶음이 이미 있어요";
+
+/** 리뷰 입력을 다듬고 검증한다 (백엔드와 같은 422). 서류 칸은 호출하는 쪽이 본다. */
+function cleanDocumentReview(input: DocumentReviewInput): DocumentReviewInput {
+  const invalid = () => new ApiError(422, "Request failed (422): invalid review");
+  const lines = (list: string[]) => list.map((x) => x.trim()).filter(Boolean);
+  if (input.parts.length === 0) throw invalid();
+  if (new Set(input.parts.map((p) => p.documentType)).size !== input.parts.length) throw invalid();
+  return {
+    reviewer: input.reviewer.trim() || "직접 작성",
+    parts: input.parts.map((p) => {
+      if (!DOCUMENT_TYPES.includes(p.documentType) || !REVIEW_VERDICTS.includes(p.verdict)) throw invalid();
+      return {
+        documentType: p.documentType,
+        verdict: p.verdict,
+        intro: p.intro.trim(),
+        fixes: p.fixes.map((f) => {
+          const label = f.label.trim();
+          const headline = f.headline.trim();
+          if (!label || !headline) throw invalid();
+          const jumpFind = f.jumpFind.trim();
+          return {
+            label,
+            headline,
+            details: lines(f.details),
+            jumpType: jumpFind ? (f.jumpType ?? p.documentType) : null,
+            jumpFind,
+          };
+        }),
+        stuck: lines(p.stuck),
+        good: lines(p.good),
+      };
+    }),
+  };
+}
+
+interface StoredDocumentGroup {
+  id: number;
+  company: string;
+  writtenOn: string;
+  jobAnalysisId: number | null;
+  createdAt: string;
+  updatedAt: string;
+  documents: Map<DocumentType, SavedDocument>;
+  /** 쓴 순서대로. 화면은 마지막 것만 본다. */
+  reviews: DocumentReview[];
+}
+
+const remainingOf = (part: ReviewPart) =>
+  part.fixes.filter((f) => !f.done).length + part.stuck.filter((s) => !s.done).length;
 
 /** 빈 분석 칸 (백엔드의 기본값과 같음). */
 export function emptyJobFields(company = ""): JobFields {
@@ -555,6 +621,11 @@ export function createMockService(options: MockOptions = {}): MockService {
   let nextExperienceId = 1;
   const experienceGroups = new Map<number, ExperienceGroup>();
   let nextGroupId = 1;
+  const documentGroups = new Map<number, StoredDocumentGroup>();
+  let nextDocumentGroupId = 1;
+  let nextDocumentId = 1;
+  let nextDocumentReviewId = 1;
+  let nextReviewItemId = 1;
   let resume = cleanResume(options.resume ?? emptyResume());
   /** 카드 하나를 바꾼다: 다듬다가 틀리면 422이고 이력은 그대로. */
   const saveCard = (change: Partial<Resume>) =>
@@ -901,6 +972,101 @@ export function createMockService(options: MockOptions = {}): MockService {
     }
   }
 
+  // ── 지원서류 ──
+
+  const documentGroup = (id: number) => {
+    const g = documentGroups.get(id);
+    if (!g) throw notFound("Document group");
+    return g;
+  };
+  const savedDocument = (id: number, type: DocumentType) => {
+    const d = documentGroup(id).documents.get(type);
+    if (!d) throw notFound("Document");
+    return d;
+  };
+
+  /** 백엔드의 묶음 응답과 같다: 서류 칸(종류 순서), 가장 새 리뷰, 남은 지적 수. */
+  function documentGroupOf(g: StoredDocumentGroup): DocumentGroup {
+    const latest = g.reviews.at(-1) ?? null;
+    const review = latest ? { ...latest, parts: latest.parts.map((p) => ({ ...p, remaining: remainingOf(p) })) } : null;
+    const documents = DOCUMENT_TYPES.flatMap((type): DocumentSlot[] => {
+      const d = g.documents.get(type);
+      if (!d) return [];
+      const part = review?.parts.find((p) => p.documentType === type);
+      return [{ type, source: d.source, updatedAt: d.updatedAt, verdict: part?.verdict ?? null, remaining: part?.remaining ?? null }];
+    });
+    return {
+      id: g.id,
+      company: g.company,
+      writtenOn: g.writtenOn,
+      jobAnalysisId: g.jobAnalysisId,
+      createdAt: g.createdAt,
+      jobTitle: g.jobAnalysisId !== null ? (jobs.get(g.jobAnalysisId)?.title ?? null) : null,
+      updatedAt: g.updatedAt,
+      documents,
+      remaining: documents.reduce((n, s) => n + (s.remaining ?? 0), 0),
+      review,
+    };
+  }
+
+  /** 회사·작성날짜를 다듬고 검증한다. 같은 (회사, 작성날짜)는 409, 이을 공고분석이 없으면 404. */
+  function checkDocumentGroup(input: DocumentGroupInput, ownId: number | null): DocumentGroupInput {
+    const company = input.company.trim();
+    if (!company || !DAY.test(input.writtenOn)) {
+      throw new ApiError(422, "Request failed (422): invalid document group");
+    }
+    if (input.jobAnalysisId !== null && !jobs.has(input.jobAnalysisId)) throw notFound("Job analysis");
+    const other = [...documentGroups.values()].find((g) => g.company === company && g.writtenOn === input.writtenOn);
+    if (other && other.id !== ownId) throw new ApiError(409, `Request failed (409): ${DUPLICATE_DOCUMENT_GROUP}`);
+    return { company, writtenOn: input.writtenOn, jobAnalysisId: input.jobAnalysisId };
+  }
+
+  function addDocument(g: StoredDocumentGroup, type: DocumentType, body: string, source: SavedDocument["source"]) {
+    const stamp = now();
+    const doc: SavedDocument = { id: nextDocumentId++, groupId: g.id, type, body, source, createdAt: stamp, updatedAt: stamp };
+    g.documents.set(type, doc);
+    return doc;
+  }
+
+  function addReview(g: StoredDocumentGroup, raw: DocumentReviewInput, reviewedAt: string = now()) {
+    const input = cleanDocumentReview(raw);
+    if (input.parts.some((p) => !g.documents.has(p.documentType))) {
+      throw new ApiError(422, "Request failed (422): 묶음에 없는 서류의 리뷰예요");
+    }
+    g.reviews.push({
+      id: nextDocumentReviewId++,
+      reviewer: input.reviewer,
+      reviewedAt,
+      parts: input.parts.map((p) => ({
+        documentType: p.documentType,
+        verdict: p.verdict,
+        intro: p.intro,
+        fixes: p.fixes.map((f) => ({ ...f, id: nextReviewItemId++, done: false })),
+        stuck: p.stuck.map((text) => ({ id: nextReviewItemId++, text, done: false })),
+        good: p.good,
+        remaining: 0,
+      })),
+    });
+  }
+
+  for (const seed of options.documents ?? []) {
+    const stamp = now();
+    const same = seed.jobCompany ? [...jobs.values()].filter((j) => j.company === seed.jobCompany) : [];
+    const g: StoredDocumentGroup = {
+      id: nextDocumentGroupId++,
+      company: seed.company,
+      writtenOn: seed.writtenOn,
+      jobAnalysisId: same.length === 1 ? same[0].id : null,
+      createdAt: stamp,
+      updatedAt: stamp,
+      documents: new Map(),
+      reviews: [],
+    };
+    documentGroups.set(g.id, g);
+    for (const [type, source, body] of seed.documents) addDocument(g, type, body, source);
+    if (seed.review) addReview(g, seed.review, seed.review.reviewedAt);
+  }
+
   return {
     expireSession() {
       loggedIn = false;
@@ -1120,6 +1286,8 @@ export function createMockService(options: MockOptions = {}): MockService {
       call(() => {
         // 연결은 분석 쪽에 있어서, 지우면 지원 건의 연결도 함께 풀린다.
         if (!jobs.delete(id)) throw notFound("Job analysis");
+        // 이은 서류 묶음은 남고 이음만 풀린다 (DB의 ON DELETE SET NULL).
+        for (const g of documentGroups.values()) if (g.jobAnalysisId === id) g.jobAnalysisId = null;
       }),
 
     listExperiences: (view: ExperienceView = "all", q = "") =>
@@ -1244,5 +1412,96 @@ export function createMockService(options: MockOptions = {}): MockService {
     saveCertificates: (certificates: Certificate[]) => saveCard({ certificates }),
     saveSkills: (skills: SkillGroup[]) => saveCard({ skills }),
     savePersonality: (personality: PersonalityAnswer[]) => saveCard({ personality }),
+
+    listDocumentGroups: () =>
+      call((): DocumentGroupSummary[] =>
+        [...documentGroups.values()]
+          .sort((a, b) => b.writtenOn.localeCompare(a.writtenOn) || b.createdAt.localeCompare(a.createdAt) || b.id - a.id)
+          .map(({ id, company, writtenOn, jobAnalysisId, createdAt }) => ({ id, company, writtenOn, jobAnalysisId, createdAt })),
+      ),
+
+    getDocumentGroup: (id: number) => call(() => (documentGroups.has(id) ? documentGroupOf(documentGroups.get(id)!) : null)),
+
+    createDocumentGroup: (input: DocumentGroupInput) =>
+      call((): DocumentGroup => {
+        const clean = checkDocumentGroup(input, null);
+        const stamp = now();
+        const g: StoredDocumentGroup = {
+          id: nextDocumentGroupId++,
+          ...clean,
+          createdAt: stamp,
+          updatedAt: stamp,
+          documents: new Map(),
+          reviews: [],
+        };
+        documentGroups.set(g.id, g);
+        return documentGroupOf(g);
+      }),
+
+    updateDocumentGroup: (id: number, input: DocumentGroupInput) =>
+      call((): DocumentGroup => {
+        const g = documentGroup(id);
+        Object.assign(g, checkDocumentGroup(input, id), { updatedAt: now() });
+        return documentGroupOf(g);
+      }),
+
+    deleteDocumentGroup: (id: number) =>
+      call(() => {
+        if (!documentGroups.delete(id)) throw notFound("Document group");
+      }),
+
+    createDocument: (groupId: number, type: DocumentType, body: string) =>
+      call((): SavedDocument => {
+        const g = documentGroup(groupId);
+        if (!DOCUMENT_TYPES.includes(type)) throw new ApiError(422, "Request failed (422): invalid type");
+        if (g.documents.has(type)) throw new ApiError(409, "Request failed (409): 이 묶음에 같은 종류의 서류가 이미 있어요");
+        return addDocument(g, type, body, "written");
+      }),
+
+    getDocument: (groupId: number, type: DocumentType) =>
+      call(() => documentGroups.get(groupId)?.documents.get(type) ?? null),
+
+    saveDocument: (groupId: number, type: DocumentType, body: string) =>
+      call((): SavedDocument => {
+        const d = savedDocument(groupId, type);
+        // 글이 바뀔 때만 고친 날이 바뀌고, 가져온 서류는 "가져옴 · 내가 수정"이 된다 (백엔드와 같음).
+        if (body !== d.body) {
+          d.body = body;
+          d.updatedAt = now();
+          if (d.source === "imported") d.source = "imported_edited";
+        }
+        return d;
+      }),
+
+    deleteDocument: (groupId: number, type: DocumentType) =>
+      call(() => {
+        const g = documentGroup(groupId);
+        if (!g.documents.delete(type)) throw notFound("Document");
+        // 그 서류의 리뷰 덩어리도, 덩어리가 남지 않은 리뷰도 지운다.
+        for (const r of g.reviews) r.parts = r.parts.filter((p) => p.documentType !== type);
+        g.reviews = g.reviews.filter((r) => r.parts.length > 0);
+      }),
+
+    saveDocumentReview: (groupId: number, input: DocumentReviewInput) =>
+      call((): DocumentGroup => {
+        const g = documentGroup(groupId);
+        addReview(g, input);
+        return documentGroupOf(g);
+      }),
+
+    setReviewItemDone: (groupId: number, itemId: number, done: boolean) =>
+      call((): DocumentGroup => {
+        const g = documentGroup(groupId);
+        const parts = g.reviews.flatMap((r) => r.parts);
+        const item = [...parts.flatMap((p) => p.fixes), ...parts.flatMap((p) => p.stuck)].find((x) => x.id === itemId);
+        if (!item) throw notFound("Review item");
+        item.done = done;
+        return documentGroupOf(g);
+      }),
+
+    async downloadDocumentPdf(groupId: number, type: DocumentType) {
+      await call(() => savedDocument(groupId, type));
+      return new Blob(["%PDF-1.4 mock"], { type: "application/pdf" });
+    },
   };
 }

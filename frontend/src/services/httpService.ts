@@ -6,6 +6,11 @@ import type {
   AuthConfig,
   Career,
   Certificate,
+  DocumentGroup,
+  DocumentGroupInput,
+  DocumentGroupSummary,
+  DocumentReviewInput,
+  DocumentType,
   Education,
   Experience,
   ExperienceGroup,
@@ -26,6 +31,7 @@ import type {
   Review,
   ReviewInput,
   ReviewList,
+  SavedDocument,
   SaveMeService,
   SkillGroup,
   StatusFilter,
@@ -94,6 +100,8 @@ export function createHttpService(
   const jobPath = (id: number) => `/jobs/${encodeURIComponent(String(id))}`;
   const experiencePath = (id: number) => `/experiences/${encodeURIComponent(String(id))}`;
   const groupPath = (id: number) => `/experience-groups/${encodeURIComponent(String(id))}`;
+  const documentGroupPath = (id: number) => `/document-groups/${encodeURIComponent(String(id))}`;
+  const documentPath = (groupId: number, type: DocumentType) => `${documentGroupPath(groupId)}/documents/${type}`;
 
   return {
     async getAuthConfig() {
@@ -292,6 +300,61 @@ export function createHttpService(
 
     async savePersonality(personality: PersonalityAnswer[]) {
       return json<Resume>(await request("/resume/personality", send("PUT", personality)));
+    },
+
+    async listDocumentGroups() {
+      return json<DocumentGroupSummary[]>(await request("/document-groups"));
+    },
+
+    async getDocumentGroup(id: number) {
+      const response = await request(documentGroupPath(id));
+      if (response.status === 404) return null;
+      return json<DocumentGroup>(response);
+    },
+
+    async createDocumentGroup(input: DocumentGroupInput) {
+      return json<DocumentGroup>(await request("/document-groups", send("POST", input)));
+    },
+
+    async updateDocumentGroup(id: number, input: DocumentGroupInput) {
+      return json<DocumentGroup>(await request(documentGroupPath(id), send("PUT", input)));
+    },
+
+    async deleteDocumentGroup(id: number) {
+      await empty(await request(documentGroupPath(id), send("DELETE")));
+    },
+
+    async createDocument(groupId: number, type: DocumentType, body: string) {
+      return json<SavedDocument>(await request(`${documentGroupPath(groupId)}/documents`, send("POST", { type, body })));
+    },
+
+    async getDocument(groupId: number, type: DocumentType) {
+      const response = await request(documentPath(groupId, type));
+      if (response.status === 404) return null;
+      return json<SavedDocument>(response);
+    },
+
+    async saveDocument(groupId: number, type: DocumentType, body: string) {
+      return json<SavedDocument>(await request(documentPath(groupId, type), send("PUT", { body })));
+    },
+
+    async deleteDocument(groupId: number, type: DocumentType) {
+      await empty(await request(documentPath(groupId, type), send("DELETE")));
+    },
+
+    async saveDocumentReview(groupId: number, input: DocumentReviewInput) {
+      return json<DocumentGroup>(await request(`${documentGroupPath(groupId)}/reviews`, send("POST", input)));
+    },
+
+    async setReviewItemDone(groupId: number, itemId: number, done: boolean) {
+      const path = `${documentGroupPath(groupId)}/review-items/${encodeURIComponent(String(itemId))}/done`;
+      return json<DocumentGroup>(await request(path, send("PUT", { done })));
+    },
+
+    async downloadDocumentPdf(groupId: number, type: DocumentType) {
+      const response = await request(`${documentPath(groupId, type)}/pdf`, { headers: { Accept: "application/pdf" } });
+      if (!response.ok) return fail(response);
+      return response.blob();
     },
   };
 }
