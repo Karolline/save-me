@@ -209,6 +209,9 @@ def test_saving_a_review_again_shows_only_the_newest_and_drops_done_marks(client
     assert second["review"]["reviewer"] == "서류검토 에이전트"
     assert second["review"]["parts"][0]["verdict"] == "ok"
     assert second["remaining"] == 1  # 이전 [반영함]은 이어지지 않는다.
+    # 옛 리뷰의 항목은 없는 것처럼 (404).
+    old_item = first["review"]["parts"][0]["fixes"][1]["id"]
+    assert client.put(f"{BASE}/{group['id']}/review-items/{old_item}/done", json={"done": True}).status_code == 404
     assert client.get(f"{BASE}/{group['id']}").json() == second
 
 

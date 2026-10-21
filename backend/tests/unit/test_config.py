@@ -7,6 +7,8 @@ from app.main import create_app
 def test_defaults_are_local_without_dev_login(monkeypatch):
     monkeypatch.delenv("APP_ENV", raising=False)
     monkeypatch.delenv("DEV_LOGIN", raising=False)
+    monkeypatch.delenv("PDF_FRONTEND_URL", raising=False)  # 개발 서버 테스트가 환경에 남길 수 있다
+    monkeypatch.delenv("PORT", raising=False)
     settings = settings_from_env()
     assert settings == Settings(app_env="local", dev_login=False, session_days=30)
     assert settings.secure_cookies is False

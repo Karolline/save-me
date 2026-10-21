@@ -53,6 +53,7 @@ export function DocumentScreen({
   const [reviewing, setReviewing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfDialog, setPdfDialog] = useState(false);
   const editor = useRef<HTMLTextAreaElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // 아직 저장하지 못한 글: 화면을 떠날 때 마지막으로 한 번 더 저장한다.
@@ -78,8 +79,9 @@ export function DocumentScreen({
     };
   }, [service, groupId, type, handleSessionError]);
 
-  const flush = useCallback(async (): Promise<boolean> => {
-    clearTimeout(timer.current);
+  // 저장은 한 번에 하나씩 차례로 보낸다: 앞의 저장이 끝나야 다음을 보내서 순서가 바뀌지 않는다.
+  const queue = useRef<Promise<boolean>>(Promise.resolve(true));
+  const save = useCallback(async (): Promise<boolean> => {
     const text = pending.current;
     if (text === null) return true;
     setSaveState("saving");
@@ -96,6 +98,14 @@ export function DocumentScreen({
     }
   }, [service, groupId, type, handleSessionError]);
 
+  const flush = useCallback((): Promise<boolean> => {
+    clearTimeout(timer.current);
+    // 순서가 되었을 때 그때까지 쌓인 글을 한 번에 저장한다.
+    const run = queue.current.then(save);
+    queue.current = run;
+    return run;
+  }, [save]);
+
   function edit(text: string) {
     setBody(text);
     pending.current = text;
@@ -108,7 +118,10 @@ export function DocumentScreen({
   useEffect(
     () => () => {
       clearTimeout(timer.current);
-      if (pending.current !== null) void service.saveDocument(groupId, type, pending.current).catch(() => {});
+      // 진행 중인 저장 뒤에 보낸다.
+      void queue.current.then(() => {
+        if (pending.current !== null) return service.saveDocument(groupId, type, pending.current).catch(() => {});
+      });
     },
     [service, groupId, type],
   );
@@ -134,6 +147,22 @@ export function DocumentScreen({
       select(find);
     }
   }, [find, doc, select]);
+
+  /** [편집기에서 찾기]: 편집 탭이 아니면(모바일) 먼저 편집 탭으로 바꾸고 다음 렌더에서 고른다 (목업 doc-jump). */
+  const findRequest = useRef<string | null>(null);
+  function onFind(text: string) {
+    if (pane === "edit") select(text);
+    else {
+      findRequest.current = text;
+      setPane("edit");
+    }
+  }
+  useEffect(() => {
+    if (findRequest.current !== null && pane === "edit") {
+      select(findRequest.current);
+      findRequest.current = null;
+    }
+  }, [pane, select]);
 
   /** 저장 안 된 글을 먼저 저장하고 떠난다. 저장하지 못하면 글이 사라지지 않게 그대로 둔다. */
   async function leave(go: () => void) {
@@ -250,8 +279,8 @@ export function DocumentScreen({
           <button type="button" className="btn btn-text danger" onClick={() => setConfirmDelete(true)}>
             이 서류 지우기
           </button>
-          <button type="button" className="btn btn-primary" onClick={downloadPdf} disabled={pdfBusy}>
-            {pdfBusy ? "PDF 만드는 중…" : "PDF로 내려받기"}
+          <button type="button" className="btn btn-primary" onClick={() => setPdfDialog(true)}>
+            PDF로 내려받기
           </button>
         </div>
         <div className="seg pane-tabs" role="group" aria-label="보기">
@@ -314,7 +343,7 @@ export function DocumentScreen({
                   number={group.review.parts.indexOf(part) + 1}
                   currentType={type}
                   onDone={toggleDone}
-                  onFind={select}
+                  onFind={onFind}
                   onOpenDocument={(t, text) => leave(() => onOpenDocument(t, text))}
                 />
               ) : (
@@ -332,6 +361,37 @@ export function DocumentScreen({
         </section>
       </div>
 
+      {pdfDialog && (
+        <div className="modal-wrap">
+          <div className="scrim" onClick={() => !pdfBusy && setPdfDialog(false)} />
+          <div className="card modal" role="dialog" aria-modal="true" aria-label="PDF로 내려받기">
+            <h2>PDF로 내려받기</h2>
+            <p className="hint">왼쪽 미리보기와 같은 모습으로 나가요. 리뷰는 들어가지 않아요.</p>
+            <div className="pv-wrap modal-pv">
+              <DocumentPages body={body} fit />
+            </div>
+            <p className="hint" style={{ margin: 0 }}>
+              [내려받기]를 누르면 {pdfFileName(group, type)} 파일이 저장돼요.
+            </p>
+            <div className="row-end">
+              <button type="button" className="btn" disabled={pdfBusy} onClick={() => setPdfDialog(false)}>
+                닫기
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={pdfBusy}
+                onClick={async () => {
+                  await downloadPdf();
+                  setPdfDialog(false);
+                }}
+              >
+                {pdfBusy ? "PDF 만드는 중…" : "내려받기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {guide && <FormatGuide onClose={() => setGuide(false)} />}
       {reviewing && (
         <DocumentReviewForm

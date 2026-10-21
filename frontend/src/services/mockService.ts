@@ -1492,7 +1492,8 @@ export function createMockService(options: MockOptions = {}): MockService {
     setReviewItemDone: (groupId: number, itemId: number, done: boolean) =>
       call((): DocumentGroup => {
         const g = documentGroup(groupId);
-        const parts = g.reviews.flatMap((r) => r.parts);
+        // 가장 새 리뷰의 항목만 (백엔드와 같음).
+        const parts = g.reviews.slice(-1).flatMap((r) => r.parts);
         const item = [...parts.flatMap((p) => p.fixes), ...parts.flatMap((p) => p.stuck)].find((x) => x.id === itemId);
         if (!item) throw notFound("Review item");
         item.done = done;

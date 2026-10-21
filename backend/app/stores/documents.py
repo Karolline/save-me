@@ -8,7 +8,7 @@
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -130,7 +130,7 @@ def to_review(row: DocumentReviewRow) -> DocumentReview:
     )
 
 
-def to_group(row: DocumentGroupRow, latest: DocumentReviewRow | None) -> DocumentGroup:
+def to_group(row: DocumentGroupRow, latest: DocumentReviewRow | None, job_title: str | None = None) -> DocumentGroup:
     parts = {p.document_type: p for p in (latest.parts if latest else [])}
     docs = sorted(row.documents, key=lambda d: DOCUMENT_TYPES.index(d.type))
     slots = []
@@ -147,7 +147,7 @@ def to_group(row: DocumentGroupRow, latest: DocumentReviewRow | None) -> Documen
         )
     return DocumentGroup(
         **to_summary(row).model_dump(),
-        job_title=row.job.title if row.job else None,
+        job_title=job_title,
         updated_at=row.updated_at,
         documents=slots,
         remaining=sum(s.remaining or 0 for s in slots),
@@ -319,7 +319,7 @@ class DocumentStore(BaseStore):
             return self._build(db, group)
 
     def set_item_done(self, user_id: int, group_id: int, item_id: int, done: bool) -> DocumentGroup | None:
-        """지적 하나의 [반영함]을 바꾼다. 항목이 이 묶음의 것이 아니면 None."""
+        """지적 하나의 [반영함]을 바꾼다. 항목이 이 묶음의 가장 새 리뷰 것이 아니면 None."""
         with self.session() as db, db.begin():
             group = self._group(db, user_id, group_id)
             if group is None:
@@ -332,6 +332,11 @@ class DocumentStore(BaseStore):
                     DocumentReviewItemRow.id == item_id,
                     DocumentReviewItemRow.user_id == user_id,
                     DocumentReviewRow.group_id == group_id,
+                    # 화면에 보이는 가장 새 리뷰의 항목만: 옛 리뷰의 항목은 없는 것처럼.
+                    DocumentReviewRow.id
+                    == select(func.max(DocumentReviewRow.id))
+                    .where(DocumentReviewRow.group_id == group_id, DocumentReviewRow.user_id == user_id)
+                    .scalar_subquery(),
                 )
             )
             if item is None:
@@ -458,7 +463,17 @@ class DocumentStore(BaseStore):
             .limit(1)
             .options(selectinload(DocumentReviewRow.parts).selectinload(DocumentReviewPartRow.items))
         ).first()
-        return to_group(row, latest)
+        # 이은 공고분석은 직무 이름만 읽는다 (분석 전체를 불러오지 않는다).
+        job_title = (
+            db.scalar(
+                select(JobAnalysisRow.title).where(
+                    JobAnalysisRow.id == row.job_analysis_id, JobAnalysisRow.user_id == row.user_id
+                )
+            )
+            if row.job_analysis_id is not None
+            else None
+        )
+        return to_group(row, latest, job_title)
 
     @staticmethod
     def _part(user_id: int, position: int, data) -> DocumentReviewPartRow:

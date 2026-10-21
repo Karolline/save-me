@@ -470,6 +470,12 @@ describe("DocumentScreen", () => {
 
     await user.type(editor(), "끝");
     await user.click(screen.getByRole("button", { name: "PDF로 내려받기" }));
+    const dialog = screen.getByRole("dialog", { name: "PDF로 내려받기" });
+    expect(within(dialog).getByText("왼쪽 미리보기와 같은 모습으로 나가요. 리뷰는 들어가지 않아요.")).toBeInTheDocument();
+    expect(within(dialog).getByText(/한결로보틱스_경력기술서_2026-10-12.pdf 파일이 저장돼요/)).toBeInTheDocument();
+    expect(dialog.querySelector(".pv .pg")).not.toBeNull();
+    expect(pdf).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "내려받기" }));
 
     await waitFor(() => expect(clicked).toEqual(["한결로보틱스_경력기술서_2026-10-12.pdf"]));
     expect(pdf).toHaveBeenCalledWith(1, "career");
@@ -483,9 +489,63 @@ describe("DocumentScreen", () => {
     vi.spyOn(service, "downloadDocumentPdf").mockRejectedValue(new Error("502"));
 
     await user.click(screen.getByRole("button", { name: "PDF로 내려받기" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "내려받기" }));
 
     expect(await screen.findByText("PDF를 만들지 못했어요. 잠시 뒤 다시 해 주세요.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "PDF로 내려받기" })).toBeEnabled();
+  });
+
+  it("closes the PDF dialog with [닫기] without making a PDF", async () => {
+    const { user, service } = open();
+    await screen.findByRole("textbox", { name: "경력기술서 본문" });
+    const pdf = vi.spyOn(service, "downloadDocumentPdf");
+
+    await user.click(screen.getByRole("button", { name: "PDF로 내려받기" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "닫기" }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(pdf).not.toHaveBeenCalled();
+  });
+
+  it("[편집기에서 찾기] on the mobile review tab switches to the edit tab first, then selects the line", async () => {
+    const { user } = open("career");
+    await screen.findByRole("textbox", { name: "경력기술서 본문" });
+    await user.click(screen.getByRole("button", { name: "리뷰" }));
+    expect(document.querySelector(".d3")!.className).toContain("show-review");
+
+    await user.click(screen.getAllByRole("button", { name: "편집기에서 찾기" })[1]);
+
+    expect(document.querySelector(".d3")!.className).toContain("show-edit");
+    await waitFor(() => expect(editor().selectionEnd).toBeGreaterThan(editor().selectionStart));
+    expect(editor().value.slice(editor().selectionStart, editor().selectionEnd)).toBe("### 3-2. 두 경로 같이 돌리기");
+  });
+
+  it("sends saves one at a time, in order, even when one is slow", { timeout: 30000 }, async () => {
+    const { user, service } = open();
+    await screen.findByRole("textbox", { name: "경력기술서 본문" });
+    const real = service.saveDocument.bind(service);
+    let active = 0;
+    let maxActive = 0;
+    const order: string[] = [];
+    vi.spyOn(service, "saveDocument").mockImplementation(async (g, t, text) => {
+      active++;
+      maxActive = Math.max(maxActive, active);
+      order.push(text.slice(-1));
+      await new Promise((r) => setTimeout(r, 150));
+      active--;
+      return real(g, t, text);
+    });
+
+    fireEvent.change(editor(), { target: { value: "첫 글A" } });
+    const first = user.click(screen.getByRole("button", { name: "이력서" })); // 저장을 시작한다
+    await waitFor(() => expect(order).toEqual(["A"]));
+    fireEvent.change(editor(), { target: { value: "둘째 글B" } });
+    await user.click(screen.getByRole("button", { name: "포트폴리오" })); // 앞 저장이 끝난 뒤에 보낸다
+    await first;
+
+    await waitFor(() => expect(order).toEqual(["A", "B"]));
+    expect(maxActive).toBe(1);
+    await waitFor(async () => expect((await service.getDocument(1, "career"))!.body).toBe("둘째 글B"));
   });
 
   it("deletes the document after a confirmation", async () => {

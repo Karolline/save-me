@@ -78,6 +78,9 @@ export function BlockView({ block }: { block: DocBlock }) {
   }
 }
 
+/** 글꼴을 기다리는 가장 긴 시간. */
+const FONT_WAIT_MS = 6000;
+
 function outerHeight(el: Element): number {
   const style = getComputedStyle(el);
   return el.getBoundingClientRect().height + (parseFloat(style.marginTop) || 0) + (parseFloat(style.marginBottom) || 0);
@@ -136,8 +139,9 @@ export function DocumentPages({
     // 이 글에 쓰는 글자의 글꼴 조각을 직접 불러와 기다린다 (그냥 `fonts.ready`만 기다리면 글꼴 요청이 시작되기
     // 전에 이미 끝난 것으로 보일 수 있다). 글꼴이 없거나 못 받아도 끝나는 것은 같다.
     const loads = [400, 700].map((weight) => document.fonts.load(`${weight} 10px "IBM Plex Sans KR"`, body).catch(() => []));
-    Promise.all(loads)
-      .then(() => document.fonts.ready)
+    // 느리거나 인터넷이 안 되면 FONT_WAIT_MS만 기다리고 지금 글꼴로 확정한다 (PDF가 멈추지 않게).
+    const cap = new Promise((resolve) => setTimeout(resolve, FONT_WAIT_MS));
+    Promise.race([Promise.all(loads).then(() => document.fonts.ready), cap])
       .then(() => {
         if (!live) return;
         measure();

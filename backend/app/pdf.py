@@ -6,6 +6,7 @@
 """
 
 import os
+import re
 from urllib.parse import urlparse
 
 from app.auth import SESSION_COOKIE
@@ -20,6 +21,21 @@ PRINT_SCALE = 4 / 3
 
 READY_SELECTOR = "[data-print-ready='true'], [data-print-error='true']"
 TIMEOUT_MS = 30_000
+
+
+FONT_HOSTS = re.compile(r"^https://fonts\.(googleapis|gstatic)\.com/")
+FONT_FETCH_MS = 4_000
+
+
+def _font_route(route) -> None:
+    """글꼴 요청은 FONT_FETCH_MS 안에 못 받으면 끊는다 (그 글꼴 없이 계속)."""
+    try:
+        route.fulfill(response=route.fetch(timeout=FONT_FETCH_MS))
+    except Exception:  # noqa: BLE001 - 어떤 까닭이든 글꼴 없이 계속한다
+        try:
+            route.abort()
+        except Exception:  # noqa: BLE001
+            pass
 
 
 class PdfError(Exception):
@@ -51,9 +67,12 @@ def render_document_pdf(base_url: str, group_id: int, type: str, session_token: 
                     context.add_cookies(
                         [{"name": SESSION_COOKIE, "value": session_token, "domain": host, "path": "/"}]
                     )
+                # 구글 폰트는 짧게만 기다린다: 인터넷이 안 되거나 느려도 PDF가 멈추지 않고, 못 받으면
+                # 이미지의 Noto Sans CJK로 계속한다.
+                context.route(FONT_HOSTS, _font_route)
                 page = context.new_page()
                 page.set_default_timeout(TIMEOUT_MS)
-                page.goto(url, wait_until="load")
+                page.goto(url, wait_until="domcontentloaded")
                 page.wait_for_selector(READY_SELECTOR, state="attached")
                 if page.query_selector("[data-print-error='true']") is not None:
                     raise PdfError("인쇄용 화면을 열지 못했어요")

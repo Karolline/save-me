@@ -162,6 +162,8 @@ describe("mock service: reviews", () => {
     expect(second.review!.id).not.toBe(first.review!.id);
     expect(second.review!.reviewer).toBe("서류검토 에이전트");
     expect(second.remaining).toBe(3);
+    // 옛 리뷰의 항목은 없는 것처럼 (404).
+    await expect(service.setReviewItemDone(group.id, first.review!.parts[0].fixes[0].id, true)).rejects.toSatisfy(isNotFound);
   });
 
   it("checks the input like the server (422)", async () => {

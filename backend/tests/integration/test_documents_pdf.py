@@ -115,7 +115,8 @@ def test_pdf_has_the_same_pages_as_the_print_screen_and_embeds_a_font(chromium, 
     box = re.search(rb"/MediaBox\s*\[0 0 ([\d.]+) ([\d.]+)\]", pdf)
     assert box and abs(float(box[1]) - 595) < 1 and abs(float(box[2]) - 842) < 1
     # 한글이 들어가려면 글꼴이 PDF에 들어 있어야 한다 (Chromium은 쓴 글자만 부분 집합으로 넣는다).
-    assert re.search(rb"/FontName\s*/[A-Z]{6}\+", pdf), "PDF에 글꼴이 들어 있지 않아요"
+    names = re.findall(rb"/FontName\s*/[A-Z]{6}\+([\w-]+)", pdf)
+    assert any(re.match(rb"IBMPlexSansKR|NotoSans|MalgunGothic", n) for n in names), f"한글 글꼴이 PDF에 없어요: {names}"
 
 
 def test_the_endpoint_returns_the_pdf_with_the_file_name(chromium, server, stores: Stores, user_id: int):

@@ -699,6 +699,8 @@ textarea.ed::selection { background: #FFE58A; }
   .pane-b { height: 68vh; }
   .dp3-bar .hint { margin-left: 0; }
 }
+.modal-pv { max-height: 56vh; overflow: auto; border-radius: 8px; }
+.modal:has(.modal-pv) { max-width: 680px; }
 .modal:has(.fmt-help) { max-width: 560px; }
 .fmt-help { margin: 0; padding: 12px; background: var(--bg); border-radius: 8px; font-family: var(--mono); font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow: auto; max-height: 52vh; }
 .modal:has(.rform) { max-width: 640px; max-height: calc(100vh - 32px); overflow: auto; }

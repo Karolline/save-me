@@ -38,7 +38,8 @@ def main() -> None:
         )
     os.environ.setdefault("DEV_LOGIN", "true")
     # PDF는 서버가 프런트엔드의 인쇄용 화면을 열어 만든다: 개발에서는 Vite 개발 서버 (make run front).
-    os.environ.setdefault("PDF_FRONTEND_URL", "http://127.0.0.1:5180")
+    # localhost로 연다: Vite는 localhost에 뜨고 (Windows에서는 IPv6 ::1일 수 있어서 127.0.0.1로는 안 닿는다).
+    os.environ.setdefault("PDF_FRONTEND_URL", "http://localhost:5180")
     upgrade()
     uvicorn.run("app.main:app", host=HOST, port=PORT, reload=True)
 

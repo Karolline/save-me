@@ -628,7 +628,6 @@ class DocumentGroupRow(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
 
-    job: Mapped["JobAnalysisRow | None"] = relationship(lazy="joined", viewonly=True)
     documents: Mapped[list["DocumentRow"]] = relationship(
         cascade="all, delete-orphan", passive_deletes=True, lazy="selectin"
     )
