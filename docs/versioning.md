@@ -22,7 +22,7 @@
 
 ## 버전 출시하기
 
-1. 위의 모든 파일에서 버전을 고치고, `uv run pytest tests/unit/test_versions.py`만 돌리고 (전체 테스트는 병합 뒤 `main`에서 이미 통과했고, 릴리즈 커밋은 버전 숫자만 바꾼다), 소요 시간·메모리 표를 만들어 (아래 절) 함께 커밋한다 (`Release vX.Y.Z`).
+1. 위의 모든 파일에서 버전을 고치고, `uv run pytest tests/unit/test_versions.py`만 돌리고 (전체 테스트는 병합 전에 작업 브랜치의 CI에서 이미 통과했고, 릴리즈 커밋은 버전 숫자만 바꾼다), 소요 시간·메모리 표를 만들어 (아래 절) 함께 커밋한다 (`Release vX.Y.Z`).
 2. 그 커밋에 태그를 단다: `git tag -a vX.Y.Z -m "vX.Y.Z"`.
 3. 사용자가 `scripts/update.ps1`(백업, 다시 빌드, 마이그레이션)로 로컬 앱을 업데이트하고, 원할 때 커밋과 태그를 push한다 (`git push && git push --tags`).
 4. 사용자가 부탁하면 GitHub 릴리즈 노트를 올린다: `gh release create vX.Y.Z --generate-notes --notes-file docs/metrics/vX.Y.Z.md`. 소요 시간·메모리 표가 앞에 오고, 이전 태그 이후 커밋에서 만든 노트가 이어진다.
@@ -38,7 +38,7 @@
 | 기획 (`plan`) | `/plan-task` 시작 ~ 지시서 OK를 받을 때 (사용자가 답한 시간 포함) | plan-task |
 | 개발·테스트 (`dev`) | 개발자가 일을 시작 ~ 마지막 커밋과 보고 | 개발자 |
 | 리뷰 (`review`) | 리뷰어를 부르기 ~ 끝 (고쳐서 다시 리뷰하면 더한다) | run-task |
-| main 병합·테스트 (`merge`) | 병합 OK를 받은 뒤 ~ main 전체 테스트가 끝날 때까지 | publish-task |
+| main 병합 (`merge`) | 병합 OK를 받은 뒤 ~ 병합과 정리가 끝날 때까지 (CI를 기다린 시간은 넣지 않는다. 전체 테스트는 CI가 돌려서 잴 명령이 거의 없다) | publish-task |
 
 - 재는 도구는 [`scripts/measure.ps1`](../scripts/measure.ps1) 하나다. `-Mark start|end`로 단계의 시작·끝 시각을, `-Label ... -Cmd ...`로 명령(테스트, 린트, 빌드) 하나의 시간과 최대 메모리를 기록한다. 끝나는 코드는 그대로 나온다.
 - 기록은 `private/metrics/<지시서 이름>.jsonl`에 쌓인다 (git이 무시한다. worktree에서 돌려도 메인 저장소의 같은 파일로 간다. 단계가 서로 다른 대화·에이전트에 걸쳐 있어서 파일에 쌓는다).

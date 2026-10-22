@@ -1,6 +1,6 @@
 ---
 name: publish-task
-description: 퍼블리셔. 개발자와 리뷰어가 끝낸 작업(개발자 보고와 리뷰 보고가 있는 것)을 main에 병합하고, 지시서의 버전으로 릴리즈한다. 리뷰는 하지 않는다(run-task가 리뷰어를 띄워 리뷰 보고를 남긴다). 사용자가 요청할 때만 push, 태그 push, 릴리즈 노트 발행까지 한다. 사용자가 /publish-task <이름>, 병합해줘, 릴리즈해줘라고 할 때 쓴다.
+description: 퍼블리셔. 개발자와 리뷰어가 끝낸 작업(개발자 보고와 리뷰 보고가 있는 것)을 작업 브랜치의 CI가 초록인지 확인한 뒤 main에 병합하고, 지시서의 버전으로 릴리즈한다. 리뷰는 하지 않는다(run-task가 리뷰어를 띄워 리뷰 보고를 남긴다). 사용자가 요청할 때만 push, 태그 push, 릴리즈 노트 발행까지 한다. 사용자가 /publish-task <이름>, 병합해줘, 릴리즈해줘라고 할 때 쓴다.
 argument-hint: <지시서 이름>
 ---
 
@@ -22,24 +22,39 @@ worktree의 `.claude/tasks/<이름>.review.md`(리뷰 보고)를 읽는다.
 - 결과가 "합쳐도 됨"이고 "꼭 고칠 것"이 없으면 3단계로.
 - 그렇지 않으면 남은 지적을 한국어로 짧게 전하고, 그래도 병합할지 사용자에게 묻는다. 병합하지 않겠다면 `/run-task <이름>`으로 고치게 하고 끝낸다. 직접 고치지 않는다.
 
-## 3. 병합
+## 3. CI 확인 (병합 전)
+
+전체 테스트는 이 PC에서 돌리지 않고 CI가 돈다 (`AGENTS.md`의 테스트 규칙). 병합 전에 개발자 worktree의 브랜치가 끝 커밋에서 CI 초록인지 본다:
+
+```
+gh run list --branch <브랜치> --limit 1 --json databaseId,status,conclusion,headSha
+git rev-parse <브랜치>
+```
+
+- 실행이 없거나 `headSha`가 브랜치 끝 커밋과 다르면(리뷰 보고서 커밋 뒤에 push하지 않았다) CI가 이 커밋을 아직 안 봤다. 사용자에게 `git push origin <브랜치>`를 부탁하고 (push는 사용자만 한다), 했다고 하면 이 단계를 다시 한다.
+- `status`가 `in_progress`/`queued`면 `gh run watch <databaseId>`로 끝날 때까지 기다린다 (보통 몇 분).
+- `conclusion`이 `success`면 4단계로.
+- 실패면 `gh run view <databaseId> --log-failed`로 실패한 테스트 이름을 찾아 사용자에게 한국어로 짧게 전하고 멈춘다. 직접 고치지 않는다: `/run-task <이름>`으로 개발자가 고치게 한다. 고친 뒤 다시 push하면 이 단계를 다시 한다.
+- `gh`가 로그인돼 있지 않으면(`gh auth status`) 사용자에게 CI가 초록인지 묻는다.
+
+## 4. 병합
 
 `main`에 병합하면 사용자의 main이 바뀌므로 먼저 묻는다. OK면 (사용자의 답을 기다린 시간은 재지 않도록, 묻고 OK를 받은 뒤에 시작한다):
 
 0. 시작 기록: `powershell -NoProfile -File scripts/measure.ps1 -Name <이름> -Stage merge -Mark start`
-1. 저장소 맨 위에서 `main`에 `git merge --ff-only <브랜치>`. `main`이 움직였으면 먼저 worktree에서 rebase하고 개발자가 건드린 영역의 테스트를 다시 돌린다.
-2. `main`에서 모든 테스트: 백엔드 `uv run pytest`, 프런트엔드 `npm test`, `npm run lint`, `npm run build`. 전체는 여기서 한 번이다. 하나하나를 `powershell -NoProfile -File scripts/measure.ps1 -Name <이름> -Stage merge -Label "<이름표>" -Cmd "<명령>"`으로 감싸서 돌린다 (시간과 메모리가 기록된다. 이 PC가 개발 중 느려지는 까닭을 찾는 데 쓴다). 하나라도 실패하면 3단계 이후(지시서 삭제, 릴리즈, 앱 반영)를 하지 않고 실패한 출력을 사용자에게 알린 뒤 멈춘다.
+1. 저장소 맨 위에서 `main`에 `git merge --ff-only <브랜치>`. `main`이 움직여서 fast-forward가 안 되면 worktree에서 rebase한다. 그러면 커밋이 바뀌어 CI가 본 커밋과 달라지므로, 사용자에게 `git push --force-with-lease origin <브랜치>`를 부탁하고 3단계(CI 확인)부터 다시 한다.
+2. 병합이 fast-forward면 `main`은 CI가 초록으로 본 그 커밋이다. 테스트, 린트, 빌드를 다시 돌리지 않는다.
 3. 지시서와 보고서(`.claude/tasks/<이름>.md`, `.report.md`, `.review.md`)를 지우는 커밋을 만든다 (기록은 git 히스토리에 남는다).
 4. worktree와 브랜치를 지운다.
 5. 끝 기록: `powershell -NoProfile -File scripts/measure.ps1 -Name <이름> -Stage merge -Mark end`
 
-push는 하지 않는다.
+push는 하지 않는다 (작업 브랜치 push는 3단계에서 사용자가 한다).
 
-## 4. 릴리즈
+## 5. 릴리즈
 
-지시서의 "릴리즈" 절 버전으로 `docs/versioning.md`의 "버전 출시하기"를 따른다. 거기 적힌 대로 단계별 소요 시간·메모리 표(`docs/metrics/vX.Y.Z.md`)를 만들어 릴리즈 커밋에 넣는다. 전체 테스트는 다시 돌리지 않는다 (버전 숫자만 바뀌므로 `uv run pytest tests/unit/test_versions.py`만). 사용자에게 버전과 이유를 한국어 한 줄로 알린다 (사용자가 semver를 자주 잊는다). 지시서가 닫을 이슈를 적었으면 릴리즈 때 닫는다.
+지시서의 "릴리즈" 절 버전으로 `docs/versioning.md`의 "버전 출시하기"를 따른다. 거기 적힌 대로 단계별 소요 시간·메모리 표(`docs/metrics/vX.Y.Z.md`)를 만들어 릴리즈 커밋에 넣는다. 전체 테스트는 CI가 이미 돌렸으므로 다시 돌리지 않는다 (버전 숫자만 바뀌므로 `uv run pytest tests/unit/test_versions.py`만). 사용자에게 버전과 이유를 한국어 한 줄로 알린다 (사용자가 semver를 자주 잊는다). 지시서가 닫을 이슈를 적었으면 릴리즈 때 닫는다.
 
-## 5. 반영과 마무리
+## 6. 반영과 마무리
 
 - 병합과 릴리즈가 끝나면 묻지 않고 돌고 있는 앱에 반영한다 (사용자 결정, 2026-10-22: 병합 후 Docker Desktop 앱에 기능이 안 보여 헷갈렸다). 저장소 맨 위에서 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update.ps1` (`saveme`를 백업하고, 이미지를 다시 빌드하고, 앱 컨테이너가 시작하며 마이그레이션한다). Docker Desktop이 꺼져 있으면 켠다. 백업이 실패하면 update.ps1이 알아서 멈춘다: 그대로 사용자에게 알리고 다시 시도하지 않는다. 끝나면 http://localhost:8100 에서 볼 수 있다고 알린다. 앱을 새로 빌드한 사실과, 이 일이 DB 마이그레이션을 포함한다는 것을 한 줄로 알린다.
 - 단계에 데이터 가져오기가 있으면 이 자동 반영과 별개다: `docs/local-operations.md`대로 먼저 `saveme_dev`에 돌리고, 사용자가 화면을 확인하고, (백업 후) `saveme`에 돌린다.
