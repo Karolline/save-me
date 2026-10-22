@@ -71,7 +71,7 @@ argument-hint: <만들 것>
 - <2단계의 답 하나하나>
 
 ## 릴리즈
-- 버전 vX.Y.Z (<MAJOR|MINOR|PATCH>: <이유>). 버전을 올리거나 `CHANGELOG.md`를 고치지 않는다: 병합한 뒤 메인 세션이 한다.
+- 버전 vX.Y.Z (<MAJOR|MINOR|PATCH>: <이유>). 버전을 올리거나 `CHANGELOG.md`를 고치지 않는다: 병합할 때 퍼블리셔가 한다.
 ```
 
 사용자에게 지시서를 한국어로 요약해 주고 분명한 OK를 받는다. 동의할 때까지 고친다.
@@ -79,12 +79,3 @@ argument-hint: <만들 것>
 ## 5. 넘기기
 
 OK를 받으면 Agent 도구로 개발자 에이전트를 띄운다: `subagent_type: "developer"`, `isolation: "worktree"`, `run_in_background: true`, 프롬프트는 지시서 전체. 돌고 있다고 사용자에게 한 줄로 알린다.
-
-## 6. 개발자가 끝나면
-
-1. 보고를 짧은 한국어로 전한다: 한 일, 스스로 정한 것, 멈췄다면 질문. 질문은 사용자와 답을 정하고, 같은 에이전트에게 SendMessage로 보낸다.
-2. 브랜치에 리뷰어 에이전트(`subagent_type: "reviewer"`)를 돌린다. 브랜치 이름, worktree 경로, 지시서를 준다. 꼭 고칠 지적은 개발자에게 돌려보내고 다시 리뷰한다.
-3. `main`에 병합하면 사용자의 main 브랜치가 바뀌므로 먼저 묻는다. OK면: 저장소 맨 위에서 `main`에 `git merge --ff-only <브랜치>` (`main`이 움직였으면 먼저 worktree에서 rebase하고 테스트를 다시 돌린다), `main`에서 모든 테스트를 돌리고 (백엔드 `uv run pytest`, 프런트엔드 `npm test`, `npm run lint`, `npm run build`. 전체는 여기서 한 번이다), worktree를 지우고 브랜치를 지운다. push하지 않는다.
-4. 지시서의 버전을 `docs/versioning.md`의 "Releasing a version"에 따라 릴리즈하고 (전체 테스트는 다시 돌리지 않는다: 버전 숫자만 바뀌므로 `uv run pytest tests/unit/test_versions.py`만), 사용자에게 버전과 이유를 한국어 한 줄로 알린다.
-5. 돌고 있는 앱에 반영하는 법을 알려준다: `scripts/update.ps1` (백업하고, 다시 빌드하고, 마이그레이션한다). 단계에 데이터 가져오기가 있으면 `docs/local-operations.md`대로 먼저 `saveme_dev`에 돌리고, 사용자가 화면을 확인하고, (백업 후) `saveme`에 돌린다.
-6. 기획안의 "남은 일 한눈에" 표에서 그 줄을 지우고, 단계였다면 완료분 파일 7절에 한 줄 옮긴다.
