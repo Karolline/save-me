@@ -55,7 +55,7 @@ MVP가 끝나서 아래 문서는 만들 때의 기록이다. 토큰과 시간�
 - 의존성 추가: `uv add <package>` (개발용: `uv add --dev <package>`)
 - 개발 서버: 저장소 맨 위에서 `make run back`, 또는 `uv run python -m app.devserver` (http://127.0.0.1:8010, 문서는 `/docs`). `DATABASE_URL`(기본값: compose 스택의 `saveme_dev`, `docker compose up -d db`로 띄운다)을 쓰고, 마이그레이션하고, 로컬 로그인(`DEV_LOGIN`)을 켜고, uvicorn을 `--reload`로 돌린다. 8010 포트가 쓰이고 있으면 끝난다: Windows에서는 uvicorn이 남은 서버와 포트를 나눠 쓰게 되기 때문이다. 로컬 개발에서 uvicorn을 직접 띄우지 않는다. 서류 PDF는 Vite 개발 서버(`make run front`)가 같이 떠 있어야 만들어진다 (`PDF_FRONTEND_URL`).
 - 마이그레이션(Alembic): `app/db.py`의 모델을 고친 뒤 `uv run alembic revision --autogenerate -m "<바뀐 것>"` (`DATABASE_URL`은 최신 상태의 DB, 예: head까지 올린 임시 SQLite 파일), `migrations/versions/`에 생긴 파일을 읽고 고치고, `uv run python -m app.migrate`로 `saveme_dev`에 적용하고, 모델과 마이그레이션을 함께 커밋한다. DB의 테이블을 손으로 바꾸지 않는다. 제약 이름은 `app/db.py`의 이름 규칙에서 나온다. autogenerate가 만든 기본값은 DB 중립인지 확인한다 (예: Boolean 기본값은 `sa.text('0')`가 아니라 `sa.false()`).
-- 테스트: `uv run pytest` (단위만: `uv run pytest tests/unit`, 통합만: `uv run pytest tests/integration`). PostgreSQL에서: `TEST_DATABASE_URL`을 버려도 되는 DB로 (테스트가 테이블을 지우고 다시 만든다. `docs/testing.md`에 임시 컨테이너 예가 있다). `saveme`나 `saveme_dev`를 가리키게 하지 않는다. DB를 바꾸는 커밋 전에는 둘 다 돌리고, Docker Desktop이 꺼져 있으면 켠다. `uv run pytest tests/compose`는 `docker-compose.yaml`을 자기 프로젝트·포트·볼륨으로 빌드해 띄운다 (Docker 필요, 기본 실행에는 없음). Dockerfile, compose 파일, `docker/`를 고친 뒤 돌린다.
+- 테스트: `uv run pytest` (단위만: `uv run pytest tests/unit`, 통합만: `uv run pytest tests/integration`). PostgreSQL에서: `TEST_DATABASE_URL`을 버려도 되는 DB로 (테스트가 테이블을 지우고 다시 만든다. `docs/testing.md`에 임시 컨테이너 예가 있다). `saveme`나 `saveme_dev`를 가리키게 하지 않는다. DB에 닿는 변경은 해당 테스트를 둘 다에서 돌리고, Docker Desktop이 꺼져 있으면 켠다. `uv run pytest tests/compose`는 `docker-compose.yaml`을 자기 프로젝트·포트·볼륨으로 빌드해 띄운다 (Docker 필요, 기본 실행에는 없음). Dockerfile, compose 파일, `docker/`를 고친 뒤 돌린다.
 - 로컬 PostgreSQL URL: `localhost`가 아니라 `127.0.0.1`. 이 Windows PC에서 `localhost`는 IPv6를 먼저 시도해서, 127.0.0.1에 연 Docker 포트에서 멈춘다.
 
 프런트엔드 (`frontend/` 안에서, Node.js 20.19+ 또는 22.12+):
@@ -113,7 +113,14 @@ MVP가 끝나서 아래 문서는 만들 때의 기록이다. 토큰과 시간�
 - 프런트엔드의 모든 백엔드 호출은 같은 인터페이스의 mock 구현이 있는 서비스 층을 거친다.
 - 모든 store 메서드는 `user_id`를 받고, 모든 데이터 엔드포인트는 `current_user`를 쓴다.
 - 새 의존성을 넣기 전에 묻는다.
-- 바꿀 때마다 테스트를 쓴다. 커밋 전에 모든 테스트가 통과해야 한다.
+- 바꿀 때마다 테스트를 쓴다. 전체 테스트를 여러 번 돌리지 않는다 (사용자 결정, 2026-10-22, 개발이 느려서). 언제 무엇을 돌리는지:
+  - 개발자 (커밋마다): 건드린 영역의 테스트(유닛+통합 해당 파일), 프런트엔드 빌드(타입 검사), 린트.
+  - 개발자 (공유 코드를 건드렸을 때만): 전체 테스트(유닛+통합 전부).
+  - 리뷰어: 다시 돌리지 않는다. 읽기로 리뷰하고, 의심스러운 곳만 골라 돌린다.
+  - 병합 후 main: 전체 테스트 (한 번).
+  - 릴리즈 커밋: `test_versions.py`만.
+  - push 후 CI: 전체 테스트 (백엔드 + 프런트엔드 test/lint/build).
+  - `tests/compose`는 기본 실행에 없고 Dockerfile, compose 파일, `docker/`를 고쳤을 때만 따로 돌린다.
 - 자주, 하나하나가 앱을 동작하는 상태로 두는 작은 커밋으로 커밋한다.
 - 개인 데이터는 커밋하지 않는다: 진짜 지원 기록, 덤프, `private/`. 저장소는 공개다.
 - push하지 않는다. 사용자가 직접 GitHub에 push한다 (특정 push를 부탁할 때만 예외).

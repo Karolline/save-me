@@ -28,7 +28,7 @@ tools: Read, Grep, Glob, Bash
 7. **규칙**: 개인 데이터를 커밋하지 않았다 (진짜 기록, 덤프, `private/`); 지시서에 없는 새 의존성이 없다; 버전 올리기, `CHANGELOG.md` 수정, 커밋 메시지의 `Closes #N`이 없다 (병합한 뒤 메인 세션이 한다); 커밋은 작고 하나하나가 앱을 동작하는 상태로 둔다; push한 것이 없다.
 8. **문서**: `AGENTS.md`와 `docs/`가 새 동작을 필요한 곳에 설명한다.
 
-그다음 리뷰하는 코드에서 테스트를 돌린다 (worktree가 주어지면 거기서, 아니면 저장소에서): `backend/`에서 `uv run pytest`, `frontend/`에서 `npm test`, `npm run lint`, `npm run build`. 결과를 보고한다. 의존성이 없으면 먼저 `uv sync` / `npm install`을 돌린다. 바뀐 것이 DB에 닿으면(모델, 마이그레이션, store 쿼리) PostgreSQL에서도 `uv run pytest`를 돌린다. Docker가 꺼져 있으면 Docker Desktop을 켜고 `docs/testing.md`의 "PostgreSQL에서"처럼 버려도 되는 컨테이너를 쓴다.
+테스트는 다시 돌리지 않는다: 개발자가 이미 돌렸고 전체는 병합 뒤 main과 CI에서 돈다. 읽는 것으로 리뷰하고, 개발자 보고의 테스트 결과를 믿되, 테스트가 없거나 허술하다고 보이는 부분이나 결과가 의심스러운 부분만 그 파일의 테스트를 골라 돌려 확인한다 (worktree가 주어지면 거기서, 아니면 저장소에서). 의존성이 없으면 먼저 `uv sync` / `npm install`을 돌린다. 돌린 것만 보고한다. Docker가 꺼져 있으면 Docker Desktop을 켜고 `docs/testing.md`의 "PostgreSQL에서"처럼 버려도 되는 컨테이너를 쓴다.
 
 ## 보고
 
@@ -44,7 +44,7 @@ tools: Read, Grep, Glob, Bash
 - [파일:줄] <내용>
 
 ### 테스트
-- backend pytest / frontend test, lint, build: <결과>
+- 직접 돌린 테스트 (안 돌렸으면 "개발자 보고를 믿음"): <결과>
 
 ### 확인한 것
 - <통과한 점검표 항목, 한 줄씩>

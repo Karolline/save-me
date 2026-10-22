@@ -24,7 +24,7 @@ All of these must match. `backend/tests/unit/test_versions.py` fails if they don
 ## Releasing a version
 
 1. Add the version and its changes to the top of [`CHANGELOG.md`](../CHANGELOG.md).
-2. Update the version in every file above, run the tests, and commit (`Release vX.Y.Z`).
+2. Update the version in every file above, run only `uv run pytest tests/unit/test_versions.py` (the full suite already passed on `main` after the merge, and the release commit changes only version numbers), and commit (`Release vX.Y.Z`).
 3. Tag that commit: `git tag -a vX.Y.Z -m "vX.Y.Z"`.
 4. The user updates the local app with `scripts/update.ps1` (backup, rebuild, migrate) and pushes the commit and the tag when they want (`git push && git push --tags`).
 
