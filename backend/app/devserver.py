@@ -37,6 +37,7 @@ def main() -> None:
             "then stop it with: Stop-Process -Id <PID> -Force"
         )
     os.environ.setdefault("DEV_LOGIN", "true")
+    # (PDF는 지금 꺼 있다. PDF_ENABLED=1로 켜면 아래 주소를 쓴다, docs/pdf.md.)
     # PDF는 서버가 프런트엔드의 인쇄용 화면을 열어 만든다: 개발에서는 Vite 개발 서버 (make run front).
     # localhost로 연다: Vite는 localhost에 뜨고 (Windows에서는 IPv6 ::1일 수 있어서 127.0.0.1로는 안 닿는다).
     os.environ.setdefault("PDF_FRONTEND_URL", "http://localhost:5180")

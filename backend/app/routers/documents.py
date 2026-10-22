@@ -3,12 +3,9 @@
 묶음은 (회사, 작성날짜)마다 하나고, 서류는 묶음 안에서 종류마다 하나다 (완료분 기획안 S2 13번).
 """
 
-from urllib.parse import quote
+from fastapi import APIRouter, Depends, HTTPException, status
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-
-from app.auth import SESSION_COOKIE, current_user, get_settings, get_stores, require_csrf_header
-from app.config import Settings
+from app.auth import current_user, get_stores, require_csrf_header
 from app.models import (
     Document,
     DocumentBody,
@@ -21,7 +18,6 @@ from app.models import (
     ReviewDone,
     User,
 )
-from app.pdf import DOCUMENT_LABELS, PdfError, render_document_pdf
 from app.stores import (
     DuplicateDocumentError,
     DuplicateGroupError,
@@ -172,37 +168,6 @@ def delete_document(
 ) -> None:
     if not stores.documents.delete_document(user.id, group_id, type):
         raise not_found("Document")
-
-
-@router.get("/{group_id}/documents/{type}/pdf")
-def download_pdf(
-    group_id: int,
-    type: DocumentType,
-    request: Request,
-    user: User = Depends(current_user),
-    stores: Stores = Depends(get_stores),
-    settings: Settings = Depends(get_settings),
-) -> Response:
-    """서버가 인쇄용 화면(`/print/documents/...`)을 헤드리스 Chromium으로 열어 만든 PDF.
-    미리보기와 같은 코드가 쪽을 그리므로 같은 쪽 나눔이다."""
-    group = stores.documents.get_group(user.id, group_id)
-    if group is None or not any(d.type == type for d in group.documents):
-        raise not_found("Document")
-    try:
-        pdf = render_document_pdf(
-            settings.pdf_frontend_url,
-            group_id,
-            type,
-            request.cookies.get(SESSION_COOKIE, ""),
-        )
-    except PdfError:
-        raise HTTPException(status.HTTP_502_BAD_GATEWAY, "PDF를 만들지 못했어요")
-    name = f"{group.company}_{DOCUMENT_LABELS[type]}_{group.written_on.isoformat()}.pdf"
-    return Response(
-        pdf,
-        media_type="application/pdf",
-        headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"},
-    )
 
 
 @router.post(

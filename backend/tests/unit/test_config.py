@@ -9,11 +9,14 @@ def test_defaults_are_local_without_dev_login(monkeypatch):
     monkeypatch.delenv("DEV_LOGIN", raising=False)
     monkeypatch.delenv("PDF_FRONTEND_URL", raising=False)  # 개발 서버 테스트가 환경에 남길 수 있다
     monkeypatch.delenv("PORT", raising=False)
+    monkeypatch.delenv("PDF_ENABLED", raising=False)
     settings = settings_from_env()
     assert settings == Settings(app_env="local", dev_login=False, session_days=30)
+    assert settings.pdf_enabled is False  # 지원서류 PDF는 꺼 둔다
     assert settings.secure_cookies is False
 
 
+@pytest.mark.pdf
 def test_pdf_frontend_url_defaults_to_the_apps_own_address(monkeypatch):
     monkeypatch.delenv("PDF_FRONTEND_URL", raising=False)
     monkeypatch.delenv("PORT", raising=False)

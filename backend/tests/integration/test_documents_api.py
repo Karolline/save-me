@@ -1,10 +1,9 @@
-"""지원서류 (/api/document-groups): 묶음, 서류, 리뷰, [반영함], PDF 경로."""
+"""지원서류 (/api/document-groups): 묶음, 서류, 리뷰, [반영함]. (PDF는 test_documents_pdf_api.py)"""
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.models import Document, DocumentGroup
-from app.pdf import PdfError
 from tests.integration.test_jobs_api import body as job_body
 
 GROUP = {"company": "가나다상사", "writtenOn": "2026-10-14"}
@@ -256,40 +255,6 @@ def test_deleting_a_document_removes_its_review_part(client: TestClient):
     assert client.get(f"{BASE}/{group['id']}").json()["review"] is None
 
 
-def test_pdf_download_uses_the_renderer_with_the_session(client: TestClient, monkeypatch):
-    group = make_group(client)
-    make_document(client, group["id"], "career")
-    calls = []
-
-    def fake(base_url, group_id, type, token):
-        calls.append((base_url, group_id, type, token))
-        return b"%PDF-fake"
-
-    monkeypatch.setattr("app.routers.documents.render_document_pdf", fake)
-
-    response = client.get(f"{BASE}/{group['id']}/documents/career/pdf")
-
-    assert response.status_code == 200 and response.content == b"%PDF-fake"
-    assert response.headers["content-type"] == "application/pdf"
-    assert "UTF-8''%EA%B0%80%EB%82%98%EB%8B%A4%EC%83%81%EC%82%AC_%EA%B2%BD%EB%A0%A5%EA%B8%B0%EC%88%A0%EC%84%9C_2026-10-14.pdf" in (
-        response.headers["content-disposition"]
-    )
-    assert calls and calls[0][1:3] == (group["id"], "career") and calls[0][3]
-    assert client.get(f"{BASE}/{group['id']}/documents/resume/pdf").status_code == 404
-
-
-def test_pdf_failure_is_502(client: TestClient, monkeypatch):
-    group = make_group(client)
-    make_document(client, group["id"])
-
-    def broken(*_args):
-        raise PdfError("no chromium")
-
-    monkeypatch.setattr("app.routers.documents.render_document_pdf", broken)
-
-    assert client.get(f"{BASE}/{group['id']}/documents/resume/pdf").status_code == 502
-
-
 # ── 남의 데이터는 404 (기획안 5.3) ──
 
 
@@ -309,7 +274,6 @@ def test_another_users_group_documents_and_reviews_are_404_everywhere(client: Te
     assert other_client.get(f"{BASE}/{gid}/documents/resume").status_code == 404
     assert other_client.put(f"{BASE}/{gid}/documents/resume", json={"body": "남이 씀"}).status_code == 404
     assert other_client.delete(f"{BASE}/{gid}/documents/resume").status_code == 404
-    assert other_client.get(f"{BASE}/{gid}/documents/resume/pdf").status_code == 404
     assert other_client.post(f"{BASE}/{gid}/reviews", json=review()).status_code == 404
     assert other_client.put(f"{BASE}/{gid}/review-items/{item}/done", json={"done": True}).status_code == 404
 
@@ -351,7 +315,6 @@ def test_two_users_can_use_the_same_company_and_date(client: TestClient, other_c
 def test_requires_login_and_csrf_header(anon_client: TestClient, client: TestClient):
     assert anon_client.get(BASE).status_code == 401
     assert anon_client.post(BASE, json=GROUP).status_code == 401
-    assert anon_client.get(f"{BASE}/1/documents/resume/pdf").status_code == 401
     assert TestClient(client.app, cookies=client.cookies).post(BASE, json=GROUP).status_code == 403
 
 

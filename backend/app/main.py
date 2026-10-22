@@ -64,6 +64,10 @@ def create_app(
     app.include_router(experience_groups.router, prefix=API_PREFIX)
     app.include_router(resume.router, prefix=API_PREFIX)
     app.include_router(documents.router, prefix=API_PREFIX)
+    if settings.pdf_enabled:  # 지금은 꺼 둔다 (docs/pdf.md)
+        from app.routers import documents_pdf
+
+        app.include_router(documents_pdf.router, prefix=API_PREFIX)
     if frontend_dist is not None:
         mount_frontend(app, frontend_dist)
     return app

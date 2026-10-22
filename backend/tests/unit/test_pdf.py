@@ -1,4 +1,9 @@
+import pytest
+
 from app.pdf import FONT_FETCH_MS, FONT_HOSTS, _font_route, print_url
+
+# 지금은 PDF를 쓰지 않아서 기본 실행에서 빠진다 (uv run pytest -m pdf, docs/pdf.md).
+pytestmark = pytest.mark.pdf
 
 
 class FakeRoute:

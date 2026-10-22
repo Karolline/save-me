@@ -91,6 +91,7 @@ def test_both_databases_exist(stack) -> None:
     assert names.split() == ["saveme", "saveme_dev"]
 
 
+@pytest.mark.skip(reason="지금은 PDF를 쓰지 않는다: 이미지에 Chromium이 없다 (docs/pdf.md)")
 def test_the_image_makes_a_pdf_with_korean_fonts(stack) -> None:
     """서버가 같은 앱의 인쇄용 화면을 이미지 안의 Chromium으로 열어 PDF를 만든다."""
     with httpx.Client(base_url=APP_URL, headers=CSRF, timeout=120) as client:

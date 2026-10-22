@@ -1,4 +1,4 @@
-"""서류 PDF: 진짜 헤드리스 Chromium이 프런트엔드의 인쇄용 화면을 열어 만든다.
+"""서류 PDF (지금은 쓰지 않아서 기본 실행에서 빠진다: `uv run pytest -m pdf`, docs/pdf.md): 진짜 헤드리스 Chromium이 프런트엔드의 인쇄용 화면을 열어 만든다.
 
 Chromium(`uv run playwright install chromium`)과 프런트엔드 빌드(`frontend/dist`, `npm run build`)가
 있어야 한다. 없으면 건너뛴다 (건너뛴 까닭이 표시된다). 화면 쪽 수(`.pg`)와 PDF 쪽 수가 같아야 한다.
@@ -37,6 +37,7 @@ def chromium_missing() -> str | None:
 
 
 pytestmark = [
+    pytest.mark.pdf,
     pytest.mark.skipif(not (DIST / "index.html").is_file(), reason="프런트엔드 빌드가 없어요: frontend/에서 npm run build"),
 ]
 
@@ -122,7 +123,7 @@ def test_pdf_has_the_same_pages_as_the_print_screen_and_embeds_a_font(chromium, 
 def test_the_endpoint_returns_the_pdf_with_the_file_name(chromium, server, stores: Stores, user_id: int):
     group_id = make_document(stores, user_id, "# 제목\n본문", "resume")
     token = stores.users.create_session(user_id, 30)
-    app = create_app(stores=stores, settings=Settings(app_env="local", dev_login=True, pdf_frontend_url=server))
+    app = create_app(stores=stores, settings=Settings(app_env="local", dev_login=True, pdf_enabled=True, pdf_frontend_url=server))
     client = TestClient(app, headers=CSRF)
     client.cookies.set("saveme_session", token)
 
