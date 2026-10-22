@@ -110,7 +110,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 - `.claude/skills/plan-task/` (기획자): `/plan-task <만들 것>`. 사용자와 기획하고, 다른 태스크를 안 읽은 사람이 봐도 되는 독립적인 지시서를 `.claude/tasks/`에 써서 main에 커밋하고 끝난다. 개발자는 띄우지 않는다. 지시서에 개인 데이터를 쓰지 않는다 (저장소는 공개).
 - `.claude/agents/developer.md`: 지시서 하나를 git worktree의 자기 브랜치에서 테스트와 작은 커밋으로 만들고 보고서를 남긴다. `main`에 커밋하지 않는다.
 - `.claude/agents/reviewer.md`: 브랜치나 커밋 안 한 변경을 이 파일, 명세, 지시서에 비춰 읽기만 하며 리뷰한다.
-- `.claude/skills/publish-task/` (퍼블리셔): `/publish-task <이름>`. 개발자 보고와 리뷰 보고를 받고(리뷰어는 부르지 않는다), main에 병합하고, 지시서의 버전으로 릴리즈하고, 지시서·보고서를 지운다. push, 태그 push, 릴리즈 노트는 사용자가 요청할 때만.
+- `.claude/skills/publish-task/` (퍼블리셔): `/publish-task <이름>`. 개발자 보고와 리뷰 보고를 받고(리뷰어는 부르지 않는다), main에 병합하고, 지시서의 버전으로 릴리즈하고, 지시서·보고서를 지우고, 끝나면 `scripts/update.ps1`로 돌고 있는 앱(compose)을 백업·다시 빌드해 반영한다 (사용자 결정 2026-10-22). push, 태그 push, 릴리즈 노트는 사용자가 요청할 때만.
 - `.claude/skills/import-jobs/`: `/import-jobs`. 공고분석 받은편지함(`private/inbox/jobs/`)의 파일을 시험하고, 백업하고, `saveme`에 넣고, `done/`으로 옮긴다.
 
 

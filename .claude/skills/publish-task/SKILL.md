@@ -28,7 +28,7 @@ worktree의 `.claude/tasks/<이름>.review.md`(리뷰 보고)를 읽는다.
 
 0. 시작 기록: `powershell -NoProfile -File scripts/measure.ps1 -Name <이름> -Stage merge -Mark start`
 1. 저장소 맨 위에서 `main`에 `git merge --ff-only <브랜치>`. `main`이 움직였으면 먼저 worktree에서 rebase하고 개발자가 건드린 영역의 테스트를 다시 돌린다.
-2. `main`에서 모든 테스트: 백엔드 `uv run pytest`, 프런트엔드 `npm test`, `npm run lint`, `npm run build`. 전체는 여기서 한 번이다. 하나하나를 `powershell -NoProfile -File scripts/measure.ps1 -Name <이름> -Stage merge -Label "<이름표>" -Cmd "<명령>"`으로 감싸서 돌린다 (시간과 메모리가 기록된다. 이 PC가 개발 중 느려지는 까닭을 찾는 데 쓴다).
+2. `main`에서 모든 테스트: 백엔드 `uv run pytest`, 프런트엔드 `npm test`, `npm run lint`, `npm run build`. 전체는 여기서 한 번이다. 하나하나를 `powershell -NoProfile -File scripts/measure.ps1 -Name <이름> -Stage merge -Label "<이름표>" -Cmd "<명령>"`으로 감싸서 돌린다 (시간과 메모리가 기록된다. 이 PC가 개발 중 느려지는 까닭을 찾는 데 쓴다). 하나라도 실패하면 3단계 이후(지시서 삭제, 릴리즈, 앱 반영)를 하지 않고 실패한 출력을 사용자에게 알린 뒤 멈춘다.
 3. 지시서와 보고서(`.claude/tasks/<이름>.md`, `.report.md`, `.review.md`)를 지우는 커밋을 만든다 (기록은 git 히스토리에 남는다).
 4. worktree와 브랜치를 지운다.
 5. 끝 기록: `powershell -NoProfile -File scripts/measure.ps1 -Name <이름> -Stage merge -Mark end`
@@ -41,6 +41,7 @@ push는 하지 않는다.
 
 ## 5. 반영과 마무리
 
-- 돌고 있는 앱에 반영하는 법을 알려준다: `scripts/update.ps1` (백업하고, 다시 빌드하고, 마이그레이션한다). 단계에 데이터 가져오기가 있으면 `docs/local-operations.md`대로 먼저 `saveme_dev`에 돌리고, 사용자가 화면을 확인하고, (백업 후) `saveme`에 돌린다.
+- 병합과 릴리즈가 끝나면 묻지 않고 돌고 있는 앱에 반영한다 (사용자 결정, 2026-10-22: 병합 후 Docker Desktop 앱에 기능이 안 보여 헷갈렸다). 저장소 맨 위에서 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/update.ps1` (`saveme`를 백업하고, 이미지를 다시 빌드하고, 앱 컨테이너가 시작하며 마이그레이션한다). Docker Desktop이 꺼져 있으면 켠다. 백업이 실패하면 update.ps1이 알아서 멈춘다: 그대로 사용자에게 알리고 다시 시도하지 않는다. 끝나면 http://localhost:8100 에서 볼 수 있다고 알린다. 앱을 새로 빌드한 사실과, 이 일이 DB 마이그레이션을 포함한다는 것을 한 줄로 알린다.
+- 단계에 데이터 가져오기가 있으면 이 자동 반영과 별개다: `docs/local-operations.md`대로 먼저 `saveme_dev`에 돌리고, 사용자가 화면을 확인하고, (백업 후) `saveme`에 돌린다.
 - 기획안(`tech 기획안.md`) 맨 위 "남은 일 한눈에" 표에서 끝낸 일의 줄을 지운다. 만든 단계였다면 [`docs/archive/tech 기획안-완료분.md`](docs/archive/tech%20기획안-완료분.md) 7절에 한 줄(완료일, 버전, 한 일) 옮긴다 (그 줄만 `Grep -n`으로 찾아 고친다).
 - 사용자가 요청한 것만 한다: 커밋 push, 태그 push, GitHub 릴리즈 노트 발행(`gh release create vX.Y.Z --generate-notes --notes-file docs/metrics/vX.Y.Z.md`: 소요 시간·메모리 표가 앞에 오고, 이어서 이전 태그 이후 커밋에서 만든 노트가 붙는다. 올린 뒤 `gh release view vX.Y.Z`로 둘 다 들어갔는지 본다). `AGENTS.md`의 "push하지 않는다" 규칙이 기본이다. 요청이 없으면 무엇을 push하면 되는지(`git push`, `git push origin vX.Y.Z`)만 알려준다.
