@@ -1,4 +1,4 @@
-/** 백엔드 스키마(`openapi.yaml`)와 같은 모양. 날짜는 `YYYY-MM-DD`. */
+/** 백엔드 스키마(`backend/app/models.py`)와 같은 모양. 날짜는 `YYYY-MM-DD`. */
 
 export interface User {
   id: number;

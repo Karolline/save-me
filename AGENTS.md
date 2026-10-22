@@ -6,7 +6,7 @@
 
 SaveMe: 취업 준비생이 지원 현황, 공고 분석, 지원 서류, 면접 후기, 경험, 이력을 한곳에 모아 두는 웹앱. PC 전용으로 만든다 (모바일은 당분간 하지 않는다, 아래 "모바일" 참고). 카카오 로그인이 있는 공개 서비스가 될 예정이고, 지금은 사용자 PC(docker compose)에서 돌며 사용자의 진짜 데이터를 담고 있다.
 
-MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드, API의 기준은 `openapi.yaml`, 데이터 모델의 기준은 `backend/app/db.py`와 마이그레이션이다. 요청이 이것들과 어긋나면 짐작하지 말고 묻는다. 만들 때의 옛 문서(목업, 기획안)는 평소에 열지 않는다. 맨 아래 "옛 문서" 절 참고.
+MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드, API의 기준은 `backend/app/routers`와 `backend/app/models.py`(Pydantic, `/openapi.json`은 여기서 자동으로 만들어진다), 데이터 모델의 기준은 `backend/app/db.py`와 마이그레이션이다. 요청이 이것들과 어긋나면 짐작하지 말고 묻는다. 만들 때의 옛 문서(목업, 기획안)는 평소에 열지 않는다. 맨 아래 "옛 문서" 절 참고.
 
 
 ## 언어
@@ -66,7 +66,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 
 프런트엔드 (`frontend/`):
 
-- 백엔드 호출은 모두 `src/services/`의 서비스 층을 거친다. `types.ts`가 인터페이스(`SaveMeService`), `httpService.ts`가 백엔드 호출(같은 origin, 쿠키 세션, 쓰기에 `X-Requested-With: SaveMe`), `mockService.ts`가 같은 동작(정렬, 계산, 중복·연결 규칙 포함)을 하는 메모리 mock이다. 컴포넌트는 `useService()`만 부르고 데이터를 직접 거르거나 세거나 정렬하지 않는다. 서비스를 바꾸면 mock과 `openapi.yaml`도 맞춘다.
+- 백엔드 호출은 모두 `src/services/`의 서비스 층을 거친다. `types.ts`가 인터페이스(`SaveMeService`), `httpService.ts`가 백엔드 호출(같은 origin, 쿠키 세션, 쓰기에 `X-Requested-With: SaveMe`), `mockService.ts`가 같은 동작(정렬, 계산, 중복·연결 규칙 포함)을 하는 메모리 mock이다. 컴포넌트는 `useService()`만 부르고 데이터를 직접 거르거나 세거나 정렬하지 않는다. 서비스를 바꾸면 mock과 백엔드 모델(`app/models.py`)도 맞춘다.
 - `src/lib/`: 순수 함수와 단위 테스트. 그리기 계산은 여기 둔다 (완료분 기획안 5.11).
 - `src/components/`: 화면과 패널. 이동 콜백을 props로 받고 라우터를 import하지 않아서 바로 테스트할 수 있다. 사이드바 메뉴 목록은 `menu.ts` 하나다.
 - `src/router.tsx`: 경로 (TanStack Router). 라우트 컴포넌트가 이동과 로그인 확인을 맡는다. 지원 건은 목록 위에 그리는 패널(자식 경로), 나머지는 페이지다. 어디서 왔는지와 고른 것은 search로 넘긴다. 인쇄용 `/print/...`는 셸 밖의 라우트다 (서버가 PDF를 만들 때 연다).
@@ -76,8 +76,8 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 
 - 라우터는 HTTP만, `/api` 아래. 거르기·세기·정렬은 `app/stores/`(영역마다 store 하나)에서 한다. 모든 데이터 엔드포인트는 `current_user`를, 모든 라우터는 `require_csrf_header`(`X-Requested-With: SaveMe` 없는 GET 아닌 요청은 403)를 쓴다.
 - 모든 store 메서드는 `user_id`를 받아 그 값으로 거른다. 남의 id는 없는 것처럼 404 (기획안 5.3). 다른 행을 가리키는 값(예: 후기의 `application_id`)도 같은 사용자 것인지 확인한다. 모든 엔드포인트에 "남의 데이터는 404" 테스트가 있다.
-- `app/db.py`: 사용자 데이터 테이블은 모두(하위 테이블까지) `ON DELETE CASCADE`인 `user_id`를 갖는다. 시각은 UTC, 사용자가 적는 글은 `Text`. 테이블은 마이그레이션이 만든다. `app/models.py`의 JSON은 `openapi.yaml`에 맞춰 camelCase.
-- `openapi.yaml`(저장소 맨 위)이 약속이다. 이것과 백엔드, 프런트엔드 서비스를 맞춰 둔다.
+- `app/db.py`: 사용자 데이터 테이블은 모두(하위 테이블까지) `ON DELETE CASCADE`인 `user_id`를 갖는다. 시각은 UTC, 사용자가 적는 글은 `Text`. 테이블은 마이그레이션이 만든다. `app/models.py`의 JSON은 프런트엔드 타입에 맞춰 camelCase.
+- API의 약속은 `app/models.py`(Pydantic)와 `app/routers/`다. 이것과 프런트엔드 서비스(`types.ts`, HTTP, mock)를 맞춰 둔다. 손으로 쓴 명세 파일은 없다: `/openapi.json`은 FastAPI가 코드에서 만든다.
 - 설정은 환경 변수(`app/config.py`). `APP_ENV`(`local`/`dev`/`prod`): Secure 쿠키는 `local`에서만 끄고, `/docs`는 `prod`에서 끈다. `DEV_LOGIN`(로컬 가짜 로그인)이 `prod`에서 켜져 있으면 앱이 시작하지 않는다.
 - 서류 PDF(`app/pdf.py`)는 헤드리스 Chromium(Playwright)이 요청의 세션 쿠키로 프런트엔드의 인쇄용 경로를 열어 만든다. 컨테이너에서는 `PDF_NO_SANDBOX=1`, 개발 서버에서는 Vite 개발 서버(`PDF_FRONTEND_URL`)가 떠 있어야 한다.
 - 테스트는 [`docs/testing.md`](docs/testing.md). Docker 이미지는 시작할 때 마이그레이션하고 실패하면 앱이 시작하지 않는다. CI는 `.github/workflows/ci.yml`(SQLite와 PostgreSQL, 프런트엔드 test/lint/build)과 `compose.yml`(compose 입력이 바뀌면 스모크 테스트, `paths` 목록을 맞춰 둔다).

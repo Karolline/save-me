@@ -19,7 +19,6 @@ All of these must match. `backend/tests/unit/test_versions.py` fails if they don
 - `backend/pyproject.toml` (`version`), then run `uv lock` in `backend/` to update `uv.lock`
 - `backend/app/main.py` (`FastAPI(..., version=...)`, shown at `/docs`)
 - `frontend/package.json`: run `npm version X.Y.Z --no-git-tag-version` in `frontend/` (also updates `package-lock.json`). `vite.config.ts` reads it into `__APP_VERSION__`, shown in the sidebar.
-- `openapi.yaml` (`info.version`)
 
 ## Releasing a version
 

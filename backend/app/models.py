@@ -1,4 +1,4 @@
-"""Pydantic 스키마. JSON은 프런트엔드 타입과 `openapi.yaml`에 맞춰
+"""Pydantic 스키마. JSON은 프런트엔드 타입(`frontend/src/services/types.ts`)에 맞춰
 camelCase(별칭)로 주고받는다."""
 
 from datetime import date, datetime

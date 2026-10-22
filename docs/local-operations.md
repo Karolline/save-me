@@ -123,7 +123,7 @@ uv run python -m app.importers.reviews ../private/reviews.json --database-url po
 
 ### 공고분석 (`app.importers.jobs`)
 
-연결할 지원 건이 있으면 지원 건을 먼저 가져온 뒤에 돌린다. 항목마다 API의 `POST /api/jobs` 본문(`openapi.yaml`의 `JobFields`, `applicationId` 빼고)에 `analyzedAt`과 `application`을 더한다:
+연결할 지원 건이 있으면 지원 건을 먼저 가져온 뒤에 돌린다. 항목마다 API의 `POST /api/jobs` 본문(`backend/app/models.py`의 `JobFields`, `applicationId` 빼고)에 `analyzedAt`과 `application`을 더한다:
 
 ```json
 {
@@ -152,7 +152,7 @@ uv run python -m app.importers.reviews ../private/reviews.json --database-url po
 - `--replace`: 사람 확인이 N인 기존 분석만 통째로 바꾼다 (다시 N). 사람이 확인한(Y) 분석은 `--replace`여도 그 항목만 건너뛰고, 다른 항목은 들어간다.
 - `--replace-verified`: `--replace`에 더해 사람이 확인한(Y) 분석도 바꾼다 (다시 N). 사용자가 확인한 분석을 바꿔 달라고 분명히 부탁할 때만 쓴다.
 - 바꾸는 항목의 `application`이 `null`이면 기존 분석의 지원 건 연결을 그대로 둔다 (풀지 않는다). `null`이 아니면 그 지원 건에 잇는다.
-- 회사 동향(`trendsCheckedOn`, `trendsNote`, `trends`, `directionQuotes`, `directionReading`, `appeals`, `appealGaps`)도 API와 같은 모양으로 받는다 (`openapi.yaml`의 `JobFields`, `TrendItem`).
+- 회사 동향(`trendsCheckedOn`, `trendsNote`, `trends`, `directionQuotes`, `directionReading`, `appeals`, `appealGaps`)도 API와 같은 모양으로 받는다 (`backend/app/models.py`의 `JobFields`, `TrendItem`).
 - 건너뛴 항목은 아무것도 쓰지 않는다: 지원 건도 잇지 않고, 아래 연결 검사에도 세지 않는다.
 - `application`은 연결할 지원 건 (`company`, `appliedAt`)이거나 `null`. 없는 지원 건이 있으면 (건너뛸 항목이라도) 알려 주고 아무것도 쓰지 않는다. 연결하면 지원 여부는 `applied`가 된다. 지원 건 하나에는 분석 하나: 쓰는 항목이 이미 다른 분석과 연결된 지원 건을 가리키거나, 쓰는 두 항목이 한 지원 건을 가리키면 아무것도 쓰지 않는다.
 - `--dry-run`: 모든 검사를 진짜처럼 하고 같은 요약을 보이지만 아무것도 쓰지 않는다 (트랜잭션을 되돌린다). `saveme`에 넣기 전에 먼저 돌려 본다. 마이그레이션은 하지 않아서, DB가 최신 버전이 아니면 `DB가 최신 버전이 아니에요. 앱을 먼저 업데이트하세요.`로 멈춘다. 그냥 돌리면 전처럼 먼저 마이그레이션한다.
@@ -178,7 +178,7 @@ uv run python -m app.importers.jobs ../private/jobs.json --replace-verified
 
 ### 경험 (`app.importers.experiences`)
 
-받은 질문을 면접후기와 이으려면 후기를 먼저 가져온 뒤에 돌린다. 파일은 `{"experiences": [...]}`이고, 항목마다 API의 `POST /api/experiences` 본문(`openapi.yaml`의 `ExperienceFields`)과 같되 두 곳이 다르다: 받은 질문은 `interviewReviewId` 대신 `review`, 관련 경험은 id 대신 `name`.
+받은 질문을 면접후기와 이으려면 후기를 먼저 가져온 뒤에 돌린다. 파일은 `{"experiences": [...]}`이고, 항목마다 API의 `POST /api/experiences` 본문(`backend/app/models.py`의 `ExperienceFields`)과 같되 두 곳이 다르다: 받은 질문은 `interviewReviewId` 대신 `review`, 관련 경험은 id 대신 `name`.
 
 ```json
 {
@@ -230,7 +230,7 @@ uv run python -m app.importers.experiences ../private/experiences.json --replace
 
 ### 이력 (`app.importers.resume`)
 
-파일은 카드마다 키 하나이고 (`basics`, `direction`, `careers`, `educations`, `certificates`, `skills`, `personality`), 칸은 API의 `PUT /api/resume/...` 본문(`openapi.yaml`의 `ResumeBasics`, `Career` 등)과 같다. 어느 키든 없어도 된다. 예 (지어낸 것):
+파일은 카드마다 키 하나이고 (`basics`, `direction`, `careers`, `educations`, `certificates`, `skills`, `personality`), 칸은 API의 `PUT /api/resume/...` 본문(`backend/app/models.py`의 `ResumeBasics`, `Career` 등)과 같다. 어느 키든 없어도 된다. 예 (지어낸 것):
 
 ```json
 {
@@ -381,7 +381,7 @@ uv run python -m app.importers.reviews ../private/reviews.json --database-url po
 
 ### Job analyses (`app.importers.jobs`)
 
-Run it after the applications are imported when analyses link to them. The file is `{"jobs": [...]}`; each item is the `POST /api/jobs` body (`JobFields` in `openapi.yaml`, without `applicationId`) plus `analyzedAt` and `application`, as shown in the Korean section above.
+Run it after the applications are imported when analyses link to them. The file is `{"jobs": [...]}`; each item is the `POST /api/jobs` body (`JobFields` in `backend/app/models.py`, without `applicationId`) plus `analyzedAt` and `application`, as shown in the Korean section above.
 
 - Unlike the API, the given `analyzedAt` (the original analysis day) is kept. Saving in the app changes it to that day.
 - The same analysis is the same (`company`, `title`) for the local user. New analyses are created unverified (N; the user marks them Y in the app with [읽고 확인했어요]). The same (`company`, `title`) twice in the file is named and nothing is written.
@@ -389,7 +389,7 @@ Run it after the applications are imported when analyses link to them. The file 
 - `--replace`: an existing unverified (N) analysis is replaced as a whole (and stays N). A verified (Y) analysis is skipped even with `--replace`, just that item; the other items still go in.
 - `--replace-verified`: like `--replace`, but also replaces verified (Y) analyses (they become N). Use it only when the user explicitly asks to replace an analysis they confirmed.
 - When a replaced item's `application` is `null`, the existing analysis keeps its application link (it is not unlinked). A non-null `application` links that application.
-- The 회사 동향 fields (`trendsCheckedOn`, `trendsNote`, `trends`, `directionQuotes`, `directionReading`, `appeals`, `appealGaps`) are read in the same shape as the API (`JobFields` and `TrendItem` in `openapi.yaml`).
+- The 회사 동향 fields (`trendsCheckedOn`, `trendsNote`, `trends`, `directionQuotes`, `directionReading`, `appeals`, `appealGaps`) are read in the same shape as the API (`JobFields` and `TrendItem` in `backend/app/models.py`).
 - Skipped items write nothing: their application is not linked and they don't count in the link checks below.
 - `application` is the application to link (`company`, `appliedAt`) or `null`. A missing application (even on an item that would be skipped) is named and nothing is written. Linking stores the status as `applied`. One analysis per application: a written item pointing at an application already linked to another analysis, or two written items pointing at one application, write nothing.
 - `--dry-run`: runs every check like a real run and prints the same summary, but writes nothing (the transaction is rolled back). Run it before importing into `saveme`. It doesn't migrate: if the database isn't at the latest version it stops with `DB가 최신 버전이 아니에요. 앱을 먼저 업데이트하세요.` A normal run migrates first, as before.
@@ -409,7 +409,7 @@ uv run python -m app.importers.jobs ../private/jobs.json --replace-verified
 
 ### Experiences (`app.importers.experiences`)
 
-Run it after the interview reviews are imported when asked questions should link to them. The file is `{"experiences": [...]}`; each item is the `POST /api/experiences` body (`ExperienceFields` in `openapi.yaml`) with two differences: an asked question names its review with `review` instead of `interviewReviewId`, and a related experience is named by `name` instead of an id (example in the Korean section above).
+Run it after the interview reviews are imported when asked questions should link to them. The file is `{"experiences": [...]}`; each item is the `POST /api/experiences` body (`ExperienceFields` in `backend/app/models.py`) with two differences: an asked question names its review with `review` instead of `interviewReviewId`, and a related experience is named by `name` instead of an id (example in the Korean section above).
 
 - Only `name` is required. Start and end are `YYYY-MM` (`null` or an empty string when unknown; an empty end means 진행 중). When the start month is unknown, leave it empty and write it in `missing`.
 - The same experience is the same `name` for the local user. New experiences are created unverified (N; the user marks them Y in the app with [읽고 확인했어요] or by saving an edit). The same name twice in the file is named and nothing is written.
@@ -429,7 +429,7 @@ uv run python -m app.importers.experiences ../private/experiences.json --replace
 
 ### Resume (`app.importers.resume`)
 
-The file has one key per card (`basics`, `direction`, `careers`, `educations`, `certificates`, `skills`, `personality`) with the same fields as the `PUT /api/resume/...` bodies (`ResumeBasics`, `Career` and so on in `openapi.yaml`); any key may be missing (example in the Korean section above).
+The file has one key per card (`basics`, `direction`, `careers`, `educations`, `certificates`, `skills`, `personality`) with the same fields as the `PUT /api/resume/...` bodies (`ResumeBasics`, `Career` and so on in `backend/app/models.py`); any key may be missing (example in the Korean section above).
 
 - Write a career's company with the same name the experiences use as 소속 (the experience calendar compares names).
 - Per card: when the local user's card is empty it is filled; when it already has something it is skipped. `--replace` replaces that card entirely. A card that is empty in the file (empty list, blank text, basics with every field blank) is treated as missing (`--replace` never clears with it). Running a file twice skips everything the second time.

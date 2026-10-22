@@ -24,7 +24,7 @@ model: sonnet
 ## 일하는 동안
 
 - 바꿀 때마다 테스트를 쓴다. `docs/testing.md`가 말하는 폴더에 두고, 테스트 파일을 더하거나 그것이 다루는 것을 바꾸면 그 문서의 표도 고친다.
-- `openapi.yaml`, 백엔드, 프런트엔드 서비스(HTTP와 mock)를 맞춰 둔다.
+- 백엔드 모델·라우터, 프런트엔드 서비스(HTTP와 mock)를 맞춰 둔다.
 - 스키마 변경: `AGENTS.md`의 Alembic 단계를 따른다. 사용자 데이터가 있는 새 테이블은 모두(하위 테이블까지) `user_id`를 갖고, store 메서드는 모두 `user_id`를 받고, 엔드포인트는 모두 `current_user`를 쓰고, 엔드포인트마다 "남의 데이터는 404" 테스트가 있다 (기획안 5.3).
 - 진짜 DB(`saveme`)를 건드리지 않고 `saveme-pgdata` 볼륨을 지우지 않는다. 마이그레이션은 `saveme_dev`나 버려도 되는 DB에서 시험한다. 개인 데이터는 커밋하지 않는다.
 - 브랜치에서 작은 단계로 커밋한다. 테스트는 범위를 좁혀 돌린다 (전체를 여러 번 돌리지 않는다. 전체는 병합 뒤 main과 CI에서 돈다). 커밋마다, 그리고 마지막 커밋 전에도: 건드린 영역의 테스트 파일만(`backend/`에서 `uv run pytest tests/unit/test_x.py tests/integration/test_x_api.py`, `frontend/`에서 `npm test -- <파일>`), 프런트엔드를 건드렸으면 `npm run build`(타입 검사)와 `npm run lint`. 공유 코드(`app/db.py`, `app/main.py`, `conftest.py`, 공통 store·모델·config, `services/types.ts`·`mockService.ts`·`httpService.ts`, `styles.css`, 라우터, 공통 컴포넌트)를 건드렸을 때만 마지막 커밋 전에 전체 테스트(`uv run pytest`, `npm test`)를 한 번 돌린다. 모두 통과해야 한다. 바꾼 것이 DB에 닿으면(모델, 마이그레이션, 검색·정렬 같은 store 쿼리) 해당 테스트를 PostgreSQL에서도 돌린다(`TEST_DATABASE_URL`; 공유 코드를 건드렸으면 전체). Docker가 꺼져 있으면 Docker Desktop을 직접 켜고, `docs/testing.md`의 "PostgreSQL에서"처럼 버려도 되는 컨테이너를 쓴다. 켜는 데 실패할 때만 못 했다고 보고한다. 커밋 메시지는 한국어로 쓰고, 끝에 이 줄을 붙인다:

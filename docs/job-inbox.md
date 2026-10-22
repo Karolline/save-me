@@ -247,7 +247,7 @@ See the "칸의 값" table above. `회사`, `직무` and `분석일` are require
 
 ## How SaveMe converts it (`/import-jobs` follows this)
 
-The "SaveMe에서 바꾸는 법" table above maps each template part to the import JSON fields (`JobFields` in `openapi.yaml`, plus `analyzedAt` and `application: null`). A line that doesn't fit the template is never guessed at: show it to the user and ask.
+The "SaveMe에서 바꾸는 법" table above maps each template part to the import JSON fields (`JobFields` in `backend/app/models.py`, plus `analyzedAt` and `application: null`). A line that doesn't fit the template is never guessed at: show it to the user and ask.
 
 ## What happens on import
 

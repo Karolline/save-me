@@ -2,7 +2,7 @@
 
 `tech 기획안.md`(저장소 맨 위)에서 **이미 끝난 부분만** 옮겨 온 기록이다. 절 번호는 원래 그대로라서, 코드 주석의 "기획안 5.13", "기획안 S2 11번"은 이 파일에서 찾는다. 평소에는 열지 않는다 (`AGENTS.md`의 "옛 문서"). 새 화면을 만들 때나 코드 주석이 가리킬 때만, 통째로 읽지 말고 제목 줄(`^#`)을 Grep해 필요한 절만 읽는다.
 
-만든 것의 기준은 코드다: 화면은 `frontend/src`, API는 `openapi.yaml`, 데이터 모델은 `backend/app/db.py`와 마이그레이션. 이 파일은 "왜 그렇게 정했나"를 볼 때만 쓴다. 남은 일은 `tech 기획안.md`에 있다.
+만든 것의 기준은 코드다: 화면은 `frontend/src`, API는 `backend/app/models.py`, 데이터 모델은 `backend/app/db.py`와 마이그레이션. 이 파일은 "왜 그렇게 정했나"를 볼 때만 쓴다. 남은 일은 `tech 기획안.md`에 있다.
 
 원본 작성: 2026-10-13. 2026-10-22 완료분을 이 파일로 나눔.
 
@@ -322,7 +322,7 @@ PC는 오른쪽 슬라이드 패널(상세와 같은 자리), 모바일은 전�
 
 ### 5.14 몽글스푼에서 그대로 / 빠지는 것
 
-**그대로**: 스택, `services/`(interface + http + mock), 화면은 라우터를 모름, store에 검색·필터·정렬, `openapi.yaml` 계약, camelCase JSON, 루트 `Dockerfile`(프런트 빌드 → 백엔드가 서빙), `docker-compose.yaml`, 시작 때 마이그레이션, CI 테스트(SQLite + PostgreSQL), 이미지 한 번 빌드 + 태그 승격, 버전·`CHANGELOG.md`·화면 버전 표시, 에이전트·스킬, 입력칸 16px, `make run`, `app.devserver` 포트 검사, 로컬 PostgreSQL `127.0.0.1`.
+**그대로**: 스택, `services/`(interface + http + mock), 화면은 라우터를 모름, store에 검색·필터·정렬, Pydantic 모델이 API 약속, camelCase JSON, 루트 `Dockerfile`(프런트 빌드 → 백엔드가 서빙), `docker-compose.yaml`, 시작 때 마이그레이션, CI 테스트(SQLite + PostgreSQL), 이미지 한 번 빌드 + 태그 승격, 버전·`CHANGELOG.md`·화면 버전 표시, 에이전트·스킬, 입력칸 16px, `make run`, `app.devserver` 포트 검사, 로컬 PostgreSQL `127.0.0.1`.
 
 **빠지는 것**: `ADMIN_PASSWORD`, `require_write`, `useUnlockGate`/`PasswordDialog`, `POST /api/auth/verify`, `copy_db`, 무료 호스트 깨우기용 30초 재시도, Render Deploy Hook(호스팅을 A안으로 할 때), 몽글스푼 baseline 마이그레이션.
 

@@ -28,12 +28,5 @@ def test_frontend_version_matches():
     assert package["version"] == backend_version()
 
 
-def test_openapi_version_matches():
-    text = (REPO_ROOT / "openapi.yaml").read_text("utf-8")
-    match = re.search(r"^info:\n(?:  .*\n)*?  version: (\S+)$", text, re.MULTILINE)
-    assert match, "info.version not found in openapi.yaml"
-    assert match.group(1) == backend_version()
-
-
 def test_fastapi_version_matches(stores):
     assert create_app(stores, LOCAL).version == backend_version()

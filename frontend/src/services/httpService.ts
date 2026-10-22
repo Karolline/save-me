@@ -39,8 +39,8 @@ import type {
 } from "./types";
 
 /**
- * HTTP 구현. 같은 origin의 FastAPI 백엔드와 이야기한다. 약속은 저장소 맨 위의
- * `openapi.yaml`이다. 세션은 브라우저가 알아서 보내는 HttpOnly 쿠키이고, 쓰기
+ * HTTP 구현. 같은 origin의 FastAPI 백엔드와 이야기한다. 약속은 백엔드의
+ * Pydantic 모델(`backend/app/models.py`)이다. 세션은 브라우저가 알아서 보내는 HttpOnly 쿠키이고, 쓰기
  * 요청에는 백엔드가 요구하는 CSRF 헤더를 붙인다.
  */
 
