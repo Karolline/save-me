@@ -32,7 +32,7 @@ model: sonnet
   Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>
 
 - push하지 않고, `main`에 병합하지 않고, 버전을 올리지 않는다 (릴리즈 때 한다).
-- 바뀐 것이 영향을 주는 문서(`AGENTS.md`, `docs/`)를 고친다: `docs/`는 한국어를 먼저, 영어판을 그 아래에. `AGENTS.md`는 한국어만 (`AGENTS.md` "언어"). 코드 주석은 한국어로. GitHub 이슈를 건드리지 않고 커밋 메시지에 `Closes #N`을 쓰지 않는다: 병합한 뒤 릴리즈할 때 퍼블리셔(`publish-task`)가 이슈를 닫는다.
+- 바뀐 것이 영향을 주는 문서(`AGENTS.md`, `docs/`)를 고친다: `docs/`와 `AGENTS.md`는 한국어만 (`AGENTS.md` "언어"). 영어판이 붙은 `docs/` 파일을 고치면 영어 부분을 지운다. 코드 주석은 한국어로. GitHub 이슈를 건드리지 않고 커밋 메시지에 `Closes #N`을 쓰지 않는다: 병합한 뒤 릴리즈할 때 퍼블리셔(`publish-task`)가 이슈를 닫는다.
 
 ## 보고
 
