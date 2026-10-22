@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { DOC_LABELS, FORMAT_GUIDE, findLine, pdfFileName, seoulDay } from "@/lib/documents";
-import { PDF_ENABLED } from "@/lib/features";
 import { useService, type DocumentGroup, type DocumentType, type SavedDocument } from "@/services";
 import { DocumentReviewForm } from "./DocumentReviewForm";
 import { DocumentPages } from "./documentPages";
@@ -18,7 +18,7 @@ export const AUTOSAVE_MS = 800;
 /**
  * 서류 상세 (완료분 기획안 S2 13번, 목업 doc): 위에 같은 묶음의 서류 전환 탭 · 저장 표시,
  * 본문은 세로 2분할 (편집기 · 지금 서류의 리뷰). 좁으면 탭.
- * PDF가 켜져 있으면(`PDF_ENABLED`, docs/pdf.md) [PDF로 내려받기]와 왼쪽 A4 미리보기가 더해져 3분할이 된다.
+ * 왼쪽에 A4 미리보기가 더해져 3분할이 된다. [PDF로 내려받기]는 서버 없이 브라우저 인쇄 창을 연다 (docs/pdf.md).
  * 편집은 입력을 멈추고 잠깐 뒤 저장한다. 서류를 바꾸면 `key`로 새로 시작한다.
  */
 export function DocumentScreen({
@@ -54,8 +54,6 @@ export function DocumentScreen({
   const [guide, setGuide] = useState(false);
   const [reviewing, setReviewing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [pdfBusy, setPdfBusy] = useState(false);
-  const [pdfDialog, setPdfDialog] = useState(false);
   const editor = useRef<HTMLTextAreaElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // 아직 저장하지 못한 글: 화면을 떠날 때 마지막으로 한 번 더 저장한다.
@@ -180,29 +178,14 @@ export function DocumentScreen({
     }
   }
 
-  async function downloadPdf() {
-    if (!group || pdfBusy) return;
-    setPdfBusy(true);
-    try {
-      // 서버는 저장된 글로 PDF를 만들므로 먼저 저장한다.
-      if (!(await flush())) {
-        toast("저장하지 못해서 PDF를 만들 수 없어요. 다시 시도해 주세요.");
-        return;
-      }
-      const blob = await service.downloadDocumentPdf(groupId, type);
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = pdfFileName(group, type);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    } catch (error) {
-      if (!handleSessionError(error)) toast("PDF를 만들지 못했어요. 잠시 뒤 다시 해 주세요.");
-    } finally {
-      setPdfBusy(false);
-    }
+  /** [PDF로 내려받기]: 브라우저 인쇄 창을 연다. 사용자가 대상을 "PDF로 저장"으로 고른다. 화면의 현재 글로 인쇄한다. */
+  function printPdf() {
+    if (!group) return;
+    // 인쇄 창의 기본 파일 이름은 문서 제목이다: 열려 있는 동안만 `회사_서류_날짜`로 바꿨다가 끝나면 되돌린다.
+    const original = document.title;
+    document.title = pdfFileName(group, type).replace(/\.pdf$/, "");
+    window.addEventListener("afterprint", () => (document.title = original), { once: true });
+    window.print();
   }
 
   async function remove() {
@@ -281,16 +264,14 @@ export function DocumentScreen({
           <button type="button" className="btn btn-text danger" onClick={() => setConfirmDelete(true)}>
             이 서류 지우기
           </button>
-          {PDF_ENABLED && (
-            <button type="button" className="btn btn-primary" onClick={() => setPdfDialog(true)}>
-              PDF로 내려받기
-            </button>
-          )}
+          <button type="button" className="btn btn-primary" onClick={printPdf}>
+            PDF로 내려받기
+          </button>
         </div>
         <div className="seg pane-tabs" role="group" aria-label="보기">
           {(
             [
-              ...(PDF_ENABLED ? [["preview", "미리보기"]] : []),
+              ["preview", "미리보기"],
               ["edit", "편집"],
               ["review", "리뷰"],
             ] as [Pane, string][]
@@ -302,18 +283,16 @@ export function DocumentScreen({
         </div>
       </div>
 
-      <div className={`d3 show-${pane}${PDF_ENABLED ? "" : " no-preview"}`}>
-        {PDF_ENABLED && (
-          <section className="pane p-preview" aria-label="PDF 미리보기">
-            <div className="pane-h">
-              <b>PDF 미리보기</b>
-              <span className="hint">{pages ? `${pages}쪽` : ""}</span>
-            </div>
-            <div className="pane-b pv-wrap">
-              <DocumentPages body={body} fit warn onLayout={(l) => setPages(l.pageCount)} />
-            </div>
-          </section>
-        )}
+      <div className={`d3 show-${pane}`}>
+        <section className="pane p-preview" aria-label="PDF 미리보기">
+          <div className="pane-h">
+            <b>PDF 미리보기</b>
+            <span className="hint">{pages ? `${pages}쪽` : ""}</span>
+          </div>
+          <div className="pane-b pv-wrap">
+            <DocumentPages body={body} fit warn onLayout={(l) => setPages(l.pageCount)} />
+          </div>
+        </section>
         <section className="pane p-edit" aria-label="편집기">
           <div className="pane-h">
             <b>편집</b>
@@ -367,36 +346,13 @@ export function DocumentScreen({
         </section>
       </div>
 
-      {PDF_ENABLED && pdfDialog && (
-        <div className="modal-wrap">
-          <div className="scrim" onClick={() => !pdfBusy && setPdfDialog(false)} />
-          <div className="card modal" role="dialog" aria-modal="true" aria-label="PDF로 내려받기">
-            <h2>PDF로 내려받기</h2>
-            <p className="hint">왼쪽 미리보기와 같은 모습으로 나가요. 리뷰는 들어가지 않아요.</p>
-            <div className="pv-wrap modal-pv">
-              <DocumentPages body={body} fit />
-            </div>
-            <p className="hint" style={{ margin: 0 }}>
-              [내려받기]를 누르면 {pdfFileName(group, type)} 파일이 저장돼요.
-            </p>
-            <div className="row-end">
-              <button type="button" className="btn" disabled={pdfBusy} onClick={() => setPdfDialog(false)}>
-                닫기
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                disabled={pdfBusy}
-                onClick={async () => {
-                  await downloadPdf();
-                  setPdfDialog(false);
-                }}
-              >
-                {pdfBusy ? "PDF 만드는 중…" : "내려받기"}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* 인쇄용 쪽: 화면에서는 숨기고 인쇄할 때만 보인다 (styles.css의 .print-only). 앱 밖(body)에 그려서
+          인쇄할 때 앱 전체를 숨기고 이것만 남긴다. 미리보기와 같은 글이라 쪽 나눔이 같다. */}
+      {createPortal(
+        <div className="print-only" aria-hidden="true">
+          <DocumentPages body={body} />
+        </div>,
+        document.body,
       )}
       {guide && <FormatGuide onClose={() => setGuide(false)} />}
       {reviewing && (

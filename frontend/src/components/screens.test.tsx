@@ -397,6 +397,19 @@ describe("SettingsScreen and NotFoundScreen", () => {
   });
 });
 
+describe("print styles", () => {
+  it("print the document pages on A4 without margins, with backgrounds, one page per sheet, and hide the app", () => {
+    const css = readFileSync("src/styles.css", "utf-8");
+    expect(css).toMatch(/@page\s*\{[^}]*size:\s*A4;[^}]*margin:\s*0/);
+    const print = css.slice(css.indexOf("@media print"));
+    expect(print).toContain("print-color-adjust: exact");
+    expect(print).toContain("-webkit-print-color-adjust: exact");
+    expect(print).toMatch(/\.print-only \.pg\s*\{[^}]*break-after:\s*page/);
+    expect(print).toMatch(/\.print-only \.pg:last-child\s*\{[^}]*break-after:\s*auto/);
+    expect(print).toMatch(/body > \*:not\(\.print-only\)\s*\{[^}]*display:\s*none/);
+    expect(print).toMatch(/\.print-only \.pg\s*\{[^}]*box-shadow:\s*none/);
+  });
+});
 describe("text fields", () => {
   it("are at least 16px, so iPhone Safari doesn't zoom in on focus", () => {
     const css = readFileSync("src/styles.css", "utf-8");

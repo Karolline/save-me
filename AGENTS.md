@@ -30,7 +30,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 
 백엔드 (`backend/` 안에서, 의존성은 `uv`, Python 3.13+):
 
-- 설치: `uv sync`. 서류 PDF는 지금 꺼 두었다 (아래 "서류 PDF"): `playwright`는 선택 의존성이라 기본 설치에 없다.
+- 설치: `uv sync`. 서버 PDF는 지금 꺼 두었다 (아래 "서버가 만드는 서류 PDF" 항목): `playwright`는 선택 의존성이라 기본 설치에 없다.
 - 의존성 추가: `uv add <package>` (개발용: `uv add --dev <package>`)
 - 개발 서버: 저장소 맨 위에서 `make run back`, 또는 `uv run python -m app.devserver` (http://127.0.0.1:8010, 문서는 `/docs`). `DATABASE_URL`(기본값: compose 스택의 `saveme_dev`, `docker compose up -d db`로 띄운다)을 쓰고, 마이그레이션하고, 로컬 로그인(`DEV_LOGIN`)을 켜고, uvicorn을 `--reload`로 돌린다. 8010 포트가 쓰이고 있으면 끝난다: Windows에서는 uvicorn이 남은 서버와 포트를 나눠 쓰게 되기 때문이다. 로컬 개발에서 uvicorn을 직접 띄우지 않는다.
 - 마이그레이션(Alembic): `app/db.py`의 모델을 고친 뒤 `uv run alembic revision --autogenerate -m "<바뀐 것>"` (`DATABASE_URL`은 최신 상태의 DB, 예: head까지 올린 `saveme_dev`), `migrations/versions/`에 생긴 파일을 읽고 고치고, `uv run python -m app.migrate`로 `saveme_dev`에 적용하고, 모델과 마이그레이션을 함께 커밋한다. DB의 테이블을 손으로 바꾸지 않는다. 제약 이름은 `app/db.py`의 이름 규칙에서 나온다. autogenerate가 만든 기본값은 DB 중립인지 확인한다 (예: Boolean 기본값은 `sa.text('0')`가 아니라 `sa.false()`).
@@ -68,7 +68,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 - 백엔드 호출은 모두 `src/services/`의 서비스 층을 거친다. `types.ts`가 인터페이스(`SaveMeService`), `httpService.ts`가 백엔드 호출(같은 origin, 쿠키 세션, 쓰기에 `X-Requested-With: SaveMe`), `mockService.ts`가 같은 동작(정렬, 계산, 중복·연결 규칙 포함)을 하는 메모리 mock이다. 컴포넌트는 `useService()`만 부르고 데이터를 직접 거르거나 세거나 정렬하지 않는다. 서비스를 바꾸면 mock과 백엔드 모델(`app/models.py`)도 맞춘다.
 - `src/lib/`: 순수 함수와 단위 테스트. 그리기 계산은 여기 둔다 (완료분 기획안 5.11).
 - `src/components/`: 화면과 패널. 이동 콜백을 props로 받고 라우터를 import하지 않아서 바로 테스트할 수 있다. 사이드바 메뉴 목록은 `menu.ts` 하나다.
-- `src/router.tsx`: 경로 (TanStack Router). 라우트 컴포넌트가 이동과 로그인 확인을 맡는다. 지원 건은 목록 위에 그리는 패널(자식 경로), 나머지는 페이지다. 어디서 왔는지와 고른 것은 search로 넘긴다. 인쇄용 `/print/...`는 셸 밖의 라우트다 (서버가 PDF를 만들 때 연다, PDF가 꺼져 있으면 열리지 않는다).
+- `src/router.tsx`: 경로 (TanStack Router). 라우트 컴포넌트가 이동과 로그인 확인을 맡는다. 지원 건은 목록 위에 그리는 패널(자식 경로), 나머지는 페이지다. 어디서 왔는지와 고른 것은 search로 넘긴다. 인쇄용 `/print/...`는 셸 밖의 라우트다 (서버 PDF를 만들 때 연다, 서버 PDF가 꺼져 있으면 열리지 않는다).
 - 모든 입력 칸은 16px 이상 (더 작으면 iPhone Safari가 확대한다). `styles.css`를 테스트가 확인한다.
 
 백엔드 (`backend/`):
@@ -78,7 +78,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 - `app/db.py`: 사용자 데이터 테이블은 모두(하위 테이블까지) `ON DELETE CASCADE`인 `user_id`를 갖는다. 시각은 UTC, 사용자가 적는 글은 `Text`. 테이블은 마이그레이션이 만든다. `app/models.py`의 JSON은 프런트엔드 타입에 맞춰 camelCase.
 - API의 약속은 `app/models.py`(Pydantic)와 `app/routers/`다. 이것과 프런트엔드 서비스(`types.ts`, HTTP, mock)를 맞춰 둔다. 손으로 쓴 명세 파일은 없다: `/openapi.json`은 FastAPI가 코드에서 만든다.
 - 설정은 환경 변수(`app/config.py`). `APP_ENV`(`local`/`dev`/`prod`): Secure 쿠키는 `local`에서만 끄고, `/docs`는 `prod`에서 끈다. `DEV_LOGIN`(로컬 가짜 로그인)이 `prod`에서 켜져 있으면 앱이 시작하지 않는다.
-- 서류 PDF는 지금 쓰지 않는다 (사용자 결정, 2026-10-22: 무겁다). 코드(`app/pdf.py`, `routers/documents_pdf.py`, `DocumentPrintScreen`, `documentPages`)는 지우지 않고 꺼 둔다: 백엔드는 `PDF_ENABLED`, 프런트엔드는 `VITE_PDF=1`일 때만 켜지고, `playwright`는 선택 의존성(`uv sync --extra pdf`), Docker 이미지는 `WITH_PDF=1`로 빌드할 때만 Chromium을 넣고, PDF 테스트는 기본 실행에서 빠진다 (`pytest -m pdf`). 서류 상세에는 편집과 리뷰만 보인다. 새 기능은 PDF를 신경 쓰지 않는다. 다시 켜는 법과 만드는 방식은 [`docs/pdf.md`](docs/pdf.md).
+- 서버가 만드는 서류 PDF는 지금 쓰지 않는다 (사용자 결정, 2026-10-22: 무겁다). 서류 상세의 미리보기와 [PDF로 내려받기]는 서버 없이 브라우저 인쇄 창(`window.print()`)으로 하며 늘 켜져 있다. 서버 PDF 코드(`app/pdf.py`, `routers/documents_pdf.py`, `DocumentPrintScreen`, `documentPages`)는 지우지 않고 꺼 둔다: 백엔드는 `PDF_ENABLED`, 프런트엔드는 `VITE_PDF=1`일 때만 켜지고, `playwright`는 선택 의존성(`uv sync --extra pdf`), Docker 이미지는 `WITH_PDF=1`로 빌드할 때만 Chromium을 넣고, PDF 테스트는 기본 실행에서 빠진다 (`pytest -m pdf`). 서류 상세에는 미리보기·편집·리뷰가 보인다. 새 기능은 서버 PDF를 신경 쓰지 않는다. 다시 켜는 법과 만드는 방식은 [`docs/pdf.md`](docs/pdf.md).
 - 테스트는 [`docs/testing.md`](docs/testing.md). Docker 이미지는 시작할 때 마이그레이션하고 실패하면 앱이 시작하지 않는다. CI는 `.github/workflows/ci.yml`(백엔드 PostgreSQL, 프런트엔드 test/lint/build)과 `compose.yml`(compose 입력이 바뀌면 스모크 테스트, `paths` 목록을 맞춰 둔다).
 - 버전: 앱 전체에 `MAJOR.MINOR.PATCH` 하나, git에 `vX.Y.Z` 태그, 바뀐 것은 커밋 로그와 GitHub 릴리즈 노트에. [`docs/versioning.md`](docs/versioning.md) 참고. 사용자가 출시를 부탁할 때만 버전을 올린다.
 

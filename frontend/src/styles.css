@@ -736,5 +736,20 @@ textarea.ed::selection { background: #FFE58A; }
 .print-root .pg:last-child { break-after: auto; }
 .print-root { background: #fff; }
 .print-msg { padding: 24px; font-family: var(--font); }
-@page { margin: 0; }
-@media print { body { background: #fff; } .pg-measure { display: none; } }
+
+/* 브라우저 인쇄 ([PDF로 내려받기], 서류 상세): 서버 없이 인쇄 창에서 "PDF로 저장"을 고른다.
+   인쇄용 쪽(.print-only)은 앱 밖(body 바로 아래)에 있고, 화면에서는 보이지 않되 높이를 잴 수 있게 치워 둔다.
+   머리글·바닥글(날짜, 주소)이 찍히지 않게 용지 여백은 0이고, 쪽 안쪽 여백은 .pg의 padding이다. */
+@page { size: A4; margin: 0; }
+.print-only { position: fixed; left: -10000px; top: 0; visibility: hidden; pointer-events: none; }
+@media print {
+  html, body { height: auto; background: #fff; }
+  body > *:not(.print-only) { display: none !important; }
+  .print-only { position: static; visibility: visible; }
+  /* 595×842 쪽을 A4(793.7×1122.5 CSS px)에 맞춘다: 4/3보다 아주 조금 작게 해서 쪽이 넘쳐 빈 쪽이 생기지 않게 한다. */
+  .print-only .pv { width: auto; zoom: 1.3325; }
+  .print-only .pg { margin: 0; box-shadow: none; break-after: page; }
+  .print-only .pg:last-child { break-after: auto; }
+  .pg { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .pg-measure { display: none; }
+}

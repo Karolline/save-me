@@ -298,21 +298,7 @@ describe("DocumentScreen", () => {
     expect(editor().value).toContain("## 1. 주문 이벤트 스트림 재설계");
   });
 
-  // 지원서류 PDF는 지금 꺼 둔다 (docs/pdf.md). 켜고 돌리려면 VITE_PDF=1 npm test.
-  it.skipIf(PDF_ENABLED)("has no PDF button, no preview pane and no 미리보기 tab while the PDF is off", async () => {
-    open();
-    await screen.findByRole("textbox", { name: "경력기술서 본문" });
-
-    expect(screen.queryByRole("button", { name: "PDF로 내려받기" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "PDF 미리보기" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "미리보기" })).not.toBeInTheDocument();
-    const tabs = screen.getByRole("group", { name: "보기" });
-    expect(within(tabs).getAllByRole("button").map((b) => b.textContent)).toEqual(["편집", "리뷰"]);
-    expect(screen.getByRole("region", { name: "편집기" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "리뷰" })).toBeInTheDocument();
-  });
-
-  it.skipIf(!PDF_ENABLED)("shows the pages and the PDF button", async () => {
+  it("shows the pages and the PDF button", async () => {
     open();
     await screen.findByRole("textbox", { name: "경력기술서 본문" });
     expect(screen.getByRole("button", { name: "PDF로 내려받기" })).toBeInTheDocument();
@@ -324,7 +310,7 @@ describe("DocumentScreen", () => {
     expect(within(preview).getByText("1 / 2")).toBeInTheDocument();
   });
 
-  it.skipIf(!PDF_ENABLED)("updates the preview as you type and saves after you stop typing", { timeout: 15000 }, async () => {
+  it("updates the preview as you type and saves after you stop typing", { timeout: 15000 }, async () => {
     const { service } = open();
     await screen.findByRole("textbox", { name: "경력기술서 본문" });
     const preview = screen.getByRole("region", { name: "PDF 미리보기" });
@@ -456,10 +442,8 @@ describe("DocumentScreen", () => {
     const panes = () => document.querySelector(".d3")!.className;
 
     expect(panes()).toContain("show-edit");
-    if (PDF_ENABLED) {
-      await user.click(screen.getByRole("button", { name: "미리보기" }));
-      expect(panes()).toContain("show-preview");
-    }
+    await user.click(screen.getByRole("button", { name: "미리보기" }));
+    expect(panes()).toContain("show-preview");
     await user.click(screen.getByRole("button", { name: "리뷰" }));
     expect(panes()).toContain("show-review");
     expect(screen.getByRole("button", { name: "리뷰" })).toHaveAttribute("aria-pressed", "true");
@@ -479,56 +463,68 @@ describe("DocumentScreen", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it.skipIf(!PDF_ENABLED)("downloads the PDF under the company_type_date name after saving", async () => {
+  it("opens the browser print window right away from [PDF로 내려받기], without a dialog or a server call", async () => {
     const { user, service } = open();
     await screen.findByRole("textbox", { name: "경력기술서 본문" });
-    const pdf = vi.spyOn(service, "downloadDocumentPdf");
-    URL.createObjectURL = vi.fn(() => "blob:mock");
-    URL.revokeObjectURL = vi.fn();
-    const clicked: string[] = [];
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
-      clicked.push(this.download);
-    });
-
-    await user.type(editor(), "끝");
-    await user.click(screen.getByRole("button", { name: "PDF로 내려받기" }));
-    const dialog = screen.getByRole("dialog", { name: "PDF로 내려받기" });
-    expect(within(dialog).getByText("왼쪽 미리보기와 같은 모습으로 나가요. 리뷰는 들어가지 않아요.")).toBeInTheDocument();
-    expect(within(dialog).getByText(/한결로보틱스_경력기술서_2026-10-12.pdf 파일이 저장돼요/)).toBeInTheDocument();
-    expect(dialog.querySelector(".pv .pg")).not.toBeNull();
-    expect(pdf).not.toHaveBeenCalled();
-    await user.click(within(dialog).getByRole("button", { name: "내려받기" }));
-
-    await waitFor(() => expect(clicked).toEqual(["한결로보틱스_경력기술서_2026-10-12.pdf"]));
-    expect(pdf).toHaveBeenCalledWith(1, "career");
-    // 서버는 저장된 글로 PDF를 만들므로 내려받기 전에 저장했다.
-    expect((await service.getDocument(1, "career"))!.body.endsWith("끝")).toBe(true);
-  });
-
-  it.skipIf(!PDF_ENABLED)("toasts when the PDF cannot be made", async () => {
-    const { user, service } = open();
-    await screen.findByRole("textbox", { name: "경력기술서 본문" });
-    vi.spyOn(service, "downloadDocumentPdf").mockRejectedValue(new Error("502"));
-
-    await user.click(screen.getByRole("button", { name: "PDF로 내려받기" }));
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "내려받기" }));
-
-    expect(await screen.findByText("PDF를 만들지 못했어요. 잠시 뒤 다시 해 주세요.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "PDF로 내려받기" })).toBeEnabled();
-  });
-
-  it.skipIf(!PDF_ENABLED)("closes the PDF dialog with [닫기] without making a PDF", async () => {
-    const { user, service } = open();
-    await screen.findByRole("textbox", { name: "경력기술서 본문" });
+    const print = vi.spyOn(window, "print").mockImplementation(() => {});
     const pdf = vi.spyOn(service, "downloadDocumentPdf");
 
     await user.click(screen.getByRole("button", { name: "PDF로 내려받기" }));
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "닫기" }));
 
+    expect(print).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(pdf).not.toHaveBeenCalled();
   });
 
+  it("prints the current text, even unsaved", async () => {
+    const { user } = open();
+    await screen.findByRole("textbox", { name: "경력기술서 본문" });
+    vi.spyOn(window, "print").mockImplementation(() => {});
+
+    fireEvent.change(editor(), { target: { value: "# 저장 전 제목" } });
+    await user.click(screen.getByRole("button", { name: "PDF로 내려받기" }));
+
+    expect(document.querySelector(".print-only")!.querySelector("h1")).toHaveTextContent("저장 전 제목");
+  });
+
+  it("names the print file company_type_date while the print window is open, then restores the title", async () => {
+    const { user } = open();
+    await screen.findByRole("textbox", { name: "경력기술서 본문" });
+    document.title = "SaveMe";
+    let during = "";
+    vi.spyOn(window, "print").mockImplementation(() => {
+      during = document.title;
+    });
+
+    await user.click(screen.getByRole("button", { name: "PDF로 내려받기" }));
+    expect(during).toBe("한결로보틱스_경력기술서_2026-10-12");
+    expect(document.title).toBe("한결로보틱스_경력기술서_2026-10-12");
+    window.dispatchEvent(new Event("afterprint"));
+
+    expect(document.title).toBe("SaveMe");
+  });
+
+  it("has a print-only copy of the pages outside the app, with the same page split as the preview", async () => {
+    open();
+    await screen.findByRole("textbox", { name: "경력기술서 본문" });
+
+    const printOnly = document.body.querySelector(":scope > .print-only")!;
+    expect(printOnly).not.toBeNull();
+    const previewPages = screen.getByRole("region", { name: "PDF 미리보기" }).querySelectorAll(".pg");
+    expect(printOnly.querySelectorAll(".pg")).toHaveLength(previewPages.length);
+    expect(printOnly.querySelector(".pv")!.getAttribute("style") ?? "").not.toContain("zoom");
+  });
+
+  it("can print an empty document (one blank page)", async () => {
+    const { user } = open();
+    await screen.findByRole("textbox", { name: "경력기술서 본문" });
+    const print = vi.spyOn(window, "print").mockImplementation(() => {});
+
+    fireEvent.change(editor(), { target: { value: "" } });
+    await user.click(screen.getByRole("button", { name: "PDF로 내려받기" }));
+
+    expect(print).toHaveBeenCalled();
+  });
   it("[편집기에서 찾기] on the mobile review tab switches to the edit tab first, then selects the line", async () => {
     const { user } = open("career");
     await screen.findByRole("textbox", { name: "경력기술서 본문" });
@@ -596,7 +592,7 @@ describe("DocumentScreen", () => {
   });
 });
 
-describe.skipIf(!PDF_ENABLED)("DocumentPages", () => {
+describe("DocumentPages", () => {
   /** 숨은 곳의 블록마다 높이를 준다 (jsdom은 높이를 재지 못한다). */
   function tallBlocks(height: number) {
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
