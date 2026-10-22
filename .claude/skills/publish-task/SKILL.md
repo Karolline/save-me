@@ -45,10 +45,10 @@ git rev-parse <브랜치>
 1. 저장소 맨 위에서 `main`에 `git merge --ff-only <브랜치>`. `main`이 움직여서 fast-forward가 안 되면 worktree에서 rebase한다. 그러면 커밋이 바뀌어 CI가 본 커밋과 달라지므로, 사용자에게 `git push --force-with-lease origin <브랜치>`를 부탁하고 3단계(CI 확인)부터 다시 한다.
 2. 병합이 fast-forward면 `main`은 CI가 초록으로 본 그 커밋이다. 테스트, 린트, 빌드를 다시 돌리지 않는다.
 3. 지시서와 보고서(`.claude/tasks/<이름>.md`, `.report.md`, `.review.md`)를 지우는 커밋을 만든다 (기록은 git 히스토리에 남는다).
-4. worktree와 브랜치를 지운다.
+4. worktree와 로컬 브랜치를 지우고, 원격에 올라가 있던 브랜치도 지운다: `git branch -d <브랜치>`(main에 병합돼 있어야 지워진다), `git ls-remote --heads origin <브랜치>`로 원격에 있는지 보고 있으면 `git push origin --delete <브랜치>`. 병합한 작업 브랜치의 원격 삭제는 `AGENTS.md`의 "브랜치 정리" 규칙으로 묻지 않고 한다. 병합하지 않은 브랜치는 지우지 않는다.
 5. 끝 기록: `powershell -NoProfile -File scripts/measure.ps1 -Name <이름> -Stage merge -Mark end`
 
-push는 하지 않는다 (작업 브랜치 push는 3단계에서 사용자가 한다).
+main push는 하지 않는다 (작업 브랜치 push는 3단계에서 사용자가 한다). 원격 브랜치 삭제만 위 4번의 예외다.
 
 ## 5. 릴리즈
 
