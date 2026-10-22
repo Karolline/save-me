@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -165,6 +165,30 @@ describe("JobViewScreen", () => {
     expect(screen.queryByText(/비어 있는 섹션/)).not.toBeInTheDocument();
     expect(screen.queryByText("– 미평가")).not.toBeInTheDocument();
     expect(screen.getByText("아직 지원 기록과 연결되지 않았어요. 지원했다면 [편집]에서 연결해 주세요.")).toBeInTheDocument();
+  });
+
+  it("shows 미지원 사유 only for 지원 안 함, with an empty-state line", async () => {
+    const service = createMockService({
+      jobs: [
+        { analyzedAt: "2026-10-01", application: null, job: { company: "가", status: "skipped", skipReason: "연봉이 낮음\n거리가 멂" } },
+        { analyzedAt: "2026-10-02", application: null, job: { company: "나", status: "skipped" } },
+        { analyzedAt: "2026-10-03", application: null, job: { company: "다", status: "undecided", skipReason: "남아 있는 글" } },
+      ],
+    });
+    setup(<JobViewScreen id={1} {...viewProps} />, service);
+    const box = await screen.findByLabelText("미지원 사유");
+    expect(box).toHaveTextContent("연봉이 낮음");
+    expect(box).toHaveTextContent("거리가 멂");
+    cleanup();
+
+    setup(<JobViewScreen id={2} {...viewProps} />, service);
+    expect(await screen.findByLabelText("미지원 사유")).toHaveTextContent("적어 둔 사유가 없습니다");
+    cleanup();
+
+    setup(<JobViewScreen id={3} {...viewProps} />, service);
+    await waitFor(() => expect(document.querySelector(".jmeta")).not.toBeNull());
+    expect(screen.queryByLabelText("미지원 사유")).not.toBeInTheDocument();
+    expect(screen.queryByText("남아 있는 글")).not.toBeInTheDocument();
   });
 
   it("hides empty sections and names them", async () => {
@@ -605,6 +629,32 @@ describe("JobEditScreen", () => {
     for (const key of ["trendsCheckedOn", "trendsNote", "trends", "directionQuotes", "directionReading", "appeals", "appealGaps"] as const) {
       expect(saved[key]).toEqual(before[key]);
     }
+  });
+
+  it("shows 미지원 사유 only while 지원 여부 is 지원 안 함, and keeps the text when hidden", { timeout: 15_000 }, async () => {
+    const onSaved = vi.fn();
+    const { user, service } = setup(<JobEditScreen {...editProps} onSaved={onSaved} />, createMockService());
+
+    await fill(user, await screen.findByLabelText(/^회사명/), "새회사");
+    expect(screen.queryByLabelText(/^미지원 사유/)).not.toBeInTheDocument();
+
+    const statuses = screen.getByRole("radiogroup", { name: "지원 여부" });
+    await user.click(within(statuses).getByRole("radio", { name: "지원 안 함" }));
+    const reason = screen.getByLabelText(/^미지원 사유/);
+    expect(reason).toHaveAttribute("placeholder", "지원하지 않기로 한 이유를 적어 두세요");
+    await fill(user, reason, "출퇴근이 너무 멀다");
+
+    // 다른 상태로 바꾸면 칸은 사라지지만 글은 저장된다.
+    await user.click(within(statuses).getByRole("radio", { name: "미정" }));
+    expect(screen.queryByLabelText(/^미지원 사유/)).not.toBeInTheDocument();
+    await user.click(within(statuses).getByRole("radio", { name: "지원 안 함" }));
+    expect(screen.getByLabelText(/^미지원 사유/)).toHaveValue("출퇴근이 너무 멀다");
+    await user.click(within(statuses).getByRole("radio", { name: "미정" }));
+
+    await user.click(screen.getByRole("button", { name: "저장" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    const saved = (await service.getJob(onSaved.mock.calls[0][0]))!;
+    expect(saved).toMatchObject({ status: "undecided", skipReason: "출퇴근이 너무 멀다" });
   });
 
   it("deletes from the editor", async () => {

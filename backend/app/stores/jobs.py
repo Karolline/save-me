@@ -144,6 +144,7 @@ def to_job(row: JobAnalysisRow) -> Job:
     fields = {name: getattr(row, name) for name in TEXT_FIELDS + JSON_FIELDS}
     return Job(
         **fields,
+        skip_reason=row.skip_reason,
         requirements=[
             Requirement(
                 category=r.category,  # type: ignore[arg-type]
@@ -390,6 +391,9 @@ class JobStore(BaseStore):
             setattr(row, name, dumped[name])
         for name in JSON_FIELDS:
             setattr(row, name, dumped_json[name])
+        # 미지원 사유는 받았을 때만 쓴다: 가져오기는 이 칸을 몰라서 앱에서 적은 글을 지우지 않는다.
+        if "skip_reason" in data.model_fields_set:
+            row.skip_reason = data.skip_reason
         if application is not None:
             # 지원 기록과 연결되면 지원 여부는 늘 "지원함".
             row.status = "applied"

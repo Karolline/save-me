@@ -124,6 +124,22 @@ def test_replace_replaces_unverified_analyses(stores: Stores, user_id: int, baro
     assert after["마루증권"].fit == "하"
 
 
+def test_replace_keeps_the_skip_reason_written_in_the_app(stores: Stores, user_id: int, baron, tmp_path):
+    import_jobs(stores, user_id, load(write(tmp_path)))
+    job = jobs_by_company(stores, user_id)["마루증권"]
+    stores.jobs.update(
+        user_id, job.id, JobInput(company="마루증권", title="데이터 엔지니어", status="skipped", skip_reason="연봉이 낮음")
+    )
+
+    # 확인된 분석도 바꾸는 --replace-verified로 다시 가져와도 앱에서 적은 사유는 남는다.
+    result = import_jobs(stores, user_id, load(write(tmp_path, changed())), replace_verified=True)
+
+    assert result.replaced == 2
+    again = jobs_by_company(stores, user_id)["마루증권"]
+    assert again.fit == "하" and again.verified is False
+    assert again.skip_reason == "연봉이 낮음"
+
+
 def test_replace_skips_a_verified_analysis_and_writes_the_rest(stores: Stores, user_id: int, baron, tmp_path):
     import_jobs(stores, user_id, load(write(tmp_path)))
     first = jobs_by_company(stores, user_id)["바른정보"]

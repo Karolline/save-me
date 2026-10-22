@@ -238,6 +238,18 @@ describe("mockService job analyses", () => {
     expect(all.items[0]).toMatchObject({ mustFull: 3, mustTotal: 5, noEvidenceCount: 3, cultureGrade: "Yellow", cultureScore: 72 });
   });
 
+  it("stores skipReason, defaults it to an empty string and keeps it when the status changes", async () => {
+    const service = withJobs();
+    const created = await service.createJob(input({ company: "새 회사" }));
+    expect(created.skipReason).toBe("");
+
+    const skipped = await service.updateJob(created.id, input({ status: "skipped", skipReason: "연봉이 낮음\n멂" }));
+    expect(skipped.skipReason).toBe("연봉이 낮음\n멂");
+    const undecided = await service.updateJob(created.id, input({ status: "undecided", skipReason: "연봉이 낮음\n멂" }));
+    expect((await service.getJob(undecided.id))!.skipReason).toBe("연봉이 낮음\n멂");
+    expect((await service.getJob(1))!.skipReason).toBe("");
+  });
+
   it("counts levels per category, unrated apart, like the server", async () => {
     const sodam = (await withJobs().getJob(9))!;
     expect(sodam.counts.must).toEqual({ full: 0, part: 0, none: 0, unrated: 1, total: 1 });

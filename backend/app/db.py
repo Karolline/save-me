@@ -272,6 +272,8 @@ class JobAnalysisRow(Base):
     # 기술 핏: "상" / "중" / "하" 또는 "".
     fit: Mapped[str] = mapped_column(String(10), default="", server_default="")
     conclusion: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 미지원 사유 (상태가 "지원 안 함"일 때 화면에 보인다. 상태를 바꿔도 지우지 않는다).
+    skip_reason: Mapped[str] = mapped_column(Text, default="", server_default="")
     # 성향 적합도: 등급("Green" / "Yellow" / "Red" 또는 ""), 총점, 실제 역할 유형.
     culture_grade: Mapped[str] = mapped_column(String(10), default="", server_default="")
     culture_score: Mapped[int | None] = mapped_column(Integer, nullable=True)

@@ -121,6 +121,13 @@ describe("drafts", () => {
     expect(fromDraft(draft).status).toBe("skipped");
   });
 
+  it("sends skipReason even when the status is not 지원 안 함", () => {
+    const draft = toDraft(job({ status: "undecided", skipReason: "사유" }));
+    expect(draft.skipReason).toBe("사유");
+    expect(fromDraft(draft)).toMatchObject({ status: "undecided", skipReason: "사유" });
+    expect(toDraft(null).skipReason).toBe("");
+  });
+
   it("prefills from an application", () => {
     const app = { id: 8, company: "바른정보", jobTitle: "데이터 엔지니어", jobUrl: "https://x" } as Application;
     expect(toDraft(null, prefillFrom(app))).toMatchObject({

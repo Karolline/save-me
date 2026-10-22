@@ -408,6 +408,8 @@ class JobInput(JobFields):
     지원 여부는 받은 값과 상관없이 applied가 된다."""
 
     application_id: int | None = None
+    # 미지원 사유. 주지 않으면 저장된 값을 그대로 둔다 (가져오기는 이 칸을 모른다).
+    skip_reason: str = ""
 
 
 class LevelCounts(ApiModel):
@@ -464,6 +466,7 @@ class Job(JobFields):
     analyzed_at: date
     # 사람이 확인했는지 (가져온 분석은 False, 화면에서 저장하면 True).
     verified: bool
+    skip_reason: str = ""
     application_id: int | None
     application: LinkedApplication | None
     counts: RequirementCounts

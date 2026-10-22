@@ -301,3 +301,25 @@ def test_another_users_get_of_my_analysis_with_trends_is_404(client: TestClient,
     assert other_client.get(f"/api/jobs/{mine['id']}").status_code == 404
     assert other_client.put(f"/api/jobs/{mine['id']}", json=body()).status_code == 404
     assert client.get(f"/api/jobs/{mine['id']}").json()["appeals"] == TRENDS["appeals"]
+
+
+def test_skip_reason_defaults_to_empty_and_round_trips(client: TestClient):
+    created = create(client)
+    assert created["skipReason"] == ""
+
+    long_reason = "연봉이 낮고\n출퇴근이 멀어서 " + "가" * 5000
+    updated = client.put(f"/api/jobs/{created['id']}", json=body(status="skipped", skipReason=long_reason)).json()
+    assert updated["skipReason"] == long_reason
+    assert client.get(f"/api/jobs/{created['id']}").json()["skipReason"] == long_reason
+
+    # 상태를 바꿔도 보낸 글은 그대로 저장된다 (서버는 지우지 않는다).
+    back = client.put(f"/api/jobs/{created['id']}", json=body(status="undecided", skipReason=long_reason)).json()
+    assert back["skipReason"] == long_reason
+    assert create(client, status="skipped", skipReason="마감 지남")["skipReason"] == "마감 지남"
+
+
+def test_another_users_skip_reason_is_404(client: TestClient, other_client: TestClient):
+    mine = create(client, status="skipped", skipReason="비밀 사유")
+    assert other_client.get(f"/api/jobs/{mine['id']}").status_code == 404
+    assert other_client.put(f"/api/jobs/{mine['id']}", json=body(skipReason="x")).status_code == 404
+    assert client.get(f"/api/jobs/{mine['id']}").json()["skipReason"] == "비밀 사유"

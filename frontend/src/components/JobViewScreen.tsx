@@ -564,6 +564,11 @@ export function JobViewScreen({
               <b>한 줄 결론</b> {job.conclusion}
             </div>
           )}
+          {job.status === "skipped" && (
+            <div className="conclusion" aria-label="미지원 사유" style={{ whiteSpace: "pre-wrap" }}>
+              <b>미지원 사유</b> {job.skipReason.trim() ? job.skipReason : "적어 둔 사유가 없습니다"}
+            </div>
+          )}
           {filled.length > 0 && (
             <nav className="toc" aria-label="이 분석의 섹션">
               {filled.map((s) => (

@@ -294,6 +294,7 @@ export function emptyJobFields(company = ""): JobFields {
     status: "undecided",
     fit: "",
     conclusion: "",
+    skipReason: "",
     cultureGrade: "",
     cultureScore: null,
     cultureType: "",

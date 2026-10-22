@@ -190,6 +190,7 @@ export interface JobDraft {
   status: JobStatus;
   fit: JobFit;
   conclusion: string;
+  skipReason: string;
   cultureGrade: CultureGrade;
   cultureScore: string;
   cultureType: string;
@@ -278,6 +279,7 @@ export function toDraft(job: Job | null, prefill: Partial<JobDraft> = {}): JobDr
       status: "undecided",
       fit: "",
       conclusion: "",
+      skipReason: "",
       cultureGrade: "",
       cultureScore: "",
       cultureType: "",
@@ -318,6 +320,7 @@ export function toDraft(job: Job | null, prefill: Partial<JobDraft> = {}): JobDr
     status: job.status,
     fit: job.fit,
     conclusion: job.conclusion,
+    skipReason: job.skipReason,
     cultureGrade: job.cultureGrade,
     cultureScore: num(job.cultureScore),
     cultureType: job.cultureType,
@@ -392,6 +395,8 @@ export function fromDraft(d: JobDraft): JobInput {
     status: d.applicationId !== null ? "applied" : d.status,
     fit: d.fit,
     conclusion: d.conclusion,
+    // 상태가 바뀌어 칸이 안 보여도 적어 둔 글은 그대로 보낸다.
+    skipReason: d.skipReason,
     cultureGrade: d.cultureGrade,
     cultureScore: toNumber(d.cultureScore),
     cultureType: d.cultureType,

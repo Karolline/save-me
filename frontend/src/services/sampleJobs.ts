@@ -315,6 +315,7 @@ export const SAMPLE_JOBS: JobSeed[] = [
       status: "skipped",
       fit: "하",
       conclusion: "하고 싶은 일과 거리가 멀어서 지원 안 함.",
+      skipReason: "마케팅 도구 연동이 주업무라 하고 싶은 일과 거리가 멀다.",
       requirements: [R("must", "none", "마케팅 도구 연동", "", [], "경험에 근거 없음")],
     },
   },

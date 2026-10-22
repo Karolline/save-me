@@ -265,6 +265,8 @@ export interface JobFields {
   fit: JobFit;
   /** 한 줄 결론. */
   conclusion: string;
+  /** 미지원 사유: 상태가 "지원 안 함"일 때 화면에 보인다. 상태를 바꿔도 지우지 않는다. */
+  skipReason: string;
   cultureGrade: CultureGrade;
   cultureScore: number | null;
   /** 실제 역할 유형. */

@@ -665,6 +665,17 @@ export function JobEditScreen({
             onChange={(e) => set("conclusion", e.target.value)}
           />
         </Field>
+        {d.status === "skipped" && (
+          <Field id="j-skip-reason" label="미지원 사유" help="지원하지 않기로 한 이유" wide>
+            <textarea
+              className="textarea sm"
+              id="j-skip-reason"
+              value={d.skipReason}
+              placeholder="지원하지 않기로 한 이유를 적어 두세요"
+              onChange={(e) => set("skipReason", e.target.value)}
+            />
+          </Field>
+        )}
         <Choice
           label="기술 핏"
           help="요구 기술이 내 경험과 얼마나 맞는지 전체 판정"
