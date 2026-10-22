@@ -406,7 +406,9 @@ describe("print styles", () => {
     expect(print).toContain("-webkit-print-color-adjust: exact");
     expect(print).toMatch(/\.print-only \.pg\s*\{[^}]*break-after:\s*page/);
     expect(print).toMatch(/\.print-only \.pg:last-child\s*\{[^}]*break-after:\s*auto/);
-    expect(print).toMatch(/body > \*:not\(\.print-only\)\s*\{[^}]*display:\s*none/);
+    expect(print).toMatch(/body:has\(> \.print-only\) > \*:not\(\.print-only\)\s*\{[^}]*display:\s*none/);
+    // 인쇄용 쪽이 없는 화면(서버 PDF의 /print 화면 등)까지 숨기는 규칙이 있으면 안 된다.
+    expect(print).not.toMatch(/(^|[\n,{])\s*body > \*:not\(\.print-only\)/);
     expect(print).toMatch(/\.print-only \.pg\s*\{[^}]*box-shadow:\s*none/);
   });
 });

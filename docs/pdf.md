@@ -7,7 +7,7 @@
 ## 브라우저 인쇄 ([PDF로 내려받기])
 
 - `DocumentScreen`이 `window.print()`를 부른다. 인쇄 창이 열려 있는 동안 `document.title`을 `<회사>_<서류>_<작성일>`(`pdfFileName`에서 `.pdf`를 뺀 것)로 바꿔 기본 파일 이름이 되게 하고, `afterprint`에서 되돌린다. 저장 전인 글도 화면의 현재 글로 인쇄한다.
-- 인쇄 결과는 서류 쪽만이다. 미리보기와 같은 `DocumentPages`를 `fit` 없이 한 번 더, `document.body` 바로 아래의 `.print-only`에 그린다 (화면에서는 치워 두어 숨기되 높이는 잴 수 있다). `@media print`에서 `body > *:not(.print-only)`를 숨기므로 앱 화면은 나오지 않는다.
+- 인쇄 결과는 서류 쪽만이다. 미리보기와 같은 `DocumentPages`를 `fit` 없이 한 번 더, `document.body` 바로 아래의 `.print-only`에 그린다 (화면에서는 치워 두어 숨기되 높이는 잴 수 있다). `@media print`에서 `body:has(> .print-only) > *:not(.print-only)`를 숨기므로 앱 화면은 나오지 않는다. `.print-only`가 있는 화면에서만 숨기므로 서버 PDF의 인쇄 화면(`/print/...`)과 다른 화면의 인쇄는 그대로 나온다.
 - 인쇄 CSS는 `styles.css` 끝: `@page { size: A4; margin: 0 }` (머리글·바닥글이 찍히지 않게 여백 0, 안쪽 여백은 `.pg`의 padding), `print-color-adjust: exact`, 쪽마다 `break-after: page`(마지막 쪽 제외), 그림자 없음. 595×842 쪽은 `zoom: 1.3325`로 A4(약 793.7×1122.5 CSS px)에 맞춘다 (4/3보다 조금 작게 해서 빈 쪽이 생기지 않게).
 - Chrome/Edge 기준이다. 다른 브라우저의 인쇄 차이는 맞추지 않는다.
 

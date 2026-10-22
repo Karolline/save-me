@@ -744,7 +744,8 @@ textarea.ed::selection { background: #FFE58A; }
 .print-only { position: fixed; left: -10000px; top: 0; visibility: hidden; pointer-events: none; }
 @media print {
   html, body { height: auto; background: #fff; }
-  body > *:not(.print-only) { display: none !important; }
+  /* 인쇄용 쪽이 있는 화면(서류 상세)에서만 앱을 숨긴다: 서버 PDF의 인쇄 화면과 다른 화면의 인쇄는 그대로 나와야 한다. */
+  body:has(> .print-only) > *:not(.print-only) { display: none !important; }
   .print-only { position: static; visibility: visible; }
   /* 595×842 쪽을 A4(793.7×1122.5 CSS px)에 맞춘다: 4/3보다 아주 조금 작게 해서 쪽이 넘쳐 빈 쪽이 생기지 않게 한다. */
   .print-only .pv { width: auto; zoom: 1.3325; }

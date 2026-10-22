@@ -26,3 +26,9 @@
 
 ### 질문 (멈춘 경우)
 - 없음
+
+## 리뷰 지적 수정
+- 인쇄 숨김 규칙을 `body:has(> .print-only) > *:not(.print-only)`로 좁혔다: `.print-only`가 있는 서류 상세에서만 앱을 숨기고, 서버 PDF의 `/print/...` 화면과 다른 화면의 Ctrl+P는 그대로 나온다. `screens.test.tsx`의 정규식을 맞추고, 좁히지 않은 `body > *:not(.print-only)` 규칙이 없다는 확인을 더했다. `docs/pdf.md`의 문장도 고쳤다. (jsdom은 print 미디어를 못 그려서 CSS 문자열 확인으로 보였다.)
+- `documents.test.tsx`의 빈 서류 인쇄 테스트가 `.print-only .pg`가 1개인지 확인한다.
+- `DocumentScreen.printPdf`: 원래 제목을 ref에 두고, afterprint, 다음 인쇄 직전, 화면이 닫힐 때(cleanup) 되돌린다.
+- 테스트: screens/documents 68 통과 + 2 건너뜀, build와 lint 통과(기존 경고만). 전체 테스트는 돌리지 않았다, CI가 돈다.

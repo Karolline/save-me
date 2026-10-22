@@ -178,13 +178,22 @@ export function DocumentScreen({
     }
   }
 
+  // 인쇄하는 동안 바꾼 문서 제목의 원래 값. afterprint가 안 오는 브라우저를 위해 닫을 때와 다음 인쇄 때도 되돌린다.
+  const savedTitle = useRef<string | null>(null);
+  function restoreTitle() {
+    if (savedTitle.current !== null) document.title = savedTitle.current;
+    savedTitle.current = null;
+  }
+  useEffect(() => restoreTitle, []);
+
   /** [PDF로 내려받기]: 브라우저 인쇄 창을 연다. 사용자가 대상을 "PDF로 저장"으로 고른다. 화면의 현재 글로 인쇄한다. */
   function printPdf() {
     if (!group) return;
     // 인쇄 창의 기본 파일 이름은 문서 제목이다: 열려 있는 동안만 `회사_서류_날짜`로 바꿨다가 끝나면 되돌린다.
-    const original = document.title;
+    restoreTitle();
+    savedTitle.current = document.title;
     document.title = pdfFileName(group, type).replace(/\.pdf$/, "");
-    window.addEventListener("afterprint", () => (document.title = original), { once: true });
+    window.addEventListener("afterprint", restoreTitle, { once: true });
     window.print();
   }
 

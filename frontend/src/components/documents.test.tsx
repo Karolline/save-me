@@ -524,6 +524,7 @@ describe("DocumentScreen", () => {
     await user.click(screen.getByRole("button", { name: "PDF로 내려받기" }));
 
     expect(print).toHaveBeenCalled();
+    expect(document.querySelectorAll(".print-only .pg")).toHaveLength(1);
   });
   it("[편집기에서 찾기] on the mobile review tab switches to the edit tab first, then selects the line", async () => {
     const { user } = open("career");
