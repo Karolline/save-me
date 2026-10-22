@@ -15,21 +15,6 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend (SQLite)
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.2.0 # no major-version tag (v10) is published
-        with:
-          python-version: "3.14" # same as the Docker image
-          enable-cache: true
-      - run: uv sync --locked
-      - run: uv run pytest
-
-  backend-postgres:
     name: Backend (PostgreSQL)
     runs-on: ubuntu-latest
     defaults:

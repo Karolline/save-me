@@ -161,7 +161,7 @@ S1의 톤(차분한 업무용, 흰 카드, 얇은 회색 테두리, 둥근 모�
 - 모든 데이터 테이블(하위 테이블 포함)에 `user_id`(not null, FK, 인덱스).
 - **모든 store 메서드가 `user_id`를 인자로 받고**, id 조회도 `WHERE id = :id AND user_id = :uid`. 남의 id면 **404**.
 - 다른 행을 가리키는 값(`job_id`, `experience_id` 등)을 저장할 때 같은 사용자 것인지 확인.
-- PostgreSQL 행 수준 보안(RLS)은 쓰지 않는다 (Postgres 전용, DB 중립 규칙과 SQLite 테스트에 맞지 않음). store에서 강제하고 테스트로 지킨다.
+- PostgreSQL 행 수준 보안(RLS)은 쓰지 않는다 (마이그레이션·store에서 한 곳으로 관리하기 어렵고, 권한 검사를 store에 모아 둔 현재 구조와 맞지 않음). store에서 강제하고 테스트로 지킨다.
 - **통합 테스트: 엔드포인트마다 "A가 B의 것을 읽기/수정/삭제/연결 → 404".** reviewer 점검 항목에도 넣는다.
 - 탈퇴는 그 사용자의 모든 행 삭제 (FK `ON DELETE CASCADE`) + 파일 삭제 + 카카오 연결 끊기.
 
@@ -234,7 +234,7 @@ S1의 톤(차분한 업무용, 흰 카드, 얇은 회색 테두리, 둥근 모�
 | 규칙(권한·검증)이 사는 곳 | DB 안 RLS 정책 + 프런트 | Python 코드 |
 | 프런트가 부르는 것 | Supabase (DB 직결) | 우리 API |
 | 로그인·파일 | 기본 제공 | 직접 붙임 (5.1, 5.5) |
-| 테스트 | 로컬 재현에 Supabase CLI·Docker 필요 | SQLite로 빠르게, PostgreSQL로도 |
+| 테스트 | 로컬 재현에 Supabase CLI·Docker 필요 | PostgreSQL만 (SQLite는 쓰지 않음) |
 | 서버 코드 | Edge Functions (TypeScript) | Python 전체 |
 | 갈아타기 | Supabase에 묶임 | 어떤 PostgreSQL + 컨테이너 호스팅으로도 |
 

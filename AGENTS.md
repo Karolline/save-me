@@ -23,7 +23,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 
 - 프런트엔드: React + Vite + TypeScript, TanStack Router, 디자인 토큰을 쓰는 plain CSS(`src/styles.css`, 목업에서 옮김), Vitest로 테스트, `frontend/`에.
 - 백엔드: Python + FastAPI, `backend/`에.
-- DB: SQLAlchemy, Alembic으로 스키마 마이그레이션. compose 스택과 나중의 운영은 PostgreSQL(psycopg), 테스트는 SQLite와 PostgreSQL에서. 코드는 DB에 매이지 않게 (SQLite 전용, Postgres 전용 기능 금지). DB URL은 환경 변수에서.
+- DB: SQLAlchemy, Alembic으로 스키마 마이그레이션. compose 스택과 나중의 운영은 PostgreSQL(psycopg), 테스트도 PostgreSQL에서만 (SQLite는 쓰지 않는다, 사용자 결정 2026-10-22). DB URL은 환경 변수에서.
 
 
 ## 명령
@@ -33,7 +33,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 - 설치: `uv sync`. 서류 PDF와 그 테스트를 쓰려면 한 번 `uv run playwright install chromium` (Chromium. 의존성 `playwright`는 사용자가 승인함).
 - 의존성 추가: `uv add <package>` (개발용: `uv add --dev <package>`)
 - 개발 서버: 저장소 맨 위에서 `make run back`, 또는 `uv run python -m app.devserver` (http://127.0.0.1:8010, 문서는 `/docs`). `DATABASE_URL`(기본값: compose 스택의 `saveme_dev`, `docker compose up -d db`로 띄운다)을 쓰고, 마이그레이션하고, 로컬 로그인(`DEV_LOGIN`)을 켜고, uvicorn을 `--reload`로 돌린다. 8010 포트가 쓰이고 있으면 끝난다: Windows에서는 uvicorn이 남은 서버와 포트를 나눠 쓰게 되기 때문이다. 로컬 개발에서 uvicorn을 직접 띄우지 않는다. 서류 PDF는 Vite 개발 서버(`make run front`)가 같이 떠 있어야 만들어진다 (`PDF_FRONTEND_URL`).
-- 마이그레이션(Alembic): `app/db.py`의 모델을 고친 뒤 `uv run alembic revision --autogenerate -m "<바뀐 것>"` (`DATABASE_URL`은 최신 상태의 DB, 예: head까지 올린 임시 SQLite 파일), `migrations/versions/`에 생긴 파일을 읽고 고치고, `uv run python -m app.migrate`로 `saveme_dev`에 적용하고, 모델과 마이그레이션을 함께 커밋한다. DB의 테이블을 손으로 바꾸지 않는다. 제약 이름은 `app/db.py`의 이름 규칙에서 나온다. autogenerate가 만든 기본값은 DB 중립인지 확인한다 (예: Boolean 기본값은 `sa.text('0')`가 아니라 `sa.false()`).
+- 마이그레이션(Alembic): `app/db.py`의 모델을 고친 뒤 `uv run alembic revision --autogenerate -m "<바뀐 것>"` (`DATABASE_URL`은 최신 상태의 DB, 예: head까지 올린 `saveme_dev`), `migrations/versions/`에 생긴 파일을 읽고 고치고, `uv run python -m app.migrate`로 `saveme_dev`에 적용하고, 모델과 마이그레이션을 함께 커밋한다. DB의 테이블을 손으로 바꾸지 않는다. 제약 이름은 `app/db.py`의 이름 규칙에서 나온다. autogenerate가 만든 기본값은 DB 중립인지 확인한다 (예: Boolean 기본값은 `sa.text('0')`가 아니라 `sa.false()`).
 - 테스트: `uv run pytest` (단위만: `uv run pytest tests/unit`, 통합만: `uv run pytest tests/integration`). PostgreSQL에서: `TEST_DATABASE_URL`을 버려도 되는 DB로 (테스트가 테이블을 지우고 다시 만든다. `docs/testing.md`에 임시 컨테이너 예가 있다). `saveme`나 `saveme_dev`를 가리키게 하지 않는다. DB에 닿는 변경은 해당 테스트를 둘 다에서 돌리고, Docker Desktop이 꺼져 있으면 켠다. `uv run pytest tests/compose`는 `docker-compose.yaml`을 자기 프로젝트·포트·볼륨으로 빌드해 띄운다 (Docker 필요, 기본 실행에는 없음). Dockerfile, compose 파일, `docker/`를 고친 뒤 돌린다.
 - 로컬 PostgreSQL URL: `localhost`가 아니라 `127.0.0.1`. 이 Windows PC에서 `localhost`는 IPv6를 먼저 시도해서, 127.0.0.1에 연 Docker 포트에서 멈춘다.
 
@@ -79,7 +79,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 - API의 약속은 `app/models.py`(Pydantic)와 `app/routers/`다. 이것과 프런트엔드 서비스(`types.ts`, HTTP, mock)를 맞춰 둔다. 손으로 쓴 명세 파일은 없다: `/openapi.json`은 FastAPI가 코드에서 만든다.
 - 설정은 환경 변수(`app/config.py`). `APP_ENV`(`local`/`dev`/`prod`): Secure 쿠키는 `local`에서만 끄고, `/docs`는 `prod`에서 끈다. `DEV_LOGIN`(로컬 가짜 로그인)이 `prod`에서 켜져 있으면 앱이 시작하지 않는다.
 - 서류 PDF(`app/pdf.py`)는 헤드리스 Chromium(Playwright)이 요청의 세션 쿠키로 프런트엔드의 인쇄용 경로를 열어 만든다. 컨테이너에서는 `PDF_NO_SANDBOX=1`, 개발 서버에서는 Vite 개발 서버(`PDF_FRONTEND_URL`)가 떠 있어야 한다.
-- 테스트는 [`docs/testing.md`](docs/testing.md). Docker 이미지는 시작할 때 마이그레이션하고 실패하면 앱이 시작하지 않는다. CI는 `.github/workflows/ci.yml`(SQLite와 PostgreSQL, 프런트엔드 test/lint/build)과 `compose.yml`(compose 입력이 바뀌면 스모크 테스트, `paths` 목록을 맞춰 둔다).
+- 테스트는 [`docs/testing.md`](docs/testing.md). Docker 이미지는 시작할 때 마이그레이션하고 실패하면 앱이 시작하지 않는다. CI는 `.github/workflows/ci.yml`(백엔드 PostgreSQL, 프런트엔드 test/lint/build)과 `compose.yml`(compose 입력이 바뀌면 스모크 테스트, `paths` 목록을 맞춰 둔다).
 - 버전: 앱 전체에 `MAJOR.MINOR.PATCH` 하나, git에 `vX.Y.Z` 태그, 바뀐 것은 커밋 로그와 GitHub 릴리즈 노트에. [`docs/versioning.md`](docs/versioning.md) 참고. 사용자가 출시를 부탁할 때만 버전을 올린다.
 
 
