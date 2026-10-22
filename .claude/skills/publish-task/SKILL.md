@@ -33,10 +33,10 @@ push는 하지 않는다.
 
 ## 4. 릴리즈
 
-지시서의 "릴리즈" 절 버전으로 `docs/versioning.md`의 "Releasing a version"을 따른다. 전체 테스트는 다시 돌리지 않는다 (버전 숫자만 바뀌므로 `uv run pytest tests/unit/test_versions.py`만). 사용자에게 버전과 이유를 한국어 한 줄로 알린다 (사용자가 semver를 자주 잊는다). 지시서가 닫을 이슈를 적었으면 릴리즈 때 닫는다.
+지시서의 "릴리즈" 절 버전으로 `docs/versioning.md`의 "버전 출시하기"를 따른다. 전체 테스트는 다시 돌리지 않는다 (버전 숫자만 바뀌므로 `uv run pytest tests/unit/test_versions.py`만). 사용자에게 버전과 이유를 한국어 한 줄로 알린다 (사용자가 semver를 자주 잊는다). 지시서가 닫을 이슈를 적었으면 릴리즈 때 닫는다.
 
 ## 5. 반영과 마무리
 
 - 돌고 있는 앱에 반영하는 법을 알려준다: `scripts/update.ps1` (백업하고, 다시 빌드하고, 마이그레이션한다). 단계에 데이터 가져오기가 있으면 `docs/local-operations.md`대로 먼저 `saveme_dev`에 돌리고, 사용자가 화면을 확인하고, (백업 후) `saveme`에 돌린다.
 - 기획안(`tech 기획안.md`) 맨 위 "남은 일 한눈에" 표에서 끝낸 일의 줄을 지운다. 만든 단계였다면 [`docs/archive/tech 기획안-완료분.md`](docs/archive/tech%20기획안-완료분.md) 7절에 한 줄(완료일, 버전, 한 일) 옮긴다 (그 줄만 `Grep -n`으로 찾아 고친다).
-- 사용자가 요청한 것만 한다: 커밋 push, 태그 push, GitHub 릴리즈 노트 발행(`gh release create`, 노트는 `CHANGELOG.md`의 그 버전에서). `AGENTS.md`의 "push하지 않는다" 규칙이 기본이다. 요청이 없으면 무엇을 push하면 되는지(`git push`, `git push origin vX.Y.Z`)만 알려준다.
+- 사용자가 요청한 것만 한다: 커밋 push, 태그 push, GitHub 릴리즈 노트 발행(`gh release create`, 노트는 `--generate-notes`로 이전 태그 이후 커밋에서). `AGENTS.md`의 "push하지 않는다" 규칙이 기본이다. 요청이 없으면 무엇을 push하면 되는지(`git push`, `git push origin vX.Y.Z`)만 알려준다.

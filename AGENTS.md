@@ -15,7 +15,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 
 - UI 글, 주석, 커밋 메시지는 한국어. 커밋 끝줄(`Co-Authored-By: ...`)은 그대로 둔다.
 - 식별자(변수, 함수, 파일, 경로, DB 이름)는 영어.
-- 사람이 읽는 문서(`docs/`, `CHANGELOG.md`): 한국어를 먼저, 같은 내용의 영어판을 그 아래에.
+- 사람이 읽는 문서(`docs/`): 한국어를 먼저, 같은 내용의 영어판을 그 아래에.
 - 한국어만: "옛 문서" 절의 기획 파일들과 `README.md`, 그리고 AI만 읽는 글인 `AGENTS.md`와 에이전트·스킬 파일(`.claude/`). AI만 읽는 글에 영어판을 같이 두면 읽을 때마다 토큰이 두 배라서 한국어만 둔다 (사용자 결정 2026-10-21).
 - 이 규칙 전에 쓴 파일은 영어다. 작업이 파일을 고칠 때 그 파일을 바꾼다.
 
@@ -81,7 +81,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 - 설정은 환경 변수(`app/config.py`). `APP_ENV`(`local`/`dev`/`prod`): Secure 쿠키는 `local`에서만 끄고, `/docs`는 `prod`에서 끈다. `DEV_LOGIN`(로컬 가짜 로그인)이 `prod`에서 켜져 있으면 앱이 시작하지 않는다.
 - 서류 PDF(`app/pdf.py`)는 헤드리스 Chromium(Playwright)이 요청의 세션 쿠키로 프런트엔드의 인쇄용 경로를 열어 만든다. 컨테이너에서는 `PDF_NO_SANDBOX=1`, 개발 서버에서는 Vite 개발 서버(`PDF_FRONTEND_URL`)가 떠 있어야 한다.
 - 테스트는 [`docs/testing.md`](docs/testing.md). Docker 이미지는 시작할 때 마이그레이션하고 실패하면 앱이 시작하지 않는다. CI는 `.github/workflows/ci.yml`(SQLite와 PostgreSQL, 프런트엔드 test/lint/build)과 `compose.yml`(compose 입력이 바뀌면 스모크 테스트, `paths` 목록을 맞춰 둔다).
-- 버전: 앱 전체에 `MAJOR.MINOR.PATCH` 하나, git에 `vX.Y.Z` 태그, 바뀐 것은 `CHANGELOG.md`에. [`docs/versioning.md`](docs/versioning.md) 참고. 사용자가 출시를 부탁할 때만 버전을 올린다.
+- 버전: 앱 전체에 `MAJOR.MINOR.PATCH` 하나, git에 `vX.Y.Z` 태그, 바뀐 것은 커밋 로그와 GitHub 릴리즈 노트에. [`docs/versioning.md`](docs/versioning.md) 참고. 사용자가 출시를 부탁할 때만 버전을 올린다.
 
 
 ## 규칙
@@ -116,7 +116,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 ## 모델 사용 (사용자 결정, 2026-10-21)
 
 - **Opus**: 설계(기획, 작업 지시서), 리뷰, 어려운 디버깅. 판단이 결과를 좌우하는 일.
-- **Sonnet**: 정해진 대로 구현하기, 테스트 돌리기, 문서·이력 정리(`CHANGELOG.md`, 기획안의 남은 일 표 정리 등). 이런 일은 대화를 처음부터 Sonnet으로 시작한다. 대화 도중에 모델을 바꾸면 그때까지의 컨텍스트를 다시 읽는 비용이 든다.
+- **Sonnet**: 정해진 대로 구현하기, 테스트 돌리기, 문서 정리(기획안의 남은 일 표 정리 등). 이런 일은 대화를 처음부터 Sonnet으로 시작한다. 대화 도중에 모델을 바꾸면 그때까지의 컨텍스트를 다시 읽는 비용이 든다.
 - 일이 섞여 있으면 판단이 필요한 쪽(Opus)에서 시작해 지시서까지 쓰고, 구현은 새 Sonnet 세션이나 개발자 에이전트에 넘긴다.
 
 
