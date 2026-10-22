@@ -1,14 +1,18 @@
 ---
 name: plan-task
-description: 기획자. 사용자와 기능이나 수정을 기획하고 .claude/tasks/에 작업 지시서를 써서 main에 커밋한 뒤, 개발자 에이전트를 백그라운드로 띄우고 끝난다. 리뷰와 병합, 릴리즈는 하지 않는다(publish-task가 한다). 사용자가 작업 기획을 부탁하거나 /plan-task, 기획해줘, 작업 맡길게라고 하거나 기능을 백그라운드로 만들어 달라고 할 때 쓴다.
+description: 기획자. 사용자와 기능이나 수정을 기획하고 .claude/tasks/에 작업 지시서를 써서 main에 커밋하고 끝난다. 개발자를 띄우거나 리뷰, 병합, 릴리즈는 하지 않는다(run-task가 개발자와 리뷰어를 띄우고, publish-task가 병합한다). 사용자가 작업 기획을 부탁하거나 /plan-task, 기획해줘라고 할 때 쓴다. 기획부터 리뷰까지 이어서 맡기려면 /run-task.
 argument-hint: <만들 것>
 ---
 
 # 작업 기획 (기획자)
 
-이 스킬의 일은 기획과 지시서까지다. 개발자를 띄우면 끝난다. 리뷰, 병합, 릴리즈는 새 대화에서 `/publish-task`가 한다 (컨텍스트를 짧게 두려고 나눴다).
+이 스킬의 일은 기획과 지시서까지다. 지시서에 OK를 받고 커밋하면 끝난다. 개발자를 띄우지 않는다: 단계들을 이어 주는 건 `/run-task`이고(이 스킬을 부른다), 이 스킬만 따로 불렀다면 사용자가 나중에 `/run-task <이름>`으로 이어 간다. 병합과 릴리즈는 `/publish-task`가 한다.
 
 개발자 에이전트는 일하는 동안 사용자에게 물을 수 없다. 그래서 모든 질문은 여기서 먼저 답을 받는다. 결과물은 사용자 눈에 보이는 것은 개발자가 짐작할 일이 없을 만큼 완전한 작업 지시서다.
+
+## 0. 시작 시각 적어 두기
+
+소요 시간을 재려고 이 스킬이 시작되는 시각을 먼저 잰다 (PowerShell: `Get-Date -Format "yyyy-MM-ddTHH:mm:sszzz"`). 이름은 4단계에서 정해지므로 그때까지 이 값을 기억해 둔다 (`docs/versioning.md`의 "소요 시간과 메모리").
 
 ## 1. 요청 이해
 
@@ -76,6 +80,13 @@ argument-hint: <만들 것>
 
 사용자에게 지시서를 한국어로 요약해 주고 분명한 OK를 받는다. 동의할 때까지 고친다.
 
-## 5. 넘기기
+## 5. 마무리
 
-OK를 받으면 Agent 도구로 개발자 에이전트를 띄운다: `subagent_type: "developer"`, `isolation: "worktree"`, `run_in_background: true`, 프롬프트는 지시서 전체. 돌고 있다고 사용자에게 한 줄로 알린다.
+OK를 받으면 지시서를 `.claude/tasks/<이름>.md`로 옮겨 main에 커밋하고(개인 데이터는 쓰지 않는다. 저장소는 공개다), 기획 단계의 시간을 기록한다 (저장소 맨 위에서. 기록은 git이 무시하는 `private/metrics/<이름>.jsonl`에 쌓인다):
+
+```
+powershell -NoProfile -File scripts/measure.ps1 -Name <이름> -Stage plan -Mark start -At "<0단계에서 잰 시각>"
+powershell -NoProfile -File scripts/measure.ps1 -Name <이름> -Stage plan -Mark end
+```
+
+사용자에게 지시서 이름을 한 줄로 알린다. 개발자는 띄우지 않는다. `/run-task`가 부른 것이면 거기서 이어지고, 따로 불렀다면 `/run-task <이름>`으로 이어 가라고 알린다.
