@@ -95,7 +95,7 @@ def test_the_image_makes_a_pdf_with_korean_fonts(stack) -> None:
     """서버가 같은 앱의 인쇄용 화면을 이미지 안의 Chromium으로 열어 PDF를 만든다."""
     with httpx.Client(base_url=APP_URL, headers=CSRF, timeout=120) as client:
         assert client.post("/api/auth/dev-login").status_code == 200
-        group = client.post("/api/document-groups", json={"company": "오늘의집", "writtenOn": "2026-10-14"}).json()
+        group = client.post("/api/document-groups", json={"company": "가나다상사", "writtenOn": "2026-10-14"}).json()
         body = "# 김지원\n한글 글꼴 확인 **굵게**\n\n## 요약\n주문·정산 데이터를 다루는 데이터 엔지니어입니다.\n---\n둘째 쪽"
         assert client.post(f"/api/document-groups/{group['id']}/documents", json={"type": "resume", "body": body}).status_code == 201
 

@@ -287,18 +287,18 @@ def test_the_summary_lines():
         total=5,
         created=2,
         replaced=1,
-        skipped=[("오늘의집 · 백엔드 개발자", "이미 있음"), ("토스 · Server Developer", "확인됨이라 바꾸지 않음")],
+        skipped=[("가나다상사 · 백엔드 개발자", "이미 있음"), ("예시컴퍼니 · Server Developer", "확인됨이라 바꾸지 않음")],
     )
 
     assert result.lines("saveme") == [
         "saveme: 추가 2, 바꿈 1, 건너뜀 2 (파일 5건)",
-        "건너뜀: 오늘의집 · 백엔드 개발자 (이미 있음)",
-        "건너뜀: 토스 · Server Developer (확인됨이라 바꾸지 않음)",
+        "건너뜀: 가나다상사 · 백엔드 개발자 (이미 있음)",
+        "건너뜀: 예시컴퍼니 · Server Developer (확인됨이라 바꾸지 않음)",
     ]
     assert result.lines("saveme", dry_run=True) == [
         "[시험] saveme: 추가 2, 바꿈 1, 건너뜀 2 (파일 5건)",
-        "건너뜀: 오늘의집 · 백엔드 개발자 (이미 있음)",
-        "건너뜀: 토스 · Server Developer (확인됨이라 바꾸지 않음)",
+        "건너뜀: 가나다상사 · 백엔드 개발자 (이미 있음)",
+        "건너뜀: 예시컴퍼니 · Server Developer (확인됨이라 바꾸지 않음)",
         "시험이라 아무것도 쓰지 않았어요.",
     ]
 

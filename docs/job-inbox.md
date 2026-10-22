@@ -5,7 +5,7 @@
 ## 어디에, 어떤 이름으로
 
 - 폴더: `C:\dev\save-me\private\inbox\jobs\` (없으면 만든다). `private/`는 git이 무시하므로 진짜 데이터를 둬도 된다.
-- 파일 이름: `YYYY-MM-DD-<회사>-<직무>.md`, UTF-8. 예: `2026-10-16-오늘의집-DataAnalyticsEngineer.md`.
+- 파일 이름: `YYYY-MM-DD-<회사>-<직무>.md`, UTF-8. 예: `2026-10-16-가나다상사-DataAnalyticsEngineer.md`.
 - 파일 하나에 분석 하나.
 - `done\` 폴더는 가져오기가 끝난 파일을 두는 곳이다. 거기에 쓰지 않는다.
 
@@ -19,7 +19,7 @@
 
 ````markdown
 ---
-회사: 오늘의집
+회사: 가나다상사
 팀: Data팀
 직무: Data Analytics Engineer (물류 도메인)
 공고 URL: https://bucketplace.career.greetinghr.com/ko/o/237958

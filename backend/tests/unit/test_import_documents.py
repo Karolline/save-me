@@ -10,9 +10,9 @@ from app.stores import Stores
 FILE = {
     "groups": [
         {
-            "company": "오늘의집",
+            "company": "가나다상사",
             "writtenOn": "2026-10-14",
-            "jobCompany": "오늘의집",
+            "jobCompany": "가나다상사",
             "documents": [
                 {"type": "resume", "body": "# 김지원\n\n## 경력\n- 일"},
                 {"type": "career", "body": "# 경력기술서"},
@@ -39,14 +39,14 @@ def changed(resume: str) -> dict:
 
 
 def test_imports_groups_and_documents_as_imported(stores: Stores, user_id: int, tmp_path):
-    job = stores.jobs.create(user_id, JobInput(company="오늘의집", title="백엔드"))
+    job = stores.jobs.create(user_id, JobInput(company="가나다상사", title="백엔드"))
 
     result = import_documents(stores, user_id, load(write(tmp_path)))
 
     assert (result.groups_created, result.created, result.replaced, result.skipped) == (2, 3, 0, [])
     groups = stores.documents.list_groups(user_id)
-    assert [g.company for g in groups] == ["오늘의집", "바른정보"]
-    today = stores.documents.find_group(user_id, "오늘의집", groups[0].written_on)
+    assert [g.company for g in groups] == ["가나다상사", "바른정보"]
+    today = stores.documents.find_group(user_id, "가나다상사", groups[0].written_on)
     assert today.job_analysis_id == job.id and today.job_title == "백엔드"
     assert [(d.type, d.source) for d in today.documents] == [("resume", "imported"), ("career", "imported")]
     assert stores.documents.get_document(user_id, today.id, "resume").body == "# 김지원\n\n## 경력\n- 일"
@@ -107,7 +107,7 @@ def test_replace_overwrites_an_untouched_imported_body(stores: Stores, user_id: 
 
 def test_an_existing_group_gets_only_the_missing_documents(stores: Stores, user_id: int, tmp_path):
     existing = stores.documents.create_group(
-        user_id, DocumentGroupInput(company="오늘의집", written_on="2026-10-14")
+        user_id, DocumentGroupInput(company="가나다상사", written_on="2026-10-14")
     )
     stores.documents.create_document(user_id, existing.id, "resume", "# 직접 씀")
 
@@ -120,13 +120,13 @@ def test_an_existing_group_gets_only_the_missing_documents(stores: Stores, user_
 
 def test_job_company_links_only_when_exactly_one_analysis_matches(stores: Stores, user_id: int, tmp_path):
     result = import_documents(stores, user_id, load(write(tmp_path)))
-    assert result.unlinked == [("오늘의집 · 2026-10-14", "같은 회사 공고분석이 없어요")]
+    assert result.unlinked == [("가나다상사 · 2026-10-14", "같은 회사 공고분석이 없어요")]
 
     stores.documents.delete_group(user_id, stores.documents.list_groups(user_id)[0].id)
-    stores.jobs.create(user_id, JobInput(company="오늘의집", title="가"))
-    stores.jobs.create(user_id, JobInput(company="오늘의집", title="나"))
+    stores.jobs.create(user_id, JobInput(company="가나다상사", title="가"))
+    stores.jobs.create(user_id, JobInput(company="가나다상사", title="나"))
     result = import_documents(stores, user_id, load(write(tmp_path)))
-    assert result.unlinked == [("오늘의집 · 2026-10-14", "같은 회사 공고분석이 2개예요")]
+    assert result.unlinked == [("가나다상사 · 2026-10-14", "같은 회사 공고분석이 2개예요")]
     assert stores.documents.list_groups(user_id)[0].job_analysis_id is None
 
 
@@ -157,13 +157,13 @@ def test_the_summary_lines():
         groups_created=1,
         created=2,
         replaced=1,
-        skipped=[("오늘의집 · 2026-10-14 · 이력서", "이미 있음")],
+        skipped=[("가나다상사 · 2026-10-14 · 이력서", "이미 있음")],
         unlinked=[("바른정보 · 2026-09-05", "같은 회사 공고분석이 없어요")],
     )
 
     assert result.lines("saveme_dev", dry_run=True) == [
         "[시험] saveme_dev: 묶음 추가 1, 서류 추가 2, 바꿈 1, 건너뜀 1 (파일 묶음 2건)",
-        "건너뜀: 오늘의집 · 2026-10-14 · 이력서 (이미 있음)",
+        "건너뜀: 가나다상사 · 2026-10-14 · 이력서 (이미 있음)",
         "공고분석을 잇지 못함: 바른정보 · 2026-09-05 (같은 회사 공고분석이 없어요)",
         DRY_RUN_NOTE,
     ]
@@ -219,7 +219,7 @@ def test_main_imports_for_the_local_user_and_is_safe_to_repeat(db_file, tmp_path
     main([str(path), "--database-url", url])
     first = output(capsys)
     assert first[0] == f"{db_name(url)}: 묶음 추가 2, 서류 추가 3, 바꿈 0, 건너뜀 0 (파일 묶음 2건)"
-    assert first[1:] == ["공고분석을 잇지 못함: 오늘의집 · 2026-10-14 (같은 회사 공고분석이 없어요)"]
+    assert first[1:] == ["공고분석을 잇지 못함: 가나다상사 · 2026-10-14 (같은 회사 공고분석이 없어요)"]
 
     before = snapshot(engine, skip=("users",))
     main([str(path), "--database-url", url])
@@ -256,5 +256,5 @@ def test_main_replace_keeps_documents_the_user_edited(db_file, tmp_path, capsys)
 
     lines = output(capsys)
     assert lines[0] == f"{db_name(url)}: 묶음 추가 0, 서류 추가 0, 바꿈 2, 건너뜀 1 (파일 묶음 2건)"
-    assert "건너뜀: 오늘의집 · 2026-10-14 · 이력서 (직접 쓰거나 고친 글이라 바꾸지 않음)" in lines
+    assert "건너뜀: 가나다상사 · 2026-10-14 · 이력서 (직접 쓰거나 고친 글이라 바꾸지 않음)" in lines
     assert stores.documents.get_document(user.id, today.id, "resume").body == "# 내가 고침"

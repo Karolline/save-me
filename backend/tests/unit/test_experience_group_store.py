@@ -149,10 +149,10 @@ def test_placement_changes_only_four_fields_and_keeps_verified(stores: Stores, u
     after = stores.experiences.set_placement(
         user_id,
         x,
-        ExperiencePlacement(started_on="2024-02", ended_on="2023-01", org="  SSG.COM · 데이터팀 ", group_id=group.id),
+        ExperiencePlacement(started_on="2024-02", ended_on="2023-01", org="  A회사 · 데이터팀 ", group_id=group.id),
     )
 
-    assert (after.started_on, after.ended_on, after.org, after.group_id) == ("2024-02", "2023-01", "SSG.COM · 데이터팀", group.id)
+    assert (after.started_on, after.ended_on, after.org, after.group_id) == ("2024-02", "2023-01", "A회사 · 데이터팀", group.id)
     assert after.verified is False and after.updated_at == before.updated_at
     unchanged = {"started_on", "ended_on", "org", "group_id"}
     assert after.model_dump(exclude=unchanged) == before.model_dump(exclude=unchanged)

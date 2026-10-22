@@ -6,7 +6,7 @@ from sqlalchemy import text
 from app.models import DocumentGroupInput, DocumentReviewInput, ReviewPartInput
 from app.stores import DuplicateDocumentError, DuplicateGroupError, Stores
 
-KEY = DocumentGroupInput(company="오늘의집", written_on=date(2026, 10, 14))
+KEY = DocumentGroupInput(company="가나다상사", written_on=date(2026, 10, 14))
 TABLES = ["document_groups", "documents", "document_reviews", "document_review_parts", "document_review_items"]
 
 
@@ -31,7 +31,7 @@ def test_store_methods_never_see_another_users_rows(stores: Stores, user_id: int
     stores.documents.create_document(user_id, group.id, "resume", "# a")
 
     assert stores.documents.get_group(other_user_id, group.id) is None
-    assert stores.documents.find_group(other_user_id, "오늘의집", date(2026, 10, 14)) is None
+    assert stores.documents.find_group(other_user_id, "가나다상사", date(2026, 10, 14)) is None
     assert stores.documents.list_groups(other_user_id) == []
     assert stores.documents.create_document(other_user_id, group.id, "career", "") is None
     assert stores.documents.save_document(other_user_id, group.id, "resume", "x") is None

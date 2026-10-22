@@ -41,7 +41,7 @@ pytestmark = [
 ]
 
 BODY = (
-    "# 김지원\n오늘의집 지원 · 한글 글꼴 확인\n\n## 요약\n"
+    "# 김지원\n가나다상사 지원 · 한글 글꼴 확인\n\n## 요약\n"
     + "주문·정산 데이터를 다루는 **데이터 엔지니어**입니다. [링크](https://example.com)\n" * 3
     + "\n## 경력\n"
     + "".join(f"- 항목 {i}: 일 3억 건 이벤트 스트림을 운영하며 늦거나 틀린 데이터를 먼저 알아챔\n" for i in range(60))
@@ -76,7 +76,7 @@ def server(stores: Stores):
 
 
 def make_document(stores: Stores, user_id: int, body: str = BODY, type: str = "career") -> int:
-    group = stores.documents.create_group(user_id, DocumentGroupInput(company="오늘의집", written_on="2026-10-14"))
+    group = stores.documents.create_group(user_id, DocumentGroupInput(company="가나다상사", written_on="2026-10-14"))
     stores.documents.create_document(user_id, group.id, type, body)
     return group.id
 
@@ -131,7 +131,7 @@ def test_the_endpoint_returns_the_pdf_with_the_file_name(chromium, server, store
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
     assert response.content.startswith(b"%PDF") and pdf_page_count(response.content) == 1
-    assert "%EC%98%A4%EB%8A%98%EC%9D%98%EC%A7%91_%EC%9D%B4%EB%A0%A5%EC%84%9C_2026-10-14.pdf" in response.headers["content-disposition"]
+    assert "%EA%B0%80%EB%82%98%EB%8B%A4%EC%83%81%EC%82%AC_%EC%9D%B4%EB%A0%A5%EC%84%9C_2026-10-14.pdf" in response.headers["content-disposition"]
 
 
 def test_another_users_session_cannot_print_my_document(chromium, server, stores: Stores, user_id: int, other_user_id: int):

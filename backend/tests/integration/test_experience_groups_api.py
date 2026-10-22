@@ -105,7 +105,7 @@ def test_placement_changes_four_fields_and_keeps_verified(client: TestClient):
 
     response = client.put(
         f"/api/experiences/{x['id']}/placement",
-        json={"startedOn": "2024-02", "endedOn": "2023-01", "org": " SSG.COM · 데이터팀 ", "groupId": made["id"]},
+        json={"startedOn": "2024-02", "endedOn": "2023-01", "org": " A회사 · 데이터팀 ", "groupId": made["id"]},
     )
 
     assert response.status_code == 200, response.text
@@ -115,7 +115,7 @@ def test_placement_changes_four_fields_and_keeps_verified(client: TestClient):
         **before,
         "startedOn": "2024-02",
         "endedOn": "2023-01",
-        "org": "SSG.COM · 데이터팀",
+        "org": "A회사 · 데이터팀",
         "groupId": made["id"],
     }
     assert after["verified"] is False and after["updatedAt"] == before["updatedAt"]

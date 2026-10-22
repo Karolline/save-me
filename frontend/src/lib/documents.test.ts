@@ -212,7 +212,7 @@ describe("review draft", () => {
 
 describe("pdfFileName and findLine", () => {
   it("names the file company_type_date.pdf", () => {
-    expect(pdfFileName({ company: "오늘의집", writtenOn: "2026-10-14" }, "resume")).toBe("오늘의집_이력서_2026-10-14.pdf");
+    expect(pdfFileName({ company: "가나다상사", writtenOn: "2026-10-14" }, "resume")).toBe("가나다상사_이력서_2026-10-14.pdf");
     expect(pdfFileName({ company: "A/B:회사", writtenOn: "2026-10-14" }, "career")).toBe("AB회사_경력기술서_2026-10-14.pdf");
     expect(pdfFileName({ company: "x", writtenOn: "2026-10-14" }, "portfolio")).toBe("x_포트폴리오_2026-10-14.pdf");
   });

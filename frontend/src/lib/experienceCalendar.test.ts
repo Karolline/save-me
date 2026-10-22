@@ -48,8 +48,8 @@ const exp = (startedOn: string | null, endedOn: string | null, org = "미담플�
 
 describe("orgCompany and colors", () => {
   it("takes the company before the dot", () => {
-    expect(orgCompany(" SSG.COM · 데이터팀 ")).toBe("SSG.COM");
-    expect(orgCompany("현대IT&E")).toBe("현대IT&E");
+    expect(orgCompany(" A회사 · 데이터팀 ")).toBe("A회사");
+    expect(orgCompany("B회사")).toBe("B회사");
     expect(orgCompany("")).toBe("");
   });
 

@@ -160,8 +160,8 @@ uv run python -m app.importers.reviews ../private/reviews.json --database-url po
 
   ```
   saveme: 추가 2, 바꿈 1, 건너뜀 2 (파일 5건)
-  건너뜀: 오늘의집 · 백엔드 개발자 (이미 있음)
-  건너뜀: 토스 · Server Developer (확인됨이라 바꾸지 않음, 바꾸려면 --replace-verified)
+  건너뜀: 가나다상사 · 백엔드 개발자 (이미 있음)
+  건너뜀: 예시컴퍼니 · Server Developer (확인됨이라 바꾸지 않음, 바꾸려면 --replace-verified)
   ```
 - `level`: `full`(충족), `part`(부분·인접), `none`(없음), `""`(미평가). 해당도를 매기지 않은 기존 분석은 `""`로 둔다.
 - 파일 전체를 트랜잭션 하나로 쓴다. `company`와 `analyzedAt` 말고는 빼도 된다. 점수는 0~1000.

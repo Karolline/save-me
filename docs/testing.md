@@ -58,7 +58,7 @@ TEST_DATABASE_URL=postgresql://postgres:test@127.0.0.1:55442/test uv run pytest
 docker stop saveme-testpg   # --rm이라 지워진다
 ```
 
-데몬이 안 돌아서 `docker info`가 실패하면 Docker Desktop을 먼저 켠다 (이 PC: `C:\Users\hyejin\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`, PowerShell의 `Start-Process` 등) 그리고 `docker info`가 될 때까지 기다린다. Docker Desktop은 켜 둔 채로 두고, 내가 띄운 컨테이너만 멈춘다.
+데몬이 안 돌아서 `docker info`가 실패하면 Docker Desktop을 먼저 켠다 (이 PC: `C:\Users\<사용자>\AppData\Local\Programs\DockerDesktop\Docker Desktop.exe`, PowerShell의 `Start-Process` 등) 그리고 `docker info`가 될 때까지 기다린다. Docker Desktop은 켜 둔 채로 두고, 내가 띄운 컨테이너만 멈춘다.
 
 ### docker-compose.yaml로
 

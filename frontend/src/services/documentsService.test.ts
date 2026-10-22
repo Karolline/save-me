@@ -6,7 +6,7 @@ import { SAMPLE_DOCUMENTS } from "./sampleDocuments";
 import { SAMPLE_JOBS } from "./sampleJobs";
 import type { DocumentReviewInput } from "./types";
 
-const GROUP = { company: "오늘의집", writtenOn: "2026-10-14", jobAnalysisId: null };
+const GROUP = { company: "가나다상사", writtenOn: "2026-10-14", jobAnalysisId: null };
 
 const REVIEW: DocumentReviewInput = {
   reviewer: "",
@@ -39,7 +39,7 @@ describe("mock service: document groups", () => {
     const service = createMockService();
     await service.createDocumentGroup(GROUP);
 
-    await expect(service.createDocumentGroup({ ...GROUP, company: " 오늘의집 " })).rejects.toSatisfy(isConflict);
+    await expect(service.createDocumentGroup({ ...GROUP, company: " 가나다상사 " })).rejects.toSatisfy(isConflict);
     await service.createDocumentGroup({ ...GROUP, writtenOn: "2026-10-15" });
     await service.createDocumentGroup({ ...GROUP, company: "다른 회사" });
     await expect(service.createDocumentGroup({ ...GROUP, company: " " })).rejects.toMatchObject({ status: 422 });

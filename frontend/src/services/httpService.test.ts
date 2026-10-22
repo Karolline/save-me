@@ -167,7 +167,7 @@ describe("httpService", () => {
   it("calls the experience group and placement endpoints", async () => {
     const fetch = stubFetch(200, {});
     const service = createHttpService("/api", fetch);
-    const placement = { startedOn: "2024-02", endedOn: null, org: "SSG.COM · 데이터팀", groupId: 2 };
+    const placement = { startedOn: "2024-02", endedOn: null, org: "A회사 · 데이터팀", groupId: 2 };
 
     await service.setExperiencePlacement(3, placement);
     await service.listExperienceGroups();

@@ -7,7 +7,7 @@ from app.models import Document, DocumentGroup
 from app.pdf import PdfError
 from tests.integration.test_jobs_api import body as job_body
 
-GROUP = {"company": "오늘의집", "writtenOn": "2026-10-14"}
+GROUP = {"company": "가나다상사", "writtenOn": "2026-10-14"}
 BASE = "/api/document-groups"
 
 
@@ -54,7 +54,7 @@ def test_create_and_get_group_in_camel_case(client: TestClient):
     made = make_group(client)
 
     DocumentGroup.model_validate(made)
-    assert made["company"] == "오늘의집" and made["writtenOn"] == "2026-10-14"
+    assert made["company"] == "가나다상사" and made["writtenOn"] == "2026-10-14"
     assert made["jobAnalysisId"] is None and made["jobTitle"] is None
     assert made["documents"] == [] and made["review"] is None and made["remaining"] == 0
     assert client.get(f"{BASE}/{made['id']}").json() == made
@@ -271,7 +271,7 @@ def test_pdf_download_uses_the_renderer_with_the_session(client: TestClient, mon
 
     assert response.status_code == 200 and response.content == b"%PDF-fake"
     assert response.headers["content-type"] == "application/pdf"
-    assert "UTF-8''%EC%98%A4%EB%8A%98%EC%9D%98%EC%A7%91_%EA%B2%BD%EB%A0%A5%EA%B8%B0%EC%88%A0%EC%84%9C_2026-10-14.pdf" in (
+    assert "UTF-8''%EA%B0%80%EB%82%98%EB%8B%A4%EC%83%81%EC%82%AC_%EA%B2%BD%EB%A0%A5%EA%B8%B0%EC%88%A0%EC%84%9C_2026-10-14.pdf" in (
         response.headers["content-disposition"]
     )
     assert calls and calls[0][1:3] == (group["id"], "career") and calls[0][3]
