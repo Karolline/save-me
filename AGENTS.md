@@ -104,9 +104,12 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 
 ## 에이전트와 스킬 (Claude Code)
 
-- `.claude/skills/plan-task/`: `/plan-task <만들 것>`. 메인 대화에서 사용자와 기획하고, 기획안과 확정 목업으로 작업 지시서를 써서, 개발자 에이전트에게 백그라운드로 넘긴 뒤 리뷰하고 병합한다.
-- `.claude/agents/developer.md`: 지시서 하나를 git worktree의 자기 브랜치에서 테스트와 작은 커밋으로 만든다. `main`에 커밋하지 않는다.
+작업 하나는 기획자 → 개발자 → 리뷰어 → 퍼블리셔 순서로 간다. 기획자와 퍼블리셔는 사용자에게 물어야 해서 스킬이고, 개발자와 리뷰어는 에이전트다. 단계 사이의 컨텍스트는 `.claude/tasks/`의 파일(지시서 `<이름>.md`, 개발자 보고 `<이름>.report.md`)로 넘긴다. 컨텍스트를 짧게 두려고 단계마다 새 대화에서 시작한다 (기획자가 개발자를 띄우면 `/clear`).
+
+- `.claude/skills/plan-task/` (기획자): `/plan-task <만들 것>`. 사용자와 기획하고, 다른 태스크를 안 읽은 사람이 봐도 되는 독립적인 지시서를 `.claude/tasks/`에 써서 main에 커밋하고, 개발자 에이전트를 백그라운드로 띄우고 끝난다. 지시서에 개인 데이터를 쓰지 않는다 (저장소는 공개).
+- `.claude/agents/developer.md`: 지시서 하나를 git worktree의 자기 브랜치에서 테스트와 작은 커밋으로 만들고 보고서를 남긴다. `main`에 커밋하지 않는다.
 - `.claude/agents/reviewer.md`: 브랜치나 커밋 안 한 변경을 이 파일, 명세, 지시서에 비춰 읽기만 하며 리뷰한다.
+- `.claude/skills/publish-task/` (퍼블리셔): `/publish-task <이름>`. 새 대화에서 개발자 보고를 받고, 리뷰어를 돌리고, main에 병합하고, 지시서의 버전으로 릴리즈하고, 지시서·보고서를 지운다. push, 태그 push, 릴리즈 노트는 사용자가 요청할 때만.
 - `.claude/skills/import-jobs/`: `/import-jobs`. 공고분석 받은편지함(`private/inbox/jobs/`)의 파일을 시험하고, 백업하고, `saveme`에 넣고, `done/`으로 옮긴다.
 
 

@@ -631,4 +631,4 @@ PC는 오른쪽 슬라이드 패널(상세와 같은 자리), 모바일은 전�
 - 공개 전환 준비: 내 데이터 내보내기, 처리방침 갱신 → `SIGNUP_MODE=open`
 - 4단계: AI (공고 분석 → 채팅 등록 → AI 첨언), 사용량 제한
 
-각 단계는 화면 UI 확정 → `/plan-task`로 기획(목업 첨부) → developer 에이전트 → reviewer → `main` 병합 → 버전 릴리즈.
+각 단계는 화면 UI 확정 → `/plan-task`로 기획(목업 첨부) → developer 에이전트 → reviewer → `main` 병합 → 버전 릴리즈 (기획은 `/plan-task`, 병합·릴리즈는 `/publish-task`).
