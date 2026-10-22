@@ -282,7 +282,7 @@ uv run python -m app.importers.documents ../private/documents.json --replace
 
 ### 서류 PDF
 
-[PDF로 내려받기]는 서버가 헤드리스 Chromium(Playwright)으로 프런트엔드의 인쇄용 화면(`/print/documents/:묶음/:종류`)을 열어 만든다. Docker 이미지에는 Chromium과 한글 글꼴(Noto Sans CJK)이 들어 있고, 같은 앱의 자기 주소(`http://127.0.0.1:$PORT`, `PDF_FRONTEND_URL`로 바꿈)로 화면을 연다. 개발 PC에서는 한 번 `cd backend` 후 `uv run playwright install chromium`을 하고, 개발 서버(`make run back`)는 Vite 개발 서버(`make run front`, 5180)를 쓴다 (둘 다 떠 있어야 PDF가 된다). 쪽 글꼴은 IBM Plex Sans KR(구글 폰트)이 먼저이고, 못 받으면 Noto Sans CJK KR로 돌아간다: 미리보기와 PDF의 쪽 나눔이 같으려면 같은 글꼴이어야 하므로, 컨테이너가 인터넷에 닿는 것이 좋다. 인터넷이 안 되어도 PDF는 멈추지 않는다 (글꼴 요청은 4초, 화면의 글꼴 대기는 6초까지만 기다리고 Noto로 계속하며, 그때는 쪽 나눔이 미리보기와 조금 다를 수 있다). 개발 서버가 Vite를 여는 주소는 `http://localhost:5180`이다 (Windows에서 Vite는 IPv6 `::1`에만 떠서 `127.0.0.1`로는 안 닿는다).
+지금은 쓰지 않는다 (사용자 결정, 2026-10-22): 서류 상세에는 편집과 리뷰만 있고, 이미지에 Chromium이 들어 있지 않다. 코드는 남겨 두었다. 다시 켜는 법과 만드는 방식은 [`docs/pdf.md`](pdf.md).
 
 ---
 
@@ -460,7 +460,3 @@ uv run python -m app.importers.documents ../private/documents.json --database-ur
 uv run python -m app.importers.documents ../private/documents.json --database-url postgresql://saveme:saveme@127.0.0.1:5442/saveme
 uv run python -m app.importers.documents ../private/documents.json --replace
 ```
-
-### Document PDF
-
-[PDF로 내려받기] has the server open the frontend's print screen (`/print/documents/:group/:type`) in headless Chromium (Playwright) and print it. The Docker image contains Chromium and a Korean font (Noto Sans CJK) and opens the screen at the app's own address (`http://127.0.0.1:$PORT`, overridable with `PDF_FRONTEND_URL`). On a dev PC, run `uv run playwright install chromium` once in `backend/`; the dev server (`make run back`) uses the Vite dev server (`make run front`, port 5180), so both must be running for the PDF to work. Pages use IBM Plex Sans KR (Google Fonts) first and fall back to Noto Sans CJK KR: the preview and the PDF only paginate the same when they use the same font, so internet access in the container is preferable. Without it the PDF still works (a font request waits at most 4 s, the screen's font wait at most 6 s, then it goes on with Noto, and the pagination may then differ slightly from the preview). The dev server opens Vite at `http://localhost:5180` (on Windows Vite listens on IPv6 `::1` only, so `127.0.0.1` does not reach it).

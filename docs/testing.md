@@ -43,7 +43,7 @@ uv run pytest tests/integration   # 통합 테스트만
 | `tests/integration/test_documents_pdf.py` | 진짜 헤드리스 Chromium으로 PDF 만들기 (Chromium과 `frontend/dist`가 없으면 건너뜀): 서버가 프런트엔드 빌드와 함께 뜨고, 인쇄용 화면의 쪽(`.pg`) 수와 PDF의 쪽 수가 같고, 쪽 크기가 A4(595×842pt), 글꼴이 PDF에 들어 있고, 엔드포인트가 파일 이름 헤더와 함께 PDF를 주고, 남의 세션이나 세션 없이는 만들 수 없고, 열 수 없는 주소는 `PdfError`. | PostgreSQL |
 | `tests/integration/test_frontend.py` | 빌드한 프런트엔드 제공 (가짜 `dist` 폴더): 앱 경로는 `index.html`, 빌드 파일은 그대로, `/api`는 JSON이고 모르는 `/api/...`는 404. | PostgreSQL |
 
-PDF 테스트(`test_documents_pdf.py`)는 헤드리스 Chromium과 프런트엔드 빌드가 있어야 돈다. 한 번만: `backend/`에서 `uv run playwright install chromium`, `frontend/`에서 `npm run build`. 없으면 건너뛰고 까닭을 보인다 (`-rs`).
+PDF 테스트(`test_documents_pdf.py`, `test_documents_pdf_api.py`, `unit/test_pdf.py`, `unit/test_config.py`의 PDF 주소)는 지금 PDF를 쓰지 않아서 `pdf` 표시가 붙어 기본 실행(`uv run pytest`)에서 빠진다. 돌리려면 `backend/`에서 `uv sync --extra pdf`, `uv run playwright install chromium`, `frontend/`에서 `npm run build` 한 뒤 `uv run pytest -m pdf` (Chromium이나 빌드가 없으면 건너뛰고 까닭을 보인다, `-rs`). 프런트엔드의 PDF 테스트는 `VITE_PDF=1 npm test`에서만 돈다 ([`docs/pdf.md`](pdf.md)).
 
 공통 fixture는 `tests/conftest.py`에 있다. 앱을 import하기 전에 `DATABASE_URL`을 `TEST_DATABASE_URL`로 정하고, 진짜 DB(`saveme`, `saveme_dev`)를 가리키면 거부해서 어떤 테스트도 진짜 DB를 건드리지 않는다. `client`와 `other_client`는 서로 다른 두 사용자로 로그인해 CSRF 헤더를 보내고, `anon_client`는 세션이 없다. 가짜 시계가 시각을 정해 준다 (2026-09-01부터). `application(...)`은 `ApplicationInput`을 만든다.
 
@@ -62,7 +62,7 @@ docker stop saveme-testpg   # --rm이라 지워진다
 
 ### docker-compose.yaml로
 
-`tests/compose/test_compose.py`는 진짜 스택을 빌드해 띄우고 (`docker compose up --build`), 프런트엔드가 이미지에 빌드돼 제공되는지, DB 두 개가 있는지, 이미지 안의 Chromium이 한글 글꼴로 서류 PDF를 만드는지, 앱이 `saveme`에 지원 건을 저장하는지 (`psql`로 읽어 봄) 확인한다. Docker가 필요하고 처음 빌드는 Chromium을 받느라 몇 분 걸리며, 기본 실행에는 들어 있지 않다:
+`tests/compose/test_compose.py`는 진짜 스택을 빌드해 띄우고 (`docker compose up --build`), 프런트엔드가 이미지에 빌드돼 제공되는지, DB 두 개가 있는지, 앱이 `saveme`에 지원 건을 저장하는지 (`psql`로 읽어 봄) 확인한다. Docker가 필요하고 처음 빌드는 Chromium을 받느라 몇 분 걸리며, 기본 실행에는 들어 있지 않다:
 
 ```
 uv run pytest tests/compose
