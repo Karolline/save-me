@@ -49,14 +49,14 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 
 ## 로컬 운영 (진짜 데이터)
 
-배포 전까지는 사용자 PC의 compose 스택이 운영이다: `saveme`에 사용자의 진짜 데이터가 있다. 기획안 5.15와 [`docs/local-operations.md`](docs/local-operations.md) 참고.
+배포 전까지는 사용자 PC의 compose 스택이 운영이다: `saveme`에 사용자의 진짜 데이터가 있다. [`docs/local-operations.md`](docs/local-operations.md)와 완료분 기획안 5.15 참고.
 
 - `docker-compose.yaml`: `db` (PostgreSQL 18, `127.0.0.1:5442`, 볼륨 `saveme-pgdata`, DB `saveme`와 `saveme_dev`. 뒤의 것은 볼륨이 새로 생길 때 `docker/initdb/`가 만든다)와 `app` (이미지, `127.0.0.1:8100`, `saveme` 사용, `APP_ENV=local`, `DEV_LOGIN=true`).
 - `docker compose down -v`를 돌리거나 `saveme-pgdata` 볼륨을 지우지 않는다. 사용자가 부탁할 때 가져오기 명령과 `scripts/restore.ps1 -IntoRealData`로 하는 것 말고는 테스트, 스크립트, 손으로 `saveme`에 쓰지 않는다.
 - 마이그레이션 시험: 먼저 `saveme_dev`에 적용한다 (개발 서버나 `app.migrate`). 진짜 DB는 사용자가 `scripts/update.ps1`로 앱을 업데이트할 때 받는다. 이 스크립트는 다시 빌드하기 전에 `saveme`를 백업하고, 앱 컨테이너가 시작하며 마이그레이션한다.
 - 아직 병합하지 않은 브랜치 미리 보기: `scripts/preview.ps1 -Branch <브랜치>` (그 브랜치의 worktree로 이미지 `saveme-preview`를 빌드해 compose 프로젝트 `saveme-preview`로 띄운다: 앱 http://localhost:8200, DB `127.0.0.1:5452`, 볼륨 `saveme-preview-pgdata`. DB에는 `saveme`를 읽기만 해서 복사한다. 끄기: `-Stop`). 개발자 에이전트가 끝나면 병합 전에 사용자가 이것으로 화면을 본다. `APP_PORT`, `DB_PORT`, `PGDATA_VOLUME`을 셸에 남기지 않는다: 진짜 스택의 `docker compose`도 그 값을 읽어 db를 다른 볼륨으로 옮긴다.
 - 백업: `scripts/backup.ps1` (`saveme`를 pg_dump해 백업 폴더로, 사용자가 네이버 MYBOX로 동기화), `scripts/register-backup-task.ps1` (매일 예약 작업), `scripts/restore.ps1` (기본은 복원 연습). 이 스크립트들은 ASCII만 쓴다 (Windows PowerShell 5.1이 시스템 코드 페이지로 읽는다).
-- 사용자의 기존 데이터 가져오기 (기획안 7, "내 기존 데이터 넣기"): 메뉴마다, 그 만드는 단계의 마지막 작업으로. 가져오기 코드는 `backend/app/importers/`에 있고 JSON 파일을 읽는다 (`applications.py`: 지원 건, `reviews.py`: 면접 후기, `jobs.py`: 공고분석, `experiences.py`: 경험, `resume.py`: 이력, 빈 카드만 채움, `documents.py`: 지원서류 묶음과 서류, 이미 있으면 건너뜀, `--replace`는 "가져옴"인 서류만). 진짜 데이터가 든 JSON은 `private/`(git이 무시)에 쓰고 커밋하지 않는다. 먼저 `saveme_dev`에 넣고, 사용자가 확인하고, 백업한 뒤 `saveme`에 넣는다. 가져오기는 두 번 돌려도 안전해야 한다.
+- 사용자의 기존 데이터 가져오기 (완료분 기획안 7절, "내 기존 데이터 넣기"): 메뉴마다, 그 만드는 단계의 마지막 작업으로. 가져오기 코드는 `backend/app/importers/`에 있고 JSON 파일을 읽는다 (`applications.py`: 지원 건, `reviews.py`: 면접 후기, `jobs.py`: 공고분석, `experiences.py`: 경험, `resume.py`: 이력, 빈 카드만 채움, `documents.py`: 지원서류 묶음과 서류, 이미 있으면 건너뜀, `--replace`는 "가져옴"인 서류만). 진짜 데이터가 든 JSON은 `private/`(git이 무시)에 쓰고 커밋하지 않는다. 먼저 `saveme_dev`에 넣고, 사용자가 확인하고, 백업한 뒤 `saveme`에 넣는다. 가져오기는 두 번 돌려도 안전해야 한다.
 - 새 공고분석 받기: 다른 프로젝트의 Claude가 [`docs/job-inbox.md`](docs/job-inbox.md) 형식으로 `private/inbox/jobs/`에 둔 파일을 `/import-jobs`로 넣는다. 위의 첫 가져오기와 달리 `saveme_dev`를 거치지 않는다: 시험 실행(`--dry-run`), 백업, `saveme`에 넣기. 가져온 분석은 사람 확인이 N이라 사용자가 앱에서 확인한다. 이미 있는 (회사, 직무)는 건너뛴다 (사용자 결정, 2026-10-16). 사용자가 부탁하면 `--replace`(미확인만)나 `--replace-verified`(확인된 것도)로 바꾸고, 지원 건 연결은 그대로 남는다.
 
 
@@ -67,7 +67,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 프런트엔드 (`frontend/`):
 
 - 백엔드 호출은 모두 `src/services/`의 서비스 층을 거친다. `types.ts`가 인터페이스(`SaveMeService`), `httpService.ts`가 백엔드 호출(같은 origin, 쿠키 세션, 쓰기에 `X-Requested-With: SaveMe`), `mockService.ts`가 같은 동작(정렬, 계산, 중복·연결 규칙 포함)을 하는 메모리 mock이다. 컴포넌트는 `useService()`만 부르고 데이터를 직접 거르거나 세거나 정렬하지 않는다. 서비스를 바꾸면 mock과 `openapi.yaml`도 맞춘다.
-- `src/lib/`: 순수 함수와 단위 테스트. 그리기 계산은 여기 둔다 (기획안 5.11).
+- `src/lib/`: 순수 함수와 단위 테스트. 그리기 계산은 여기 둔다 (완료분 기획안 5.11).
 - `src/components/`: 화면과 패널. 이동 콜백을 props로 받고 라우터를 import하지 않아서 바로 테스트할 수 있다. 사이드바 메뉴 목록은 `menu.ts` 하나다.
 - `src/router.tsx`: 경로 (TanStack Router). 라우트 컴포넌트가 이동과 로그인 확인을 맡는다. 지원 건은 목록 위에 그리는 패널(자식 경로), 나머지는 페이지다. 어디서 왔는지와 고른 것은 search로 넘긴다. 인쇄용 `/print/...`는 셸 밖의 라우트다 (서버가 PDF를 만들 때 연다).
 - 모든 입력 칸은 16px 이상 (더 작으면 iPhone Safari가 확대한다). `styles.css`를 테스트가 확인한다.
@@ -116,7 +116,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 ## 모델 사용 (사용자 결정, 2026-10-21)
 
 - **Opus**: 설계(기획, 작업 지시서), 리뷰, 어려운 디버깅. 판단이 결과를 좌우하는 일.
-- **Sonnet**: 정해진 대로 구현하기, 테스트 돌리기, 문서·이력 정리(`CHANGELOG.md`, 기획안 체크 표시 등). 이런 일은 대화를 처음부터 Sonnet으로 시작한다. 대화 도중에 모델을 바꾸면 그때까지의 컨텍스트를 다시 읽는 비용이 든다.
+- **Sonnet**: 정해진 대로 구현하기, 테스트 돌리기, 문서·이력 정리(`CHANGELOG.md`, 기획안의 남은 일 표 정리 등). 이런 일은 대화를 처음부터 Sonnet으로 시작한다. 대화 도중에 모델을 바꾸면 그때까지의 컨텍스트를 다시 읽는 비용이 든다.
 - 일이 섞여 있으면 판단이 필요한 쪽(Opus)에서 시작해 지시서까지 쓰고, 구현은 새 Sonnet 세션이나 개발자 에이전트에 넘긴다.
 
 
@@ -135,6 +135,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 MVP가 끝나서 아래 문서는 만들 때의 기록이다. 토큰과 시간을 아끼려고 평소 작업에서는 읽지 않는다 (사용자 결정, 2026-10-22).
 
 - [`docs/archive/mockup/saveme-mvp.html`](docs/archive/mockup/saveme-mvp.html) (300KB, 확정 목업), [`docs/archive/화면명세-1차.md`](docs/archive/화면명세-1차.md): 이미 만든 화면은 코드가 기준이라 열지 않는다. 새 화면을 만들 때만 `Grep -n`으로 그 화면(`const SCREENS`의 id, `/* ───────── <이름>` 영역)을 찾아 그 부분만 읽는다.
-- [`tech 기획안.md`](tech%20기획안.md) (75KB): 통째로 읽지 않는다. 제목 줄(`^#`)을 Grep해 필요한 절만 `Read`의 `offset`/`limit`로 읽는다. 아직 남은 일에만 쓴다: 12 배포(5.6 호스팅, 5.9 개인정보, 5.15 로컬 운영), 6절의 정할 것·나중에 할 일, 3.2의 뺀 것(제출 파일, 다크 모드, AI, 내 데이터 내보내기). 만든 화면의 명세(4.2)와 데이터 모델(5.13)은 코드가 더 정확하다. 한 대화에서 이미 읽은 부분은 다시 읽지 않는다.
-- 남은 큰 일: **12 배포**(CI → 이미지 → 배포, 카카오 로그인, 초대 코드), 그다음 모바일·AI·제출 파일. 포트폴리오 가져오기는 이슈 #4, 리뷰 붙여넣기 파싱은 이슈 #5.
+- [`tech 기획안.md`](tech%20기획안.md) (27KB, 남은 일만): 맨 위 "남은 일 한눈에" 표가 할 일 목록이다. 표의 "읽을 곳" 절만 `Grep -n "^#"`과 `Read`의 `offset`/`limit`로 읽는다 (12 배포는 5.6 호스팅·5.9 개인정보, 카카오·초대 코드는 5.1·5.2). 한 대화에서 이미 읽은 부분은 다시 읽지 않는다.
+- [`docs/archive/tech 기획안-완료분.md`](docs/archive/tech%20기획안-완료분.md) (59KB): 기획안에서 끝난 부분만 옮긴 것. 절 번호는 기획안 그대로다 (코드 주석의 "기획안 5.13", "기획안 S2 11번"은 여기). 만든 화면의 명세(4.2 S2)와 데이터 모델(5.13)은 코드가 더 정확해서 평소에 열지 않는다.
+- 남은 큰 일은 기획안 맨 위 "남은 일 한눈에" 표에 있다: **12 배포**(CI → 이미지 → 배포, 카카오 로그인, 초대 코드), 그다음 모바일·AI·제출 파일. 포트폴리오 가져오기는 이슈 #4, 리뷰 붙여넣기 파싱은 이슈 #5.
 

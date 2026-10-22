@@ -38,5 +38,5 @@ push는 하지 않는다.
 ## 5. 반영과 마무리
 
 - 돌고 있는 앱에 반영하는 법을 알려준다: `scripts/update.ps1` (백업하고, 다시 빌드하고, 마이그레이션한다). 단계에 데이터 가져오기가 있으면 `docs/local-operations.md`대로 먼저 `saveme_dev`에 돌리고, 사용자가 화면을 확인하고, (백업 후) `saveme`에 돌린다.
-- 기획안(`tech 기획안.md`) 7절에서 그 단계에 체크 표시를 한다 (그 줄만 `Grep -n`으로 찾아 고친다).
+- 기획안(`tech 기획안.md`) 맨 위 "남은 일 한눈에" 표에서 끝낸 일의 줄을 지운다. 만든 단계였다면 [`docs/archive/tech 기획안-완료분.md`](docs/archive/tech%20기획안-완료분.md) 7절에 한 줄(완료일, 버전, 한 일) 옮긴다 (그 줄만 `Grep -n`으로 찾아 고친다).
 - 사용자가 요청한 것만 한다: 커밋 push, 태그 push, GitHub 릴리즈 노트 발행(`gh release create`, 노트는 `CHANGELOG.md`의 그 버전에서). `AGENTS.md`의 "push하지 않는다" 규칙이 기본이다. 요청이 없으면 무엇을 push하면 되는지(`git push`, `git push origin vX.Y.Z`)만 알려준다.

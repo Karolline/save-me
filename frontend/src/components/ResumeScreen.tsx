@@ -123,7 +123,7 @@ type Editing =
 const empty = (text: string) => <p className="hint">{text}</p>;
 
 /**
- * 이력 (기획안 S2 12번, 목업 resume·resume-edit): 카드 한 페이지. 카드마다 [편집]을 누르면
+ * 이력 (완료분 기획안 S2 12번, 목업 resume·resume-edit): 카드 한 페이지. 카드마다 [편집]을 누르면
  * 그 카드만 그 자리에서 편집 모드가 되고, 그동안 다른 카드의 [편집]은 막힌다.
  * 총 경력과 휴직 줄은 서울 기준 이번 달(`today`)로 계산한다.
  */

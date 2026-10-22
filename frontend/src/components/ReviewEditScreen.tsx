@@ -30,7 +30,7 @@ import { useSessionErrors } from "./session";
 import { NotFoundScreen } from "./SettingsScreen";
 
 /**
- * 면접 후기 추가·편집 페이지 (기획안 S2 7번, 목업 review-edit, review-add).
+ * 면접 후기 추가·편집 페이지 (완료분 기획안 S2 7번, 목업 review-edit, review-add).
  * 위쪽에서 회사 → 서류 제출일 → 면접 차수를 고르고, 아래에서 질문 말풍선을
  * 쓴다. 손잡이를 끌거나(마우스·터치) 손잡이에 초점을 두고 ↑↓로 순서를 바꾼다.
  * 패널이 아니라 페이지라서 Escape로 닫지 않는다. 다른 후기를 열 때는

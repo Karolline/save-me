@@ -15,7 +15,7 @@ interface Loaded {
 }
 
 /**
- * 면접 후기 목록 (기획안 S2 7번, 목업 reviews, reviews-fav): 회사별 카드, 또는
+ * 면접 후기 목록 (완료분 기획안 S2 7번, 목업 reviews, reviews-fav): 회사별 카드, 또는
  * 즐겨찾기한 질문만. 묶기와 정렬은 서버가 한다.
  */
 export function ReviewsScreen({

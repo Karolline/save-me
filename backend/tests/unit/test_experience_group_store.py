@@ -1,4 +1,4 @@
-"""경험 그룹과 바로 고치기 (경험 캘린더, 기획안 S2 11번)."""
+"""경험 그룹과 바로 고치기 (경험 캘린더, 완료분 기획안 S2 11번)."""
 
 import pytest
 from pydantic import ValidationError

@@ -1,5 +1,5 @@
 /**
- * 경험 캘린더 (기획안 S2 11번, 목업 viewExpCalendar·expIssues·calendarUnits): 연·월 축 계산,
+ * 경험 캘린더 (완료분 기획안 S2 11번, 목업 viewExpCalendar·expIssues·calendarUnits): 연·월 축 계산,
  * 소속 회사 색, 흐름 점검, 줄 순서. 순수 함수만 둔다. "이번 달"은 늘 받아서 쓴다 (시계를 읽지 않는다).
  */
 import type { Career, ExperienceGroup } from "@/services/types";

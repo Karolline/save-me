@@ -112,7 +112,7 @@ function CardsEditor({
 type TextPath = Exclude<keyof ExperienceDraft, CardPath>;
 
 /**
- * 경험 추가·편집 (기획안 S2 11번, 목업 exp-edit): 상세의 모든 섹션을 칸별로 고친다.
+ * 경험 추가·편집 (완료분 기획안 S2 11번, 목업 exp-edit): 상세의 모든 섹션을 칸별로 고친다.
  * 제목만 필수. 저장하면 확인됨이 된다. 빈 카드는 저장할 때 버린다.
  * 다른 경험을 열 때는 `key`로 새로 그린다.
  */

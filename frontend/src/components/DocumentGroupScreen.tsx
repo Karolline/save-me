@@ -10,7 +10,7 @@ import { useSessionErrors } from "./session";
 import { NotFoundScreen } from "./SettingsScreen";
 
 /**
- * 묶음 (기획안 S2 13번, 목업 dgroup): 회사 · 작성날짜 · 공고분석 링크, 서류 칸 3개
+ * 묶음 (완료분 기획안 S2 13번, 목업 dgroup): 회사 · 작성날짜 · 공고분석 링크, 서류 칸 3개
  * (있으면 작성 출처·고친 날·판정·남은 지적 수, 없으면 [만들기]), 아래에 서류별 리뷰.
  * […]에 [묶음 정보 고치기] [묶음 삭제].
  */

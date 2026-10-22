@@ -113,7 +113,7 @@ class SessionRow(Base):
 
 class ApplicationRow(Base):
     """지원 한 건. 한 사용자의 지원 건은 (company, applied_at)으로 구분하고,
-    UNIQUE 제약으로 지킨다 (기획안 5.13). 공고분석은 지원 건 하나에 하나만
+    UNIQUE 제약으로 지킨다 (완료분 기획안 5.13). 공고분석은 지원 건 하나에 하나만
     연결된다 (`job_id` UNIQUE)."""
 
     __tablename__ = "applications"
@@ -179,7 +179,7 @@ class InterviewReviewRow(Base):
     """면접 후기 하나 (면접 한 번).
 
     지원 건의 단계는 지원 건을 저장할 때마다 새로 쓰여서, 후기는 단계를 가리키지
-    않는다. 대신 차수 이름(`round`)과 면접일을 후기가 직접 갖는다 (기획안 5.13).
+    않는다. 대신 차수 이름(`round`)과 면접일을 후기가 직접 갖는다 (완료분 기획안 5.13).
     """
 
     __tablename__ = "interview_reviews"
@@ -250,7 +250,7 @@ class InterviewAnswerRow(Base):
 
 
 class JobAnalysisRow(Base):
-    """공고 분석 하나 (기획안 S2 10번, 5.13).
+    """공고 분석 하나 (완료분 기획안 S2 10번, 5.13).
 
     요구사항(주요업무·자격요건·우대사항)은 세고 거르는 데 쓰여서 행으로 두고,
     나머지 표와 목록은 이 분석 안에서만 보여서 JSON 칸으로 둔다.
@@ -348,7 +348,7 @@ class JobRequirementRow(Base):
 
 
 class ExperienceGroupRow(Base):
-    """경험 그룹 (기획안 S2 11번 "경험 그룹", 5.13): 비슷한 경험을 묶는 이름.
+    """경험 그룹 (완료분 기획안 S2 11번 "경험 그룹", 5.13): 비슷한 경험을 묶는 이름.
 
     경험 하나는 그룹 하나에만 들어간다 (`experiences.group_id`). 경험이 하나도 없는
     그룹은 store가 같은 트랜잭션에서 지운다. 이름은 겹쳐도 된다.
@@ -363,7 +363,7 @@ class ExperienceGroupRow(Base):
 
 
 class ExperienceRow(Base):
-    """경험 하나 (기획안 S2 11번, 5.13). 상황·과제·행동·결과(STAR)로 적은 근거.
+    """경험 하나 (완료분 기획안 S2 11번, 5.13). 상황·과제·행동·결과(STAR)로 적은 근거.
 
     행동·받은 질문·예상 질문·관련 경험은 순서가 있는 하위 행이고, 나머지 목록은
     이 경험 안에서만 보여서 JSON 칸이다. 태그도 JSON 목록으로 둔다 (검색은 store가 거른다).
@@ -507,7 +507,7 @@ class ExperienceLinkRow(Base):
 
 
 class ResumeBasicsRow(Base):
-    """이력의 기본 정보와 커리어 방향 (기획안 S2 12번). 사용자마다 한 줄."""
+    """이력의 기본 정보와 커리어 방향 (완료분 기획안 S2 12번). 사용자마다 한 줄."""
 
     __tablename__ = "resume_basics"
 
@@ -612,7 +612,7 @@ class PersonalityAnswerRow(Base):
 
 
 class DocumentGroupRow(Base):
-    """지원서류 묶음 (기획안 S2 13번, 5.13): (회사, 작성날짜)마다 하나. 서류는 종류마다
+    """지원서류 묶음 (완료분 기획안 S2 13번, 5.13): (회사, 작성날짜)마다 하나. 서류는 종류마다
     최대 하나. 공고분석과 이을 수 있고 (같은 사용자 것만), 분석을 지우면 이음만 풀린다."""
 
     __tablename__ = "document_groups"

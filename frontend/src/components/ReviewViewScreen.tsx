@@ -8,7 +8,7 @@ import { useSessionErrors } from "./session";
 import { NotFoundScreen } from "./SettingsScreen";
 
 /**
- * 면접 후기 보기 (기획안 S2 7번, 목업 review-view): 읽기 전용. 질문마다 별로
+ * 면접 후기 보기 (완료분 기획안 S2 7번, 목업 review-view): 읽기 전용. 질문마다 별로
  * 즐겨찾기, [편집], […]에 마크다운으로 보기와 삭제. 돌아가기는 온 곳으로.
  * 다른 후기를 열 때는 `key={id}`로 그려서 새로 시작한다.
  */

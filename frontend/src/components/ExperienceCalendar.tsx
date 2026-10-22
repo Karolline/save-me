@@ -41,7 +41,7 @@ type NameModal = { mode: "new"; name: string } | { mode: "rename"; id: number; n
 const SAVE_FAILED = "저장하지 못했어요. 다시 시도해 주세요.";
 
 /**
- * 경험 캘린더 (기획안 S2 11번, 목업 exp-cal, exp-cal-group, exp-cal-fix): 연·월 축 위에 이력의
+ * 경험 캘린더 (완료분 기획안 S2 11번, 목업 exp-cal, exp-cal-group, exp-cal-fix): 연·월 축 위에 이력의
  * 재직 기간 띠(휴직은 빗금)와 경험 막대(소속 회사 색), 흐름 점검, 바로 고치기 패널, 그룹 묶기.
  * 축·색·점검·줄 순서는 `lib/experienceCalendar.ts`의 순수 함수가 정한다. 이번 달은 서울 기준으로
  * 화면을 열 때 한 번 정한다.

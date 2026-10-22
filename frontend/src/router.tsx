@@ -233,7 +233,7 @@ const editApplicationRoute = createRoute({
   },
 });
 
-// ── 면접 후기 (기획안 S2 7번) ──
+// ── 면접 후기 (완료분 기획안 S2 7번) ──
 
 const reviewsRoute = createRoute({
   getParentRoute: () => appRoute,
@@ -357,7 +357,7 @@ const editReviewRoute = createRoute({
   },
 });
 
-// ── 공고분석 (기획안 S2 10번) ──
+// ── 공고분석 (완료분 기획안 S2 10번) ──
 
 const JOB_FILTERS: JobStatusFilter[] = ["undecided", "applied", "skipped"];
 
@@ -494,7 +494,7 @@ const editJobRoute = createRoute({
   },
 });
 
-// ── 경험 (기획안 S2 11번) ──
+// ── 경험 (완료분 기획안 S2 11번) ──
 
 const experiencesRoute = createRoute({
   getParentRoute: () => appRoute,

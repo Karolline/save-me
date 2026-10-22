@@ -11,7 +11,7 @@ import { useSessionErrors } from "./session";
  *
  * 옆 패널(모바일은 전체 화면)의 지원 건 하나: 전형 단계, 공고, 면접 후기,
  * 느낀점 (기획안 S1 상세). 공고 섹션의 [분석]은 연결된 공고분석으로, [+ 분석]은
- * 이 지원 건으로 채운 새 분석으로 간다 (기획안 S2 10번).
+ * 이 지원 건으로 채운 새 분석으로 간다 (완료분 기획안 S2 10번).
  */
 export function ApplicationDetailPanel({
   id,

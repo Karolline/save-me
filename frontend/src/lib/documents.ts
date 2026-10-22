@@ -1,7 +1,7 @@
 import type { DocumentGroupSummary, DocumentReviewInput, DocumentType, ReviewVerdict } from "@/services/types";
 
 /**
- * 지원서류 글(마크다운 비슷한 형식)의 파싱과 쪽 나눔. 순수 함수만 있다 (기획안 S2 13번, 5.12).
+ * 지원서류 글(마크다운 비슷한 형식)의 파싱과 쪽 나눔. 순수 함수만 있다 (완료분 기획안 S2 13번, 5.12).
  * 편집기 미리보기와 서버 PDF(인쇄용 화면)가 같은 코드를 쓴다.
  *
  * 서식 (서류 글에 한함):

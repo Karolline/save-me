@@ -217,7 +217,7 @@ function RowsEditor({
 type ListPath = "fitNotes" | "cultureRisks" | "toWrite" | "gaps" | "expSuggestions" | "askBack" | "checks";
 
 /**
- * 공고 분석 추가·편집 (기획안 S2 10번, 목업 job-edit, job-new): 상세의 모든 섹션을
+ * 공고 분석 추가·편집 (완료분 기획안 S2 10번, 목업 job-edit, job-new): 상세의 모든 섹션을
  * 칸별로 고친다. 회사명만 필수. 지원 건과 연결하면 지원 여부는 "지원함"으로 고정된다.
  * 다른 분석을 열 때는 `key`로 새로 그린다.
  */

@@ -13,7 +13,7 @@ const VIEWS: [ExperienceView, string][] = [
 export type ExperiencesMode = "list" | "calendar";
 
 /**
- * 경험 화면 (기획안 S2 11번, 목업 expHead): 머리 아래 [목록] [경험 캘린더] 전환.
+ * 경험 화면 (완료분 기획안 S2 11번, 목업 expHead): 머리 아래 [목록] [경험 캘린더] 전환.
  * 목록은 보기·검색이 있는 게시판, 캘린더는 `ExperienceCalendar`.
  */
 export function ExperiencesScreen({
@@ -64,7 +64,7 @@ export function ExperiencesScreen({
 }
 
 /**
- * 경험 목록 (기획안 S2 11번, 목업 exps): 게시판형, 최근에 시작한 순. 보기·검색·수와
+ * 경험 목록 (완료분 기획안 S2 11번, 목업 exps): 게시판형, 최근에 시작한 순. 보기·검색·수와
  * "보완할 것"은 서버가 준다. 검색어는 바로 바뀌고, 목록은 받는 대로 바꾼다.
  */
 function ExperienceList({

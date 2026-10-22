@@ -4,7 +4,7 @@ import { DocumentGroupDialog } from "./DocumentGroupDialog";
 import { useSessionErrors } from "./session";
 
 /**
- * 지원서류 목록 (기획안 S2 13번, 목업 docs): 묶음마다 한 줄, 회사와 작성날짜만. 최근 날짜가 위.
+ * 지원서류 목록 (완료분 기획안 S2 13번, 목업 docs): 묶음마다 한 줄, 회사와 작성날짜만. 최근 날짜가 위.
  * [+ 새 묶음]은 공고분석에서 고르거나 회사·날짜를 적는다.
  */
 export function DocumentsScreen({ onOpen }: { onOpen: (groupId: number) => void }) {

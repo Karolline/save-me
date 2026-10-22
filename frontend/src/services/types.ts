@@ -626,7 +626,7 @@ export interface Resume {
 /** 이력의 목록 카드. */
 export type ResumeListCard = "careers" | "educations" | "certificates" | "skills" | "personality";
 
-// ── 지원서류 (기획안 S2 13번) ──
+// ── 지원서류 (완료분 기획안 S2 13번) ──
 
 export type DocumentType = "resume" | "career" | "portfolio";
 /** written 직접 작성, imported 가져옴, imported_edited 가져온 것을 고쳐 저장. */

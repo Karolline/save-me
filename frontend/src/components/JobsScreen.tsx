@@ -11,7 +11,7 @@ const FILTERS: [JobStatusFilter, string][] = [
 ];
 
 /**
- * 공고분석 목록 (기획안 S2 10번, 목업 jobs): 최근에 분석한 순. 필터와 개수,
+ * 공고분석 목록 (완료분 기획안 S2 10번, 목업 jobs): 최근에 분석한 순. 필터와 개수,
  * "근거 없음" 수는 서버가 준다.
  */
 export function JobsScreen({

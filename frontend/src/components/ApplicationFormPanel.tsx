@@ -84,7 +84,7 @@ function inputOf(d: Draft): ApplicationInput {
 }
 
 /**
- * 지원 건 추가·수정 (기획안 S2 6번), 옆 패널에서. 지원 건은 (회사, 서류
+ * 지원 건 추가·수정 (완료분 기획안 S2 6번), 옆 패널에서. 지원 건은 (회사, 서류
  * 제출일)로 구분하므로, 그 짝이 이미 있으면 저장을 끈다.
  */
 export function ApplicationFormPanel({
