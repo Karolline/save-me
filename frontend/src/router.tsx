@@ -30,6 +30,7 @@ import { LoginScreen } from "@/components/LoginScreen";
 import { SESSION_EXPIRED, SessionContext, useSession } from "@/components/session";
 import { NotFoundScreen, SettingsScreen } from "@/components/SettingsScreen";
 import { Shell } from "@/components/Shell";
+import { PDF_ENABLED } from "@/lib/features";
 import { useService, type DocumentType, type ExperienceView, type JobStatusFilter, type User } from "@/services";
 
 // 이동은 라우트 컴포넌트가 맡고, 화면은 콜백만 받는다.
@@ -705,7 +706,7 @@ const printDocumentRoute = createRoute({
   component: function PrintDocumentPage() {
     const { groupId, type } = printDocumentRoute.useParams();
     const documentType = asDocumentType(type);
-    if (!documentType) return <div className="print-msg" data-print-error="true">서류를 열지 못했어요.</div>;
+    if (!PDF_ENABLED || !documentType) return <div className="print-msg" data-print-error="true">서류를 열지 못했어요.</div>;
     return <DocumentPrintScreen groupId={toId(groupId)} type={documentType} />;
   },
 });

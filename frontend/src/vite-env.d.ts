@@ -5,6 +5,8 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;
   /** "true" to use the in-memory mock instead of the backend. */
   readonly VITE_USE_MOCK_API?: string;
+  /** "1" to turn on the document PDF (preview, download, print screen). Off by default, see docs/pdf.md. */
+  readonly VITE_PDF?: string;
 }
 
 interface ImportMeta {

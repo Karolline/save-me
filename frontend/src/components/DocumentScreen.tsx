@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DOC_LABELS, FORMAT_GUIDE, findLine, pdfFileName, seoulDay } from "@/lib/documents";
+import { PDF_ENABLED } from "@/lib/features";
 import { useService, type DocumentGroup, type DocumentType, type SavedDocument } from "@/services";
 import { DocumentReviewForm } from "./DocumentReviewForm";
 import { DocumentPages } from "./documentPages";
@@ -15,8 +16,9 @@ type SaveState = "saved" | "dirty" | "saving" | "failed";
 export const AUTOSAVE_MS = 800;
 
 /**
- * 서류 상세 (완료분 기획안 S2 13번, 목업 doc): 위에 같은 묶음의 서류 전환 탭 · 저장 표시 · [PDF로 내려받기],
- * 본문은 세로 3분할 (왼쪽 A4 미리보기 · 가운데 편집기 · 오른쪽 지금 서류의 리뷰). 좁으면 탭.
+ * 서류 상세 (완료분 기획안 S2 13번, 목업 doc): 위에 같은 묶음의 서류 전환 탭 · 저장 표시,
+ * 본문은 세로 2분할 (편집기 · 지금 서류의 리뷰). 좁으면 탭.
+ * PDF가 켜져 있으면(`PDF_ENABLED`, docs/pdf.md) [PDF로 내려받기]와 왼쪽 A4 미리보기가 더해져 3분할이 된다.
  * 편집은 입력을 멈추고 잠깐 뒤 저장한다. 서류를 바꾸면 `key`로 새로 시작한다.
  */
 export function DocumentScreen({
@@ -279,14 +281,16 @@ export function DocumentScreen({
           <button type="button" className="btn btn-text danger" onClick={() => setConfirmDelete(true)}>
             이 서류 지우기
           </button>
-          <button type="button" className="btn btn-primary" onClick={() => setPdfDialog(true)}>
-            PDF로 내려받기
-          </button>
+          {PDF_ENABLED && (
+            <button type="button" className="btn btn-primary" onClick={() => setPdfDialog(true)}>
+              PDF로 내려받기
+            </button>
+          )}
         </div>
         <div className="seg pane-tabs" role="group" aria-label="보기">
           {(
             [
-              ["preview", "미리보기"],
+              ...(PDF_ENABLED ? [["preview", "미리보기"]] : []),
               ["edit", "편집"],
               ["review", "리뷰"],
             ] as [Pane, string][]
@@ -298,16 +302,18 @@ export function DocumentScreen({
         </div>
       </div>
 
-      <div className={`d3 show-${pane}`}>
-        <section className="pane p-preview" aria-label="PDF 미리보기">
-          <div className="pane-h">
-            <b>PDF 미리보기</b>
-            <span className="hint">{pages ? `${pages}쪽` : ""}</span>
-          </div>
-          <div className="pane-b pv-wrap">
-            <DocumentPages body={body} fit warn onLayout={(l) => setPages(l.pageCount)} />
-          </div>
-        </section>
+      <div className={`d3 show-${pane}${PDF_ENABLED ? "" : " no-preview"}`}>
+        {PDF_ENABLED && (
+          <section className="pane p-preview" aria-label="PDF 미리보기">
+            <div className="pane-h">
+              <b>PDF 미리보기</b>
+              <span className="hint">{pages ? `${pages}쪽` : ""}</span>
+            </div>
+            <div className="pane-b pv-wrap">
+              <DocumentPages body={body} fit warn onLayout={(l) => setPages(l.pageCount)} />
+            </div>
+          </section>
+        )}
         <section className="pane p-edit" aria-label="편집기">
           <div className="pane-h">
             <b>편집</b>
@@ -361,7 +367,7 @@ export function DocumentScreen({
         </section>
       </div>
 
-      {pdfDialog && (
+      {PDF_ENABLED && pdfDialog && (
         <div className="modal-wrap">
           <div className="scrim" onClick={() => !pdfBusy && setPdfDialog(false)} />
           <div className="card modal" role="dialog" aria-modal="true" aria-label="PDF로 내려받기">
@@ -430,7 +436,7 @@ function FormatGuide({ onClose }: { onClose: () => void }) {
       <div className="scrim" onClick={onClose} />
       <div className="card modal" role="dialog" aria-modal="true" aria-label="서식 안내">
         <h2>서식 안내</h2>
-        <p className="hint">줄 맨 앞에 이렇게 쓰면 미리보기와 PDF에서 이렇게 보여요. HTML은 쓸 수 없고 글자 그대로 보여요.</p>
+        <p className="hint">줄 맨 앞에 이렇게 쓰면 이렇게 보여요. HTML은 쓸 수 없고 글자 그대로 보여요.</p>
         <div className="fmt-help">
           {FORMAT_GUIDE.map(([syntax, effect]) => (
             <div key={syntax}>

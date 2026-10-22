@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { PDF_ENABLED } from "@/lib/features";
 import { AUTOSAVE_MS, DocumentScreen } from "./DocumentScreen";
 import { DocumentGroupScreen } from "./DocumentGroupScreen";
 import { DocumentPrintScreen } from "./DocumentPrintScreen";
@@ -286,7 +287,7 @@ describe("DocumentScreen", () => {
   };
   const editor = () => screen.getByRole("textbox", { name: "경력기술서 본문" }) as HTMLTextAreaElement;
 
-  it("shows the switch tabs, the save state, the editor with the whole text and the pages", async () => {
+  it("shows the switch tabs, the save state and the editor with the whole text", async () => {
     open();
     await screen.findByRole("textbox", { name: "경력기술서 본문" });
 
@@ -295,6 +296,25 @@ describe("DocumentScreen", () => {
     expect(within(tabs).getByRole("button", { name: "경력기술서" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("status", { name: "저장 상태" })).toHaveTextContent(/^자동 저장됨 · \d{4}-\d{2}-\d{2}$/);
     expect(editor().value).toContain("## 1. 주문 이벤트 스트림 재설계");
+  });
+
+  // 지원서류 PDF는 지금 꺼 둔다 (docs/pdf.md). 켜고 돌리려면 VITE_PDF=1 npm test.
+  it.skipIf(PDF_ENABLED)("has no PDF button, no preview pane and no 미리보기 tab while the PDF is off", async () => {
+    open();
+    await screen.findByRole("textbox", { name: "경력기술서 본문" });
+
+    expect(screen.queryByRole("button", { name: "PDF로 내려받기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "PDF 미리보기" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "미리보기" })).not.toBeInTheDocument();
+    const tabs = screen.getByRole("group", { name: "보기" });
+    expect(within(tabs).getAllByRole("button").map((b) => b.textContent)).toEqual(["편집", "리뷰"]);
+    expect(screen.getByRole("region", { name: "편집기" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "리뷰" })).toBeInTheDocument();
+  });
+
+  it.skipIf(!PDF_ENABLED)("shows the pages and the PDF button", async () => {
+    open();
+    await screen.findByRole("textbox", { name: "경력기술서 본문" });
     expect(screen.getByRole("button", { name: "PDF로 내려받기" })).toBeInTheDocument();
     // 미리보기가 같은 글을 그린다 (번호 목록, 표, 링크도).
     const preview = screen.getByRole("region", { name: "PDF 미리보기" });
@@ -304,7 +324,7 @@ describe("DocumentScreen", () => {
     expect(within(preview).getByText("1 / 2")).toBeInTheDocument();
   });
 
-  it("updates the preview as you type and saves after you stop typing", { timeout: 15000 }, async () => {
+  it.skipIf(!PDF_ENABLED)("updates the preview as you type and saves after you stop typing", { timeout: 15000 }, async () => {
     const { service } = open();
     await screen.findByRole("textbox", { name: "경력기술서 본문" });
     const preview = screen.getByRole("region", { name: "PDF 미리보기" });
@@ -436,8 +456,10 @@ describe("DocumentScreen", () => {
     const panes = () => document.querySelector(".d3")!.className;
 
     expect(panes()).toContain("show-edit");
-    await user.click(screen.getByRole("button", { name: "미리보기" }));
-    expect(panes()).toContain("show-preview");
+    if (PDF_ENABLED) {
+      await user.click(screen.getByRole("button", { name: "미리보기" }));
+      expect(panes()).toContain("show-preview");
+    }
     await user.click(screen.getByRole("button", { name: "리뷰" }));
     expect(panes()).toContain("show-review");
     expect(screen.getByRole("button", { name: "리뷰" })).toHaveAttribute("aria-pressed", "true");
@@ -457,7 +479,7 @@ describe("DocumentScreen", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("downloads the PDF under the company_type_date name after saving", async () => {
+  it.skipIf(!PDF_ENABLED)("downloads the PDF under the company_type_date name after saving", async () => {
     const { user, service } = open();
     await screen.findByRole("textbox", { name: "경력기술서 본문" });
     const pdf = vi.spyOn(service, "downloadDocumentPdf");
@@ -483,7 +505,7 @@ describe("DocumentScreen", () => {
     expect((await service.getDocument(1, "career"))!.body.endsWith("끝")).toBe(true);
   });
 
-  it("toasts when the PDF cannot be made", async () => {
+  it.skipIf(!PDF_ENABLED)("toasts when the PDF cannot be made", async () => {
     const { user, service } = open();
     await screen.findByRole("textbox", { name: "경력기술서 본문" });
     vi.spyOn(service, "downloadDocumentPdf").mockRejectedValue(new Error("502"));
@@ -495,7 +517,7 @@ describe("DocumentScreen", () => {
     expect(screen.getByRole("button", { name: "PDF로 내려받기" })).toBeEnabled();
   });
 
-  it("closes the PDF dialog with [닫기] without making a PDF", async () => {
+  it.skipIf(!PDF_ENABLED)("closes the PDF dialog with [닫기] without making a PDF", async () => {
     const { user, service } = open();
     await screen.findByRole("textbox", { name: "경력기술서 본문" });
     const pdf = vi.spyOn(service, "downloadDocumentPdf");
@@ -574,7 +596,7 @@ describe("DocumentScreen", () => {
   });
 });
 
-describe("DocumentPages", () => {
+describe.skipIf(!PDF_ENABLED)("DocumentPages", () => {
   /** 숨은 곳의 블록마다 높이를 준다 (jsdom은 높이를 재지 못한다). */
   function tallBlocks(height: number) {
     vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
@@ -646,7 +668,7 @@ describe("DocumentPages", () => {
   });
 });
 
-describe("DocumentPrintScreen", () => {
+describe.skipIf(!PDF_ENABLED)("DocumentPrintScreen", () => {
   it("draws the pages without the app shell and says when it is ready", async () => {
     setup(<DocumentPrintScreen groupId={1} type="career" />);
 

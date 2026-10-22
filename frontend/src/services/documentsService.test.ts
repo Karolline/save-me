@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { PDF_ENABLED } from "@/lib/features";
 import { isConflict, isNotFound, isUnauthorized } from "./errors";
 import { createHttpService } from "./httpService";
 import { createMockService, SAMPLE_APPLICATIONS } from "./mockService";
@@ -196,7 +197,7 @@ describe("mock service: reviews", () => {
     expect((await service.getDocumentGroup(group.id))!.review).toBeNull();
   });
 
-  it("builds the PDF only for an existing document", async () => {
+  it.skipIf(!PDF_ENABLED)("builds the PDF only for an existing document", async () => {
     const { service, group } = await setup();
     expect((await service.downloadDocumentPdf(group.id, "resume")).type).toBe("application/pdf");
     await expect(service.downloadDocumentPdf(group.id, "portfolio")).rejects.toSatisfy(isNotFound);
@@ -280,7 +281,7 @@ describe("http service: documents", () => {
     await expect(createHttpService("/api", stub(409, { detail: "dup" })).createDocumentGroup(GROUP)).rejects.toSatisfy(isConflict);
   });
 
-  it("downloads the PDF as a blob", async () => {
+  it.skipIf(!PDF_ENABLED)("downloads the PDF as a blob", async () => {
     const fetch = vi.fn(async (_url: string | URL | Request, _init?: RequestInit) =>
       new Response("%PDF-1.4", { status: 200, headers: { "Content-Type": "application/pdf" } }),
     );
