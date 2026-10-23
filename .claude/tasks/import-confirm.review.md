@@ -1,4 +1,4 @@
-리뷰한 커밋: ad1701b
+리뷰한 커밋: ad56e93 (1차 리뷰는 a92b6e1 시점, 재리뷰는 ad56e93)
 
 ## 리뷰 결과: 고친 뒤 합치기
 
@@ -27,3 +27,27 @@
 - 확인 불필요 목록(saveme_dev, test, saveme_test)은 testing.md·CI와 맞고 대소문자·공백이 다르면 확인을 요구한다. 위 쿼리 인자 문제만 예외.
 - settings.json: jobs* --dry-run*은 --dry-run이 어디 있어도 맞고 x--dry-run, --no-dry-run은 안 맞는다. 쓰기 안전장치가 코드에 있으므로 허용 규칙이 새도 진짜 DB에는 쓸 수 없다. docker container exec*, docker compose * exec* 거부 추가됨.
 - import-jobs 스킬, 문서, 규칙(의존성·마이그레이션·개인 데이터·버전 없음) 모두 지시서대로.
+
+---
+
+## 재리뷰 (커밋 ad56e93): 합쳐도 됨
+
+1차 리뷰(a92b6e1)의 지적을 고친 ad56e93만 다시 읽었다.
+
+### 꼭 고칠 것
+- 없음.
+
+### 고치면 좋은 것
+- [confirm.py:48-52] database_name은 scheme이 정확히 소문자 postgresql일 때만 연결 인자를 본다. 그 밖의 scheme(Postgresql+psycopg:// 등)은 경로의 이름을 쓰는데, 바로 다음 make_engine에서 NoSuchModuleError로 멈추거나 판정 단계에서 traceback이 난다. 우회는 아니고 DB에 닿기 전에 죽는다. 원하면 "postgresql이 아닌 방언은 확인 요구"로 더 단단하게 할 수 있다.
+- dbname 키를 쓰지 않는 드라이버(pg8000/asyncpg)는 "DB 이름이 없는 주소" 오류로 멈춘다. 안전하지만 안내 문구가 실제 원인과 다르다. 사소하다.
+
+### 테스트
+- DB가 필요 없는 5개(이름 판정, 실제 연결 인자, 이름 없는 주소, 환경 변수, NUL stdin)를 직접 돌려 통과. NUL 테스트는 pytest -s로도 통과. DB가 필요한 테스트는 개발자 보고(가져오기 7개 파일 182 통과)를 믿었다.
+- URL 변형을 DB 연결 없이 직접 시험(create_connect_args, libpq 연결 문자열): ?dbname=saveme, postgres://, +psycopg2, %73aveme, host= 쿼리, 중복 dbname 키는 확인 요구. SAVEME_DEV, 전각 문자, %00도 확인 요구. /%73aveme_dev처럼 실제로 saveme_dev에 붙는 것은 확인 불필요가 맞다. ?DBNAME=, ?Service=, ?database=는 판정은 불필요지만 libpq가 invalid connection option으로 거부하므로 우회가 아니다. hostaddr/options/passfile은 DB 이름이 그대로 saveme_dev이고 saveme_dev와 saveme는 같은 서버라 saveme에 닿지 못한다. 이름 없는 주소는 비밀번호를 찍지 않고 멈춘다.
+
+### 확인한 것
+- 쿼리 인자 우회는 막혔고, 목록 이름을 가장해 saveme에 붙는 길은 찾지 못했다.
+- is_interactive는 isatty와 GetConsoleMode가 같은 sys.stdin.fileno() 핸들을 본다. argtypes 지정, fileno() 예외 처리, 테스트는 fd 0을 진짜 NUL로 바꿨다 되돌려 -s에서도 안정적.
+- AGENTS.md 정정과 한계 한 줄이 맞고 settings.json과 일치한다.
+- 6개 가져오기 모두 confirm.execute를 거치고, 비TTY 분기는 make_engine과 upgrade 전에 끝난다. 새 테스트가 main()까지 거치는 쿼리 우회 시험으로 빈 스키마에 테이블이 안 생김을 확인한다.
+- 의존성·마이그레이션·버전·개인 데이터 변경 없음.
