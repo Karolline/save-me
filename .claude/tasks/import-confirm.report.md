@@ -57,3 +57,10 @@
 - 2c/2d: AGENTS.md의 "확인 창"을 "진짜 DB면 사람의 터미널 확인(`app/importers/confirm.py`)"으로 고치고, 이 확인은 실수나 순진한 실행을 막지만 일부러 하는 우회는 못 막는다고 한 줄 적었다(다른 문서의 "확인 창"은 PDF 화면 얘기라 그대로).
 - 테스트: 쿼리 우회 3건(이름 판정, 이름 없는 주소, `main()`까지 거치는 시험 - 비TTY면 실패하고 빈 스키마에 테이블도 안 생김) 추가, docs/testing.md 표 갱신. backend pytest 가져오기 7개 파일 182 통과 (PostgreSQL, 임시 컨테이너). 전체 테스트는 돌리지 않았다, CI가 돈다.
 - 처음에 `python`(Windows 스토어 스텁)이 아무것도 안 해서 첫 시도의 편집이 비어 있었으나 곧 알아채 `.venv`의 python으로 다시 했다.
+
+## CI 실패 수정
+
+원인: `backend/tests/unit/test_import_confirm.py`가 테스트 DB 이름을 `test`로 하드코딩했다 (임시 컨테이너는 `test`, CI는 `saveme_test`). 11개 실패는 (1) 비TTY 실패 문구의 DB 이름 6개, (2) 이름을 입력해 넣는 테스트(입력 `"test"` 고정)가 5개였다.
+
+- 고친 곳: 문구 기대값과 입력값을 `db_name(mig_url)` / `db_name(url)`(`make_url(...).database`)에서 구한다. 잘못된 답 파라미터("tes", "TEST", "test ")도 이름에서 만든다(짧게, 대문자, 공백 붙임). 이 파일의 다른 `"test"` 하드코딩은 `needs_confirmation` URL 상수(의도한 값)뿐이다. `real_db` fixture는 이름 목록을 `{"saveme_dev"}`로 바꿔 끼우므로 `test`/`saveme_test` 모두 같은 결과다.
+- 확인: 임시 컨테이너 DB `saveme_test`로 가져오기 테스트 7개 파일 182개 통과, DB 이름 `test`로 `test_import_confirm.py` 99개 통과. 앱 코드는 바꾸지 않았다. 전체 테스트는 돌리지 않았다(CI가 돈다).

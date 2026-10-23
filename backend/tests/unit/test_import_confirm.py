@@ -142,7 +142,7 @@ def test_a_non_tty_run_against_a_real_database_fails_without_touching_it(name, m
 
     assert exit_info.value.code == 1
     assert capsys.readouterr().out.strip() == (
-        '진짜 데이터베이스 "test"에 넣으려면 사람이 터미널에서 직접 확인해야 해요. '
+        f'진짜 데이터베이스 "{db_name(mig_url)}"에 넣으려면 사람이 터미널에서 직접 확인해야 해요. '
         "이 명령을 직접 열어 둔 터미널(PowerShell)에서 다시 실행해 주세요."
     )
     engine = make_engine(mig_url)
@@ -166,7 +166,8 @@ def test_a_non_tty_run_writes_nothing_even_when_the_database_is_ready(name, db_f
 @pytest.mark.parametrize("name", WRITABLE)
 def test_typing_the_database_name_imports_after_showing_the_summary(name, db_file, tmp_path, capsys, real_db, typed):
     url, engine, _ = db_file
-    typed("test")
+    name_typed = db_name(url)
+    typed(name_typed)
 
     MODULES[name].main([str(write(tmp_path, name)), "--database-url", url])
 
@@ -174,18 +175,31 @@ def test_typing_the_database_name_imports_after_showing_the_summary(name, db_fil
     assert typed.state["asked"] == 1
     # 시험 실행 요약 -> 확인 안내 -> 진짜 요약 순서.
     lines = out.splitlines()
-    prompt = lines.index('진짜 데이터베이스 "test"에 위 내용을 넣습니다.')
-    assert lines[prompt + 1] == "계속하려면 DB 이름 test 을(를) 그대로 입력하세요 (그 밖의 입력은 취소):"
+    prompt = lines.index(f'진짜 데이터베이스 "{name_typed}"에 위 내용을 넣습니다.')
+    assert lines[prompt + 1] == f"계속하려면 DB 이름 {name_typed} 을(를) 그대로 입력하세요 (그 밖의 입력은 취소):"
     assert any("[시험]" in line for line in lines[:prompt])
     assert not any("[시험]" in line for line in lines[prompt + 2 :])
     assert total_rows(engine) > 0
 
 
-@pytest.mark.parametrize("line", ["", "tes", "TEST", "test ", "y", "yes", "saveme"])
+# 틀린 답: 테스트 DB 이름에서 만든 것(짧게, 대문자, 공백 붙임)과 이름과 무관한 것.
+@pytest.mark.parametrize(
+    "make_line",
+    [
+        lambda name: "",
+        lambda name: name[:-1],
+        lambda name: name.upper(),
+        lambda name: name + " ",
+        lambda name: "y",
+        lambda name: "yes",
+        lambda name: "saveme",
+    ],
+    ids=["empty", "short", "upper", "trailing-space", "y", "yes", "saveme"],
+)
 @pytest.mark.parametrize("name", WRITABLE)
-def test_a_wrong_or_empty_answer_cancels_and_writes_nothing(name, line, db_file, tmp_path, capsys, real_db, typed):
+def test_a_wrong_or_empty_answer_cancels_and_writes_nothing(name, make_line, db_file, tmp_path, capsys, real_db, typed):
     url, engine, _ = db_file
-    typed(line)
+    typed(make_line(db_name(url)))
 
     with pytest.raises(SystemExit) as exit_info:
         MODULES[name].main([str(write(tmp_path, name)), "--database-url", url])
@@ -223,7 +237,7 @@ def test_dry_run_needs_no_confirmation_for_any_database(name, db_file, tmp_path,
 
 @pytest.mark.parametrize("name", WRITABLE)
 def test_a_dev_or_test_database_is_imported_without_asking(name, db_file, tmp_path, capsys, no_tty):
-    # real_db 없이: 테스트 DB 이름(`test`)은 확인이 필요 없다. 입력을 읽으면 no_tty가 실패시킨다.
+    # real_db 없이: 테스트 DB 이름은 확인이 필요 없다. 입력을 읽으면 no_tty가 실패시킨다.
     url, engine, _ = db_file
 
     MODULES[name].main([str(write(tmp_path, name)), "--database-url", url])
