@@ -47,3 +47,13 @@
 
 ### 질문
 - 없음.
+
+
+## 리뷰 지적 수정
+
+- 꼭 고칠 것 (쿼리 인자로 확인 우회): `confirm.database_name`이 이제 `make_engine`과 같은 `normalize_url`을 거친 URL에서 방언의 `create_connect_args`(연결 안 함)로 얻은 `dbname`을 쓴다. `.../saveme_dev?dbname=saveme`는 이름이 `saveme`로 나와 확인을 요구한다. 더 안전하게 하려고 쿼리에 `service`, `conninfo`, `database` 키가 있으면 이름이 목록에 있어도 확인을 요구한다. 확인 불필요는 "실제 연결 이름이 정확히 목록의 이름이고 위 키가 없을 때"뿐이다. `PGDATABASE` 같은 libpq 환경 변수는 dbname이 명시되지 않았을 때만 쓰이는데, 이름 없는 주소는 아래처럼 받지 않으므로 덮어쓰지 못한다. `PGSERVICE`처럼 service 파일이 host/port를 바꾸는 것은 DB 이름 판정과 별개라 막지 못한다(한계: 환경 변수로 호스트를 바꾸는 길).
+- 2a: DB 이름이 없는 주소는 "DB 이름이 없는 주소예요..." 오류로 멈춘다(주소를 찍지 않음, 비밀번호 보호).
+- 2b: `is_interactive()`가 `sys.stdin.fileno()` -> `msvcrt.get_osfhandle`로 얻은 핸들로 `GetConsoleMode`를 본다. `test_a_nul_stdin_is_not_a_terminal`은 fd 0까지 실제 NUL로 바꾼다. `pytest -s`로도 통과(입력 대기에 걸리지 않음; 다만 이 도구의 stdin은 원래 콘솔이 아니라 진짜 콘솔에서의 -s는 사용자 몫).
+- 2c/2d: AGENTS.md의 "확인 창"을 "진짜 DB면 사람의 터미널 확인(`app/importers/confirm.py`)"으로 고치고, 이 확인은 실수나 순진한 실행을 막지만 일부러 하는 우회는 못 막는다고 한 줄 적었다(다른 문서의 "확인 창"은 PDF 화면 얘기라 그대로).
+- 테스트: 쿼리 우회 3건(이름 판정, 이름 없는 주소, `main()`까지 거치는 시험 - 비TTY면 실패하고 빈 스키마에 테이블도 안 생김) 추가, docs/testing.md 표 갱신. backend pytest 가져오기 7개 파일 182 통과 (PostgreSQL, 임시 컨테이너). 전체 테스트는 돌리지 않았다, CI가 돈다.
+- 처음에 `python`(Windows 스토어 스텁)이 아무것도 안 해서 첫 시도의 편집이 비어 있었으나 곧 알아채 `.venv`의 python으로 다시 했다.

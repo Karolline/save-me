@@ -5,6 +5,7 @@
 """
 
 import json
+import os
 import re
 import sys
 
@@ -95,7 +96,42 @@ def test_which_databases_need_confirmation():
     assert confirm.needs_confirmation("postgresql://u:p@127.0.0.1:5442/saveme")
     assert confirm.needs_confirmation("postgresql://u:p@127.0.0.1:5442/saveme_prod")
     assert confirm.needs_confirmation("postgresql://u:p@127.0.0.1:5442/whatever")
-    assert confirm.needs_confirmation("postgresql://u:p@127.0.0.1:5442/")
+    # 이름이 같아도 쿼리에 service 같은 것이 있으면 확인을 요구한다.
+    assert confirm.needs_confirmation("postgresql://u:p@127.0.0.1:5442/saveme_dev?service=x")
+
+
+def test_the_name_comes_from_the_real_connection_arguments():
+    # psycopg 방언은 쿼리의 dbname으로 경로를 덮어쓴다: 경로(saveme_dev)가 아니라 saveme에 연결된다.
+    sneaky = "postgresql://u:p@127.0.0.1:5442/saveme_dev?dbname=saveme"
+    assert confirm.database_name(sneaky) == "saveme"
+    assert confirm.needs_confirmation(sneaky)
+    assert confirm.needs_confirmation(sneaky.replace("postgresql://", "postgresql+psycopg://"))
+    assert not confirm.needs_confirmation("postgresql://u:p@127.0.0.1:5442/x?dbname=saveme_dev")
+
+
+def test_a_url_without_a_database_name_stops_without_printing_the_url():
+    with pytest.raises(SystemExit) as exit_info:
+        confirm.needs_confirmation("postgresql://user:secret@127.0.0.1:5442/")
+
+    assert exit_info.value.code == confirm.NO_DATABASE_NAME
+    assert "secret" not in str(exit_info.value.code)
+
+
+def test_a_query_that_swaps_the_database_needs_confirmation_through_main(mig_url, tmp_path, capsys, real_db, no_tty):
+    # 경로는 확인이 필요 없는 saveme_dev지만 쿼리가 실제 연결을 mig_url의 DB(여기서는 진짜 DB 역할)로 바꾼다.
+    base = make_url(mig_url)
+    sneaky = base.set(database="saveme_dev").update_query_dict({"dbname": base.database}).render_as_string(hide_password=False)
+
+    with pytest.raises(SystemExit) as exit_info:
+        applications.main([str(write(tmp_path, "applications")), "--database-url", sneaky])
+
+    assert exit_info.value.code == 1
+    assert "사람이 터미널에서" in capsys.readouterr().out
+    engine = make_engine(mig_url)
+    try:
+        assert inspect(engine).get_table_names() == []
+    finally:
+        engine.dispose()
 
 
 @pytest.mark.parametrize("name", MODULES)
@@ -209,9 +245,18 @@ def test_there_is_no_option_to_skip_the_confirmation(name, flag, tmp_path, capsy
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows에서만 NUL 장치의 isatty()가 참이다")
 def test_a_nul_stdin_is_not_a_terminal(monkeypatch):
     # 에이전트 도구의 stdin은 NUL 장치다. Python은 이것을 TTY로 여기므로 콘솔인지 따로 본다.
-    with open("NUL", encoding="utf-8") as nul:
-        monkeypatch.setattr(sys, "stdin", nul)
-        assert confirm.is_interactive() is False
+    # pytest -s(캡처 끔)에서도 같도록 fd 0까지 진짜 NUL로 바꾼다.
+    saved = os.dup(0)
+    nul_fd = os.open("NUL", os.O_RDONLY)
+    try:
+        os.dup2(nul_fd, 0)
+        with open(0, encoding="utf-8", closefd=False) as nul:
+            monkeypatch.setattr(sys, "stdin", nul)
+            assert confirm.is_interactive() is False
+    finally:
+        os.dup2(saved, 0)
+        os.close(saved)
+        os.close(nul_fd)
 
 
 def test_no_environment_variable_skips_the_confirmation():

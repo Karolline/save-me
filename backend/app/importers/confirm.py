@@ -14,7 +14,7 @@ from typing import TypeVar
 
 from sqlalchemy import make_url
 
-from app.db import make_engine
+from app.db import make_engine, normalize_url
 from app.migrate import is_at_head, upgrade
 from app.stores import Stores
 
@@ -32,26 +32,59 @@ CANCELLED = "취소했어요. 아무것도 쓰지 않았어요."
 T = TypeVar("T")
 
 
+# 쿼리에 있으면 연결할 DB를 바꾸거나 가릴 수 있는 키: 이름이 목록에 있어도 확인을 요구한다.
+DATABASE_QUERY_KEYS = frozenset({"service", "conninfo", "database"})
+NO_DATABASE_NAME = "DB 이름이 없는 주소예요. 주소 끝에 /DB이름 을 붙여 주세요."
+
+
 def database_name(url: str) -> str:
-    return make_url(url).database or url
+    """실제 연결에 쓰이는 DB 이름 (연결은 하지 않는다).
+
+    psycopg 방언은 URL의 쿼리(`?dbname=...`)로 경로의 이름을 덮어쓰므로, 경로가 아니라
+    make_engine이 쓰는 것과 같은 정규화를 거친 연결 인자에서 구한다. 이름이 없으면 멈춘다
+    (주소에 비밀번호가 들어 있을 수 있어 주소는 찍지 않는다. 이름이 없을 때 PGDATABASE
+    환경 변수가 쓰일 수 있으므로 이름 없는 주소는 아예 받지 않는다).
+    """
+    parsed = make_url(normalize_url(url))
+    if parsed.get_backend_name() == "postgresql":
+        name = parsed.get_dialect()().create_connect_args(parsed)[1].get("dbname")
+    else:
+        name = parsed.database
+    if not name:
+        raise SystemExit(NO_DATABASE_NAME)
+    return str(name)
 
 
 def needs_confirmation(url: str) -> bool:
-    return database_name(url) not in NO_CONFIRM_DATABASES
+    name = database_name(url)
+    if DATABASE_QUERY_KEYS & set(make_url(normalize_url(url)).query):
+        return True
+    return name not in NO_CONFIRM_DATABASES
 
 
 def is_interactive() -> bool:
     """사람이 키보드로 입력할 수 있는 터미널인가 (테스트가 바꿔 끼운다)."""
-    if sys.stdin is None or not sys.stdin.isatty():
+    if sys.stdin is None:
+        return False
+    try:
+        if not sys.stdin.isatty():
+            return False
+        descriptor = sys.stdin.fileno()
+    except (ValueError, OSError):
         return False
     if sys.platform == "win32":
-        # Windows에서는 NUL 장치(에이전트 도구의 stdin)도 isatty()가 참이다. 진짜 콘솔인지 따로 본다.
+        # Windows에서는 NUL 장치(에이전트 도구의 stdin)도 isatty()가 참이다. 같은 입력의 핸들이
+        # 진짜 콘솔인지 따로 본다 (isatty와 같은 sys.stdin에서 얻은 핸들로).
         import ctypes
+        import msvcrt
         from ctypes import wintypes
 
         kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
-        kernel32.GetStdHandle.restype = wintypes.HANDLE
-        handle = kernel32.GetStdHandle(-10)  # STD_INPUT_HANDLE
+        kernel32.GetConsoleMode.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        try:
+            handle = msvcrt.get_osfhandle(descriptor)
+        except OSError:
+            return False
         return bool(kernel32.GetConsoleMode(handle, ctypes.byref(wintypes.DWORD())))
     return True
 

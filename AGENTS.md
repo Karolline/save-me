@@ -59,7 +59,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 - 새 공고분석 받기: 다른 프로젝트의 Claude가 [`docs/job-inbox.md`](docs/job-inbox.md) 형식으로 `private/inbox/jobs/`에 둔 파일을 `/import-jobs`로 넣는다. 위의 첫 가져오기와 달리 `saveme_dev`를 거치지 않는다: 시험 실행(`--dry-run`), 백업, `saveme`에 넣기 (마지막은 사용자가 직접 연 터미널에서 DB 이름을 입력해 확인한다). 가져온 분석은 사람 확인이 N이라 사용자가 앱에서 확인한다. 이미 있는 (회사, 직무)는 건너뛴다 (사용자 결정, 2026-10-16). 사용자가 부탁하면 `--replace`(미확인만)나 `--replace-verified`(확인된 것도)로 바꾸고, 지원 건 연결은 그대로 남는다.
 
 
-- 에이전트의 조회 (이슈 #6): 에이전트는 DB에 직접 접속하지 않는다. 조회는 `uv run python -m app.agent_read <experience-index|experience ID|profile|personality|reviews|jobs>`(조회 전용, 로컬 사용자만, 마크다운 출력, 예상 질문과 답변·후기의 AI 첨언 등 근거 아닌 것은 `--include-reference`에서만), 저장은 위 가져오기 명령으로만 한다. `.claude/settings.json`의 권한: 조회와 가져오기 `--dry-run`은 자동 허용, 실제 저장은 확인 창, `psql`·`docker exec`·`--replace-verified`는 거부 (`--replace-verified`는 사용자가 터미널에서 직접).
+- 에이전트의 조회 (이슈 #6): 에이전트는 DB에 직접 접속하지 않는다. 조회는 `uv run python -m app.agent_read <experience-index|experience ID|profile|personality|reviews|jobs>`(조회 전용, 로컬 사용자만, 마크다운 출력, 예상 질문과 답변·후기의 AI 첨언 등 근거 아닌 것은 `--include-reference`에서만), 저장은 위 가져오기 명령으로만 한다. `.claude/settings.json`의 권한: 조회와 가져오기 `--dry-run`은 자동 허용, 실제 저장은 진짜 DB면 사람의 터미널 확인(`app/importers/confirm.py`), `psql`·`docker exec`·`--replace-verified`는 거부 (`--replace-verified`는 사용자가 터미널에서 직접). 이 터미널 확인은 실수나 순진한 실행을 막지만 일부러 하는 우회(코드를 바꿔 끼우기, 새 콘솔에 키 넣기)는 코드로 막지 못한다.
 
 
 ## 구조의 원칙
