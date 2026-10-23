@@ -17,8 +17,8 @@ from pathlib import Path
 
 from pydantic import TypeAdapter
 
-from app.db import database_url, make_engine
-from app.migrate import upgrade
+from app.db import database_url
+from app.importers.confirm import execute
 from app.models import ApplicationInput
 from app.stores import Stores
 
@@ -58,20 +58,25 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("file", type=Path)
     parser.add_argument("--database-url", default=None, help="default: DATABASE_URL, else saveme_dev")
+    parser.add_argument("--dry-run", action="store_true", help="요약만 보이고 아무것도 쓰지 않는다")
     args = parser.parse_args(argv)
 
     url = args.database_url or database_url()
     items = load(args.file)
-    upgrade(url)
-    engine = make_engine(url)
-    try:
-        stores = Stores.create(engine)
-        user = stores.users.dev_user()
-        result = import_applications(stores, user.id, items)
-    finally:
-        engine.dispose()
-    target = url.rsplit("/", 1)[-1]
-    print(f"{target}: {result.created} added, {result.updated} updated ({len(items)} in the file)")
+
+    def work(stores: Stores) -> ImportResult:
+        return import_applications(stores, stores.users.dev_user().id, items)
+
+    def summary(result: ImportResult, dry: bool) -> list[str]:
+        target = url.rsplit("/", 1)[-1]
+        lines = [
+            f"{'[시험] ' if dry else ''}{target}: {result.created} added, {result.updated} updated "
+            f"({len(items)} in the file)"
+        ]
+        return lines + (["시험이라 아무것도 쓰지 않았어요."] if dry else [])
+
+    # --dry-run은 아무것도 쓰지 않는다. 진짜 DB에는 사람의 확인이 있어야 쓴다 (confirm.py).
+    execute(url, is_dry_run=args.dry_run, work=work, summary=summary)
 
 
 if __name__ == "__main__":

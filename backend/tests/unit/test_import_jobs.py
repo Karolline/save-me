@@ -6,9 +6,9 @@ from alembic import command
 from sqlalchemy import MetaData, inspect, make_url, select
 
 from app.db import make_engine
+from app.importers.confirm import NOT_AT_HEAD
 from app.importers.jobs import (
     DRY_RUN_NOTE,
-    NOT_AT_HEAD,
     DuplicateJobError,
     ImportResult,
     LinkConflictError,

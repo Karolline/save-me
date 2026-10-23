@@ -43,9 +43,9 @@ from typing import Any
 from pydantic import ConfigDict
 from sqlalchemy import make_url
 
-from app.db import database_url, make_engine
-from app.importers.jobs import DRY_RUN_NOTE, NOT_AT_HEAD, one_line
-from app.migrate import is_at_head, upgrade
+from app.db import database_url
+from app.importers.confirm import execute
+from app.importers.jobs import DRY_RUN_NOTE, one_line
 from app.models import ApiModel, Career, Certificate, Education, PersonalityAnswer, ResumeBasics, SkillGroup
 from app.stores import CARDS, Card, Stores
 
@@ -175,26 +175,14 @@ def main(argv: list[str] | None = None) -> None:
     except (OSError, ValueError, TypeError) as error:
         # 파일을 못 읽거나 JSON·칸 모양이 틀렸다 (pydantic ValidationError도 ValueError). 아무것도 쓰지 않는다.
         raise SystemExit(f"파일을 읽지 못했어요 ({args.file}): {one_line(error)}") from error
-    if not args.dry_run:
-        upgrade(url)
-    engine = make_engine(url)
-    try:
-        if args.dry_run:
-            # 바깥 트랜잭션을 연 연결 하나로 모든 store를 돌리고 끝에 되돌린다 (다른 가져오기와 같다).
-            with engine.connect() as connection:
-                connection.begin()
-                try:
-                    if not is_at_head(connection):
-                        raise SystemExit(NOT_AT_HEAD)
-                    result = run(Stores.create(connection), data, args.replace)
-                finally:
-                    connection.rollback()
-        else:
-            result = run(Stores.create(engine), data, args.replace)
-    finally:
-        engine.dispose()
+    # --dry-run은 아무것도 쓰지 않는다. 진짜 DB에는 사람의 확인이 있어야 쓴다 (confirm.py).
     target = Path(make_url(url).database or url).name
-    print("\n".join(result.lines(target, dry_run=args.dry_run)))
+    execute(
+        url,
+        is_dry_run=args.dry_run,
+        work=lambda stores: run(stores, data, args.replace),
+        summary=lambda result, dry: result.lines(target, dry_run=dry),
+    )
 
 
 if __name__ == "__main__":
