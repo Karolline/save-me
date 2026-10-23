@@ -57,6 +57,22 @@ class UserStore(BaseStore):
         """The local fake-login user, created on first use."""
         return self.login_identity(*DEV_IDENTITY, nickname=DEV_NICKNAME)
 
+    def find_dev_user(self) -> User | None:
+        """읽기 전용: 로컬 가짜 로그인 사용자, 아직 없으면 None (dev_user와 달리 만들지 않는다)."""
+        provider, provider_user_id = DEV_IDENTITY
+        with self.session() as db:
+            row = db.execute(
+                select(UserRow)
+                .join(UserIdentityRow, UserIdentityRow.user_id == UserRow.id)
+                .where(
+                    UserIdentityRow.provider == provider,
+                    UserIdentityRow.provider_user_id == provider_user_id,
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                return None
+            return User(id=row.id, nickname=row.nickname, status=row.status, provider=provider)
+
     def create_session(self, user_id: int, days: int) -> str:
         """Start a session and return its token (only its hash is stored)."""
         token = secrets.token_urlsafe(32)

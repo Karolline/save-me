@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv run python -m app.agent_read*)",
+      "Bash(uv run python -m app.importers.jobs *--dry-run*)",
+      "Bash(uv run python -m app.importers.documents *--dry-run*)",
+      "PowerShell(uv run python -m app.agent_read*)",
+      "PowerShell(uv run python -m app.importers.jobs *--dry-run*)",
+      "PowerShell(uv run python -m app.importers.documents *--dry-run*)"
+    ],
+    "deny": [
+      "Bash(psql*)",
+      "Bash(docker exec*)",
+      "Bash(docker compose exec*)",
+      "Bash(docker-compose exec*)",
+      "Bash(*--replace-verified*)",
+      "PowerShell(psql*)",
+      "PowerShell(docker exec*)",
+      "PowerShell(docker compose exec*)",
+      "PowerShell(docker-compose exec*)",
+      "PowerShell(*--replace-verified*)"
+    ]
+  }
+}

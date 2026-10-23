@@ -39,6 +39,7 @@ uv run pytest tests/integration   # 통합 테스트만
 | `tests/unit/test_document_store.py` | `DocumentStore`: 다섯 테이블 모두 `user_id`를 갖고 사용자를 지우면 함께 삭제, 남의 묶음·서류는 없는 것처럼 (읽기·만들기·저장·지우기), (회사, 작성날짜)와 (묶음, 종류) 중복 거부, 가져온 서류를 고쳐 저장하면 "가져옴 · 내가 수정"으로 한 번만 바뀜. | PostgreSQL |
 | `tests/unit/test_pdf.py` | PDF 도우미: 구글 폰트 요청은 4초 안에 못 받으면 끊고 글꼴 없이 계속, 인쇄용 주소. | 없음 |
 | `tests/unit/test_import_documents.py` | 지원서류 가져오기: 묶음과 서류를 "가져옴"으로 추가하고 같은 회사 공고분석이 정확히 하나면 이음 (없거나 여럿이면 잇지 않고 알림), 두 번 돌려도 그대로 (건너뜀), 이미 있는 묶음에는 없는 서류만 더함, `--replace`는 가져온 그대로인 서류만 덮어쓰고 직접 쓴/고친 서류는 지킴, 파일 안의 중복(묶음, 종류)은 아무것도 쓰지 않고 실패, 사용자끼리 섞이지 않음, 요약 줄, 망가진 파일은 한 줄 오류, `main()`, `--dry-run`(같은 요약, 아무것도 쓰지 않음). | PostgreSQL |
+| `tests/unit/test_agent_read.py` | 에이전트 조회 명령: 경험 목록·태그 어휘·행동질문, 경험 한 건(없는 id·남의 id는 실패), 이력·인성답변·공고분석, 예상 질문과 답변·후기의 AI 첨언·개요·면접관 말은 기본 출력에 없고 `--include-reference`에서 근거 아님 표시 뒤에 나옴, 후기 `다시 답한다면`에만 "실제로 한 답이 아님" 표시, 사용자 둘이 섞이지 않음, 조회가 DB를 바꾸지 않음(사용자도 만들지 않음, 옛 DB는 마이그레이션 없이 멈춤), 사용법 오류와 사용자 지정 인자 없음. | PostgreSQL |
 | `tests/integration/test_documents_api.py` | HTTP로 `/api/document-groups*`: 묶음 만들기·목록(최근 작성날짜가 위, 같은 날은 최신이 위)·바꾸기·지우기, (회사, 작성날짜) 중복 409, 공고분석 잇기와 공고분석을 지우면 이음 해제, 서류 하나에 종류 하나(409)와 처음 글, 글 저장(바뀔 때만 `updatedAt`), 리뷰 저장·다시 저장하면 최신만 보이고 [반영함]이 이어지지 않음, [반영함] 수 계산(서류 칸·묶음), 서류를 지우면 그 덩어리도 지움, PDF 경로(렌더러를 바꿔 끼움: 파일 이름 헤더, 실패는 502), 422, 세션 없으면 401, CSRF 헤더 없으면 403, **남의 묶음·서류·리뷰 항목·공고분석(`jobAnalysisId`)은 모든 엔드포인트에서 404**. | PostgreSQL |
 | `tests/integration/test_documents_pdf.py` | 진짜 헤드리스 Chromium으로 PDF 만들기 (Chromium과 `frontend/dist`가 없으면 건너뜀): 서버가 프런트엔드 빌드와 함께 뜨고, 인쇄용 화면의 쪽(`.pg`) 수와 PDF의 쪽 수가 같고, 쪽 크기가 A4(595×842pt), 글꼴이 PDF에 들어 있고, 엔드포인트가 파일 이름 헤더와 함께 PDF를 주고, 남의 세션이나 세션 없이는 만들 수 없고, 열 수 없는 주소는 `PdfError`. | PostgreSQL |
 | `tests/integration/test_frontend.py` | 빌드한 프런트엔드 제공 (가짜 `dist` 폴더): 앱 경로는 `index.html`, 빌드 파일은 그대로, `/api`는 JSON이고 모르는 `/api/...`는 404. | PostgreSQL |
@@ -53,7 +54,7 @@ uv run pytest tests/integration   # 통합 테스트만
 
 ```
 docker run -d --rm --name saveme-testpg -e POSTGRES_PASSWORD=test -e POSTGRES_DB=test -p 127.0.0.1:55442:5432 postgres:18-alpine
-docker exec saveme-testpg pg_isready -U postgres -d test   # "accepting connections"가 나올 때까지 반복
+docker exec saveme-testpg pg_isready -U postgres -d test   # "accepting connections"가 나올 때까지 반복 (에이전트에게는 `.claude/settings.json`이 docker exec을 거부하므로 사용자가 직접 하거나 몇 초 기다린다)
 TEST_DATABASE_URL=postgresql://postgres:test@127.0.0.1:55442/test uv run pytest
 docker stop saveme-testpg   # --rm이라 지워진다
 ```
