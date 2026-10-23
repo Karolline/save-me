@@ -6,6 +6,7 @@
 
 import json
 import re
+import sys
 
 import pytest
 from sqlalchemy import func, inspect, select
@@ -203,6 +204,14 @@ def test_there_is_no_option_to_skip_the_confirmation(name, flag, tmp_path, capsy
 
     assert exit_info.value.code == 2
     assert "unrecognized arguments" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows에서만 NUL 장치의 isatty()가 참이다")
+def test_a_nul_stdin_is_not_a_terminal(monkeypatch):
+    # 에이전트 도구의 stdin은 NUL 장치다. Python은 이것을 TTY로 여기므로 콘솔인지 따로 본다.
+    with open("NUL", encoding="utf-8") as nul:
+        monkeypatch.setattr(sys, "stdin", nul)
+        assert confirm.is_interactive() is False
 
 
 def test_no_environment_variable_skips_the_confirmation():

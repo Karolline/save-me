@@ -55,8 +55,8 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 - 마이그레이션 시험: 먼저 `saveme_dev`에 적용한다 (개발 서버나 `app.migrate`). 진짜 DB는 사용자가 `scripts/update.ps1`로 앱을 업데이트할 때 받는다. 이 스크립트는 다시 빌드하기 전에 `saveme`를 백업하고, 앱 컨테이너가 시작하며 마이그레이션한다.
 - 아직 병합하지 않은 브랜치 미리 보기: `scripts/preview.ps1 -Branch <브랜치>` (그 브랜치의 worktree로 이미지 `saveme-preview`를 빌드해 compose 프로젝트 `saveme-preview`로 띄운다: 앱 http://localhost:8200, DB `127.0.0.1:5452`, 볼륨 `saveme-preview-pgdata`. DB에는 `saveme`를 읽기만 해서 복사한다. 끄기: `-Stop`). 개발자 에이전트가 끝나면 병합 전에 사용자가 이것으로 화면을 본다. `APP_PORT`, `DB_PORT`, `PGDATA_VOLUME`을 셸에 남기지 않는다: 진짜 스택의 `docker compose`도 그 값을 읽어 db를 다른 볼륨으로 옮긴다.
 - 백업: `scripts/backup.ps1` (`saveme`를 pg_dump해 백업 폴더로, 사용자가 네이버 MYBOX로 동기화), `scripts/register-backup-task.ps1` (매일 예약 작업), `scripts/restore.ps1` (기본은 복원 연습). 이 스크립트들은 ASCII만 쓴다 (Windows PowerShell 5.1이 시스템 코드 페이지로 읽는다).
-- 사용자의 기존 데이터 가져오기 (완료분 기획안 7절, "내 기존 데이터 넣기"): 메뉴마다, 그 만드는 단계의 마지막 작업으로. 가져오기 코드는 `backend/app/importers/`에 있고 JSON 파일을 읽는다 (`applications.py`: 지원 건, `reviews.py`: 면접 후기, `jobs.py`: 공고분석, `experiences.py`: 경험, `resume.py`: 이력, 빈 카드만 채움, `documents.py`: 지원서류 묶음과 서류, 이미 있으면 건너뜀, `--replace`는 "가져옴"인 서류만). 진짜 데이터가 든 JSON은 `private/`(git이 무시)에 쓰고 커밋하지 않는다. 먼저 `saveme_dev`에 넣고, 사용자가 확인하고, 백업한 뒤 `saveme`에 넣는다. 가져오기는 두 번 돌려도 안전해야 한다.
-- 새 공고분석 받기: 다른 프로젝트의 Claude가 [`docs/job-inbox.md`](docs/job-inbox.md) 형식으로 `private/inbox/jobs/`에 둔 파일을 `/import-jobs`로 넣는다. 위의 첫 가져오기와 달리 `saveme_dev`를 거치지 않는다: 시험 실행(`--dry-run`), 백업, `saveme`에 넣기. 가져온 분석은 사람 확인이 N이라 사용자가 앱에서 확인한다. 이미 있는 (회사, 직무)는 건너뛴다 (사용자 결정, 2026-10-16). 사용자가 부탁하면 `--replace`(미확인만)나 `--replace-verified`(확인된 것도)로 바꾸고, 지원 건 연결은 그대로 남는다.
+- 사용자의 기존 데이터 가져오기 (완료분 기획안 7절, "내 기존 데이터 넣기"): 메뉴마다, 그 만드는 단계의 마지막 작업으로. 가져오기 코드는 `backend/app/importers/`에 있고 JSON 파일을 읽는다 (`applications.py`: 지원 건, `reviews.py`: 면접 후기, `jobs.py`: 공고분석, `experiences.py`: 경험, `resume.py`: 이력, 빈 카드만 채움, `documents.py`: 지원서류 묶음과 서류, 이미 있으면 건너뜀, `--replace`는 "가져옴"인 서류만). 진짜 데이터가 든 JSON은 `private/`(git이 무시)에 쓰고 커밋하지 않는다. 먼저 `saveme_dev`에 넣고, 사용자가 확인하고, 백업한 뒤 `saveme`에 넣는다. 진짜 DB(`saveme_dev`와 테스트 DB 이외)에 쓰는 가져오기는 사람이 직접 연 터미널에서 DB 이름을 입력해 확인해야만 진행하고, 입력을 받을 수 없으면(에이전트의 명령 실행) 실패한다 (`importers/confirm.py`, 확인을 건너뛰는 옵션은 없다). 가져오기는 두 번 돌려도 안전해야 한다.
+- 새 공고분석 받기: 다른 프로젝트의 Claude가 [`docs/job-inbox.md`](docs/job-inbox.md) 형식으로 `private/inbox/jobs/`에 둔 파일을 `/import-jobs`로 넣는다. 위의 첫 가져오기와 달리 `saveme_dev`를 거치지 않는다: 시험 실행(`--dry-run`), 백업, `saveme`에 넣기 (마지막은 사용자가 직접 연 터미널에서 DB 이름을 입력해 확인한다). 가져온 분석은 사람 확인이 N이라 사용자가 앱에서 확인한다. 이미 있는 (회사, 직무)는 건너뛴다 (사용자 결정, 2026-10-16). 사용자가 부탁하면 `--replace`(미확인만)나 `--replace-verified`(확인된 것도)로 바꾸고, 지원 건 연결은 그대로 남는다.
 
 
 - 에이전트의 조회 (이슈 #6): 에이전트는 DB에 직접 접속하지 않는다. 조회는 `uv run python -m app.agent_read <experience-index|experience ID|profile|personality|reviews|jobs>`(조회 전용, 로컬 사용자만, 마크다운 출력, 예상 질문과 답변·후기의 AI 첨언 등 근거 아닌 것은 `--include-reference`에서만), 저장은 위 가져오기 명령으로만 한다. `.claude/settings.json`의 권한: 조회와 가져오기 `--dry-run`은 자동 허용, 실제 저장은 확인 창, `psql`·`docker exec`·`--replace-verified`는 거부 (`--replace-verified`는 사용자가 터미널에서 직접).
@@ -114,7 +114,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 - `.claude/agents/developer.md`: 지시서 하나를 git worktree의 자기 브랜치에서 테스트와 작은 커밋으로 만들고 보고서를 남긴다. `main`에 커밋하지 않는다.
 - `.claude/agents/reviewer.md`: 브랜치나 커밋 안 한 변경을 이 파일, 명세, 지시서에 비춰 읽기만 하며 리뷰한다.
 - `.claude/skills/publish-task/` (퍼블리셔): `/publish-task <이름>`. 개발자 보고와 리뷰 보고를 받고(리뷰어는 부르지 않는다), 작업 브랜치의 CI가 초록인지 확인하고(안 돌았으면 사용자에게 push를 부탁한다), main에 병합하고, 지시서의 버전으로 릴리즈하고, 지시서·보고서를 지우고, 끝나면 `scripts/update.ps1`로 돌고 있는 앱(compose)을 백업·다시 빌드해 반영한다 (사용자 결정 2026-10-22). push, 태그 push, 릴리즈 노트는 사용자가 요청할 때만.
-- `.claude/skills/import-jobs/`: `/import-jobs`. 공고분석 받은편지함(`private/inbox/jobs/`)의 파일을 시험하고, 백업하고, `saveme`에 넣고, `done/`으로 옮긴다.
+- `.claude/skills/import-jobs/`: `/import-jobs`. 공고분석 받은편지함(`private/inbox/jobs/`)의 파일을 시험하고, 백업하고, (사용자가 터미널에서 확인해) `saveme`에 넣게 하고, `done/`으로 옮긴다.
 
 
 ## 모델 사용 (사용자 결정, 2026-10-21)

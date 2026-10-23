@@ -1,6 +1,6 @@
 # 공고분석 받은편지함
 
-다른 프로젝트의 공고분석 에이전트가 공고를 분석하면, 결과를 아래 양식의 마크다운 파일로 SaveMe 받은편지함에 둔다. SaveMe에서는 `/import-jobs` 스킬(`.claude/skills/import-jobs/`)이 파일을 읽어 가져오기 JSON(`docs/local-operations.md`의 "공고분석")으로 바꾸고, 시험 실행과 백업을 한 뒤 DB에 넣는다.
+다른 프로젝트의 공고분석 에이전트가 공고를 분석하면, 결과를 아래 양식의 마크다운 파일로 SaveMe 받은편지함에 둔다. SaveMe에서는 `/import-jobs` 스킬(`.claude/skills/import-jobs/`)이 파일을 읽어 가져오기 JSON(`docs/local-operations.md`의 "공고분석")으로 바꾸고, 시험 실행과 백업을 한 뒤 DB에 넣는다. 진짜 DB(`saveme`)에 넣는 단계는 사람이 직접 연 터미널에서 DB 이름을 입력해 확인해야 하므로, 스킬은 명령을 보여 주고 사용자가 실행하기를 기다린다.
 
 ## 어디에, 어떤 이름으로
 

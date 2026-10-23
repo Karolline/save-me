@@ -40,8 +40,9 @@ description: 다른 프로젝트의 공고분석 에이전트가 private/inbox/j
   ```
   powershell -ExecutionPolicy Bypass -File scripts\backup.ps1 -Reason before-job-import
   ```
-- 파일마다 2단계의 명령을 `--dry-run` 없이 (사용자가 고르면 `--replace`나 `--replace-verified`를 붙여) 돌린다.
-- 성공한 파일은 `.md`와 `.json`을 둘 다 `private/inbox/jobs/done/`으로 옮긴다. 같은 이름이 있으면 앞에 오늘 날짜(`YYYY-MM-DD-`)를 붙인다. 모두 건너뛴 파일도 옮긴다. 실패한 파일은 그대로 둔다.
+- 진짜 DB에 저장하는 명령은 **Claude가 돌리지 않는다**. 가져오기 명령이 사람의 확인(터미널에서 DB 이름 `saveme` 입력)을 요구하고, 입력을 받을 수 없는 환경(Claude의 명령 실행)에서는 일부러 실패한다. 우회하려 하지 않는다.
+- 파일마다 2단계의 명령을 `--dry-run` 없이 (사용자가 고르면 `--replace`나 `--replace-verified`를 붙여) **정확히 보여 주고**, "직접 연 PowerShell 창의 `backend/`에서 실행하고, 요약 아래에서 DB 이름 `saveme`를 입력해 주세요. 끝나면 알려 주세요"라고 한 뒤 기다린다. `!` 접두사로 된다고 단정하지 않는다.
+- 사용자가 끝났다고 하면 붙여 준 출력 요약(추가·바꿈·건너뜀)을 시험 실행 결과와 맞춰 보고, 성공한 파일의 `.md`와 `.json`을 둘 다 `private/inbox/jobs/done/`으로 옮긴다. 같은 이름이 있으면 앞에 오늘 날짜(`YYYY-MM-DD-`)를 붙인다. 모두 건너뛴 파일도 옮긴다. "취소했어요"가 나왔거나 실패한 파일은 그대로 둔다.
 
 ## 4. 알려 주기
 

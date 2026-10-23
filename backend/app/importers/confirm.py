@@ -42,7 +42,18 @@ def needs_confirmation(url: str) -> bool:
 
 def is_interactive() -> bool:
     """사람이 키보드로 입력할 수 있는 터미널인가 (테스트가 바꿔 끼운다)."""
-    return sys.stdin is not None and sys.stdin.isatty()
+    if sys.stdin is None or not sys.stdin.isatty():
+        return False
+    if sys.platform == "win32":
+        # Windows에서는 NUL 장치(에이전트 도구의 stdin)도 isatty()가 참이다. 진짜 콘솔인지 따로 본다.
+        import ctypes
+        from ctypes import wintypes
+
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.GetStdHandle.restype = wintypes.HANDLE
+        handle = kernel32.GetStdHandle(-10)  # STD_INPUT_HANDLE
+        return bool(kernel32.GetConsoleMode(handle, ctypes.byref(wintypes.DWORD())))
+    return True
 
 
 def read_line() -> str:
