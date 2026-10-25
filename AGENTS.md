@@ -59,7 +59,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 - 새 공고분석 받기: 다른 프로젝트의 Claude가 [`docs/job-inbox.md`](docs/job-inbox.md) 형식으로 `private/inbox/jobs/`에 둔 파일을 `/import-jobs`로 넣는다. 위의 첫 가져오기와 달리 `saveme_dev`를 거치지 않는다: 시험 실행(`--dry-run`), 백업, `saveme`에 넣기 (마지막은 사용자가 직접 연 터미널에서 DB 이름을 입력해 확인한다). 가져온 분석은 사람 확인이 N이라 사용자가 앱에서 확인한다. 이미 있는 (회사, 직무)는 건너뛴다 (사용자 결정, 2026-10-16). 사용자가 부탁하면 `--replace`(미확인만)나 `--replace-verified`(확인된 것도)로 바꾸고, 지원 건 연결은 그대로 남는다.
 
 
-- 에이전트의 조회 (이슈 #6): 에이전트는 DB에 직접 접속하지 않는다. 조회는 `uv run python -m app.agent_read <experience-index|experience ID|profile|personality|reviews|jobs>`(조회 전용, 로컬 사용자만, 마크다운 출력, 예상 질문과 답변·후기의 AI 첨언 등 근거 아닌 것은 `--include-reference`에서만), 저장은 위 가져오기 명령으로만 한다. `.claude/settings.json`의 권한: 조회와 가져오기 `--dry-run`은 자동 허용, 실제 저장은 진짜 DB면 사람의 터미널 확인(`app/importers/confirm.py`), `psql`·`docker exec`·`--replace-verified`는 거부 (`--replace-verified`는 사용자가 터미널에서 직접). 이 터미널 확인은 실수나 순진한 실행을 막지만 일부러 하는 우회(코드를 바꿔 끼우기, 새 콘솔에 키 넣기)는 코드로 막지 못한다.
+- 에이전트의 조회 (이슈 #6): 에이전트는 DB에 직접 접속하지 않는다. 조회는 `uv run python -m app.agent_read <experience-index|experience ID|profile|personality|reviews|jobs|job ID [--reader]>`(`job ID`는 공고분석 한 건 전체, `--reader`는 면접관 시점으로 공고 원문과 회사 동향만. 조회할 DB는 환경 변수 `AGENT_READ_DATABASE_URL`, 없으면 `DATABASE_URL`, 없으면 `saveme_dev`인데 `.claude/settings.json`의 `env`가 `AGENT_READ_DATABASE_URL`을 진짜 DB `saveme`로 두므로 에이전트는 기본으로 진짜 데이터를 읽고, 출력 맨 위 `조회 DB:` 줄이 읽은 DB를 보인다. 이 변수는 `agent_read`만 읽는다. 조회 전용, 로컬 사용자만, 마크다운 출력, 예상 질문과 답변·후기의 AI 첨언 등 근거 아닌 것은 `--include-reference`에서만), 저장은 위 가져오기 명령으로만 한다. `.claude/settings.json`의 권한: 조회와 가져오기 `--dry-run`은 자동 허용, 실제 저장은 진짜 DB면 사람의 터미널 확인(`app/importers/confirm.py`), `psql`·`docker exec`·`--replace-verified`는 거부 (`--replace-verified`는 사용자가 터미널에서 직접). 이 터미널 확인은 실수나 순진한 실행을 막지만 일부러 하는 우회(코드를 바꿔 끼우기, 새 콘솔에 키 넣기)는 코드로 막지 못한다.
 
 
 ## 구조의 원칙
@@ -113,6 +113,7 @@ MVP의 모든 화면은 만들었다. 화면의 기준은 `frontend/src` 코드,
 - `.claude/skills/plan-task/` (기획자): `/plan-task <만들 것>`. 사용자와 기획하고, 다른 태스크를 안 읽은 사람이 봐도 되는 독립적인 지시서를 `.claude/tasks/`에 써서 main에 커밋하고 끝난다. 개발자는 띄우지 않는다. 지시서에 개인 데이터를 쓰지 않는다 (저장소는 공개).
 - `.claude/agents/developer.md`: 지시서 하나를 git worktree의 자기 브랜치에서 테스트와 작은 커밋으로 만들고 보고서를 남긴다. `main`에 커밋하지 않는다.
 - `.claude/agents/reviewer.md`: 브랜치나 커밋 안 한 변경을 이 파일, 명세, 지시서에 비춰 읽기만 하며 리뷰한다.
+- 취업 역할 에이전트 4개 (`.claude/agents/`, 이슈 #6): `job-analyst`(공고 분석, 받은편지함 양식 파일), `doc-writer`(자소서·경력기술서 초안), `risk-checker`(사실·수치·범위 PASS/FAIL, 파일 수정 안 함), `doc-reviewer`(면접관 시점 검토, 경험을 읽지 않음). 흐름은 작성자 → 위험검증자 → 서류검토자이고 조율은 메인 세션이 한다. 이 에이전트들은 DB에 직접 접속하지 않고 `agent_read`로만 읽고, 공고분석은 `private/inbox/jobs/`에 쓴 뒤 `/import-jobs`와 사용자 터미널로, 초안·작성메모는 `private/drafts/<회사>/`에 파일로만 둔다 (실제 저장 명령은 돌리지 않는다). 공통 규칙은 [`docs/agent-rules/`](docs/agent-rules/) (`job-matching.md`, `writing-rules.md`, `frequent-questions.md`), 절대 규칙은 에이전트 파일 본문에 있다.
 - `.claude/skills/publish-task/` (퍼블리셔): `/publish-task <이름>`. 개발자 보고와 리뷰 보고를 받고(리뷰어는 부르지 않는다), 작업 브랜치의 CI가 초록인지 확인하고(안 돌았으면 사용자에게 push를 부탁한다), main에 병합하고, 지시서의 버전으로 릴리즈하고, 지시서·보고서를 지우고, 끝나면 `scripts/update.ps1`로 돌고 있는 앱(compose)을 백업·다시 빌드해 반영한다 (사용자 결정 2026-10-22). push, 태그 push, 릴리즈 노트는 사용자가 요청할 때만.
 - `.claude/skills/import-jobs/`: `/import-jobs`. 공고분석 받은편지함(`private/inbox/jobs/`)의 파일을 시험하고, 백업하고, (사용자가 터미널에서 확인해) `saveme`에 넣게 하고, `done/`으로 옮긴다.
 

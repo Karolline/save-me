@@ -1,4 +1,7 @@
 {
+  "env": {
+    "AGENT_READ_DATABASE_URL": "postgresql://saveme:saveme@127.0.0.1:5442/saveme"
+  },
   "permissions": {
     "allow": [
       "Bash(uv run python -m app.agent_read*)",

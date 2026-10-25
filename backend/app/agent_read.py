@@ -20,15 +20,22 @@
     uv run python -m app.agent_read personality
     uv run python -m app.agent_read reviews [--include-reference]
     uv run python -m app.agent_read jobs
+    uv run python -m app.agent_read job ID [--reader]
+
+조회할 DB: 환경 변수 `AGENT_READ_DATABASE_URL`이 있으면 그것, 없으면 `DATABASE_URL`,
+그것도 없으면 `saveme_dev`. 출력 맨 위 줄에 읽은 DB 이름을 보인다.
 """
 
 import argparse
+import os
 import sys
 from collections import Counter
 
-from app.db import database_url, make_engine
+from sqlalchemy.engine import make_url
+
+from app.db import database_url, make_engine, normalize_url
 from app.migrate import is_at_head
-from app.models import Experience, Review
+from app.models import Experience, Job, Review
 from app.stores import Stores
 
 NOT_AT_HEAD = "DB가 최신 버전이 아니에요. 앱을 먼저 업데이트하세요."
@@ -50,6 +57,7 @@ USAGE = """\
   personality                              인성 답변
   reviews [--include-reference]            면접 후기 (내 답, 다시 답한다면, 메모)
   jobs                                     기존 공고분석 목록
+  job ID [--reader]                        공고분석 한 건 전체 (--reader: 공고 원문과 회사 동향만, 면접관 시점)
 
 --include-reference: 근거가 아닌 참고 자료(예상 질문과 답변, 후기의 AI 첨언 등)도 보여 줘요.
                      "근거 아님" 표시가 붙고, 서류의 근거로 쓰면 안 돼요.
@@ -83,6 +91,9 @@ def build_parser() -> argparse.ArgumentParser:
     add("personality")
     add("reviews", reference=True)
     add("jobs")
+    job = add("job")
+    job.add_argument("id", type=int)
+    job.add_argument("--reader", action="store_true")
     return parser
 
 
@@ -428,6 +439,187 @@ def render_jobs(stores: Stores, user_id: int) -> str:
     return "\n".join(out) + "\n"
 
 
+# 값 이름: docs/job-inbox.md 양식의 글자 그대로.
+STATUS_LABELS = {"undecided": "미정", "applied": "지원함", "skipped": "지원 안 함"}
+CONDITION_LABELS = {"ok": "충족", "check": "확인 필요", "no": "안 맞음"}
+LEVEL_LABELS = {"full": "충족", "part": "부분", "none": "없음", "": "미평가"}
+CATEGORY_LABELS = {"duty": "주요업무", "must": "자격요건", "pref": "우대사항"}
+TREND_LABELS = {"spend": "요즘 어디에 돈을 쓰는가", "rival": "경쟁사 대비", "users": "실제 사용자 반응"}
+
+
+def job_trend_lines(job: Job, reader: bool = False) -> list[str]:
+    """## 회사 동향 섹션의 줄들 (내용이 없으면 빈 목록).
+
+    reader(면접관 시점)면 회사에 대한 것만 보인다. 어필 포인트와 쓰지 않은 것은 지원자의
+    경험과 기여를 담고 있어서 뺀다.
+    """
+    appeals = [] if reader else job.appeals
+    appeal_gaps = [] if reader else job.appeal_gaps
+    has_trends = bool(
+        job.trends_checked_on
+        or job.trends_note.strip()
+        or job.trends
+        or job.direction_quotes
+        or job.direction_reading.strip()
+        or appeals
+        or appeal_gaps
+    )
+    if not has_trends:
+        return []
+    out = ["## 회사 동향"]
+    if job.trends_checked_on:
+        out.append(f"조사일: {job.trends_checked_on}")
+    if job.trends_note.strip():
+        out += ["", text_block(job.trends_note)]
+    for kind, label in TREND_LABELS.items():
+        rows = [t for t in job.trends if t.kind == kind]
+        if not rows:
+            continue
+        out += ["", f"### {label}"]
+        for t in rows:
+            line = f"{t.label}: {text_block(t.text)}" if t.label else text_block(t.text)
+            sources = ", ".join(
+                f"[{s.name} {s.date}]({s.url})" if s.date else f"[{s.name}]({s.url})" for s in t.sources
+            )
+            out.append(item(line + (f" — {sources}" if sources else "")))
+    if job.direction_quotes or job.direction_reading.strip():
+        out += ["", "### 회사가 가는 방향"]
+        out += [f"- {q}" for q in job.direction_quotes]
+        if job.direction_reading.strip():
+            out += ["", f"해석 (추정): {text_block(job.direction_reading)}"]
+    if appeals:
+        out += ["", "### 어필 포인트"]
+        for n, a in enumerate(appeals, 1):
+            out.append(f"{n}. 회사 상황: {text_block(a.situation)}")
+            if a.contribution.strip():
+                out.append(f"   - 기여: {text_block(a.contribution)}")
+            if a.evidence:
+                out.append(f"   - 근거 경험: {', '.join(a.evidence)}")
+    if appeal_gaps:
+        out += ["", "### 어필 포인트로 쓰지 않은 것"]
+        out += [item(g) for g in appeal_gaps]
+    return out
+
+
+def render_job(job: Job, reader: bool) -> str:
+    """공고분석 한 건. 순서는 docs/job-inbox.md 양식. reader면 공고 원문과 회사 동향만."""
+    out = [f"# {job.company} · {job.title or '(직무 없음)'} (공고분석 id {job.id})", ""]
+    if reader:
+        trends = job_trend_lines(job, reader=True)
+        if trends:
+            out += [*trends, ""]
+        out += ["## 공고 원문", "", text_block(job.raw_text) or "(비어 있음)"]
+        return "\n".join(out) + "\n"
+
+    basics = [
+        field("회사", job.company),
+        field("팀", job.team),
+        field("직무", job.title),
+        field("공고 URL", job.url),
+        field("분석일", str(job.analyzed_at)),
+        field("마감일", str(job.deadline) if job.deadline else ""),
+        field("지원 여부", STATUS_LABELS[job.status]),
+        field("기술 핏", job.fit or "판정 안 함"),
+        field("사람 확인", "Y(확인됨)" if job.verified else "N(미확인)"),
+        field("지원 건", f"{job.application.company} {job.application.applied_at}" if job.application else ""),
+    ]
+    out += [b for b in basics if b]
+
+    def section(title: str, body: list[str]) -> None:
+        if body:
+            out.extend(["", f"## {title}", *body])
+
+    section("한 줄 결론", [text_block(job.conclusion)] if job.conclusion.strip() else [])
+    section(
+        "지원 조건",
+        [
+            item(f"[{CONDITION_LABELS[c.state]}] {c.label}" + (f" — {c.text}" if c.text.strip() else ""))
+            for c in job.conditions
+        ],
+    )
+
+    if job.requirements:
+        out += ["", "## 요구사항"]
+        for category, label in CATEGORY_LABELS.items():
+            rows = [r for r in job.requirements if r.category == category]
+            if not rows:
+                continue
+            out.append(f"### {label}")
+            for r in rows:
+                out.append(item(f"[{LEVEL_LABELS[r.level]}] {r.text}"))
+                for name, value in (
+                    ("설명", r.description),
+                    ("근거 경험", ", ".join(r.evidence)),
+                    ("근거 없음", r.no_evidence),
+                    ("주의", r.caution),
+                ):
+                    if value.strip():
+                        out.append(indented(f"- {name}: {text_block(value)}"))
+
+    fit_notes: list[str] = []
+    for note in job.fit_notes:
+        fit_notes += [text_block(note), ""]
+    section("핏 평가", fit_notes[:-1])
+
+    culture: list[str] = []
+    if job.culture_grade:
+        culture.append(f"- 등급: {job.culture_grade}")
+    if job.culture_score is not None:
+        culture.append(f"- 총점: {job.culture_score}")
+    if job.culture_type.strip():
+        culture.append(f"- 실제 역할 유형: {text_block(job.culture_type)}")
+    if job.culture_items:
+        culture.append("### 점수표")
+        for c in job.culture_items:
+            score = f"{c.score if c.score is not None else '?'}/{c.max if c.max is not None else '?'}"
+            culture.append(f"- {c.name}: {score}")
+            if c.quote.strip():
+                culture.append(f"  - 공고 근거: {text_block(c.quote)}")
+    if job.culture_points.strip():
+        culture += ["### 잘 맞는 점", text_block(job.culture_points)]
+    if job.culture_read_between.strip():
+        culture += ["### 공고 행간 읽기", text_block(job.culture_read_between)]
+    if job.culture_risks:
+        culture += ["### Risk · Red Flag 체크", *(item(r) for r in job.culture_risks)]
+    section("성향 적합도", culture)
+
+    highlight: list[str] = []
+    for n, h in enumerate(job.highlight, 1):
+        highlight.append(f"{n}. {h.exp}")
+        if h.maps.strip():
+            highlight.append(f"   - 대응하는 공고 요구: {text_block(h.maps)}")
+        if h.why.strip():
+            highlight.append(f"   - 이유 · 주의: {text_block(h.why)}")
+    section("부각할 경험", highlight)
+
+    excluded: list[str] = []
+    for x in job.excluded:
+        excluded.append(f"- {x.exp}")
+        if x.where.strip():
+            excluded.append(f"  - 쓸 곳: {text_block(x.where)}")
+    section("서류에서 뺀 경험", excluded)
+
+    questions: list[str] = []
+    for q in job.questions:
+        questions.append(f"### {q.question}")
+        if q.answer.strip():
+            questions.append(text_block(q.answer))
+        questions.append("")
+    section("약한 부분 · 면접 예상 질문", questions[:-1])
+
+    section("작성 권장", [item(v) for v in job.to_write])
+    section("갭", [item(v) for v in job.gaps])
+    section("경험 보완 제안", [item(v) for v in job.exp_suggestions])
+    section("면접 역질문", [item(v) for v in job.ask_back])
+    section("확인 필요", [item(v) for v in job.checks])
+    trends = job_trend_lines(job)
+    if trends:
+        out += ["", *trends]
+    section("기타 메모", [text_block(job.notes)] if job.notes.strip() else [])
+    out += ["", "## 공고 원문", "", text_block(job.raw_text) or "(비어 있음)"]
+    return "\n".join(out) + "\n"
+
+
 # ── 실행 ──
 
 
@@ -445,9 +637,26 @@ def run(args: argparse.Namespace, stores: Stores, user_id: int) -> tuple[str, in
         return render_profile(stores, user_id), 0
     if args.command == "personality":
         return render_personality(stores, user_id), 0
+    if args.command == "job":
+        job = stores.jobs.get(user_id, args.id)
+        if job is None:
+            return f"공고분석 id {args.id}은(는) 없어요. `jobs`로 목록을 보세요.\n", 1
+        return render_job(job, args.reader), 0
     if args.command == "reviews":
         return render_reviews(stores, user_id, reference), 0
     return render_jobs(stores, user_id), 0
+
+
+def read_database_url() -> str:
+    """조회할 DB: AGENT_READ_DATABASE_URL, 없으면 DATABASE_URL, 그것도 없으면 saveme_dev.
+
+    AGENT_READ_DATABASE_URL은 이 명령만 읽는다 (세션 전체가 진짜 DB를 가리키지 않게).
+    """
+    return os.environ.get("AGENT_READ_DATABASE_URL") or database_url()
+
+
+def database_name(url: str) -> str:
+    return make_url(normalize_url(url)).database or "?"
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -466,7 +675,7 @@ def main(argv: list[str] | None = None) -> None:
         sys.stderr.write(f"하위명령이 필요해요.\n\n{USAGE}")
         raise SystemExit(2)
 
-    url = database_url()
+    url = read_database_url()
     engine = make_engine(url)
     try:
         # 바깥 트랜잭션을 연 연결 하나로 읽고 끝에 되돌린다: 혹시라도 쓰는 코드가 섞여도 남지 않는다.
@@ -487,7 +696,7 @@ def main(argv: list[str] | None = None) -> None:
     if code:
         sys.stderr.write(output)
         raise SystemExit(code)
-    sys.stdout.write(output)
+    sys.stdout.write(f"조회 DB: {database_name(url)}\n\n{output}")
 
 
 if __name__ == "__main__":

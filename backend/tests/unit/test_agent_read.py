@@ -12,11 +12,21 @@ from app.agent_read import (
     REFERENCE_MARK,
     RETRY_MARK,
     build_parser,
+    database_name,
     main,
 )
 from app.models import (
     Answer,
+    AppealPoint,
     Career,
+    CultureItem,
+    ExcludedItem,
+    ExpectedQuestion,
+    HighlightItem,
+    JobCondition,
+    Requirement,
+    TrendItem,
+    TrendSource,
     ExperienceAsked,
     ExperienceInput,
     ExperienceLinkInput,
@@ -47,6 +57,12 @@ def snapshot(engine) -> dict[str, list]:
             name: sorted(map(tuple, connection.execute(select(table)).all()), key=repr)
             for name, table in metadata.tables.items()
         }
+
+
+@pytest.fixture(autouse=True)
+def no_agent_read_url(monkeypatch):
+    """세션 설정(.claude/settings.json)의 AGENT_READ_DATABASE_URL이 시험으로 새지 않게 한다."""
+    monkeypatch.delenv("AGENT_READ_DATABASE_URL", raising=False)
 
 
 def run(monkeypatch, capsys, url: str, *argv: str) -> str:
@@ -350,7 +366,262 @@ def test_parser_has_no_user_selecting_option():
     parser = build_parser()
     subparsers = next(a for a in parser._actions if hasattr(a, "choices") and a.choices)
     options = {o for p in [parser, *subparsers.choices.values()] for a in p._actions for o in a.option_strings}
-    assert options <= {"-h", "--help", "--include-reference"}
+    assert options <= {"-h", "--help", "--include-reference", "--reader"}
     assert not any("user" in o or "database" in o for o in options)
     with pytest.raises(SystemExit):
         parser.parse_args(["jobs", "--user-id", "2"])
+
+
+# ── 공고분석 한 건 (job) ──
+
+FIT_NOTE = "핏판정근거ZZ"
+EVIDENCE = "2022-09 정산배치-튜닝"
+HIGHLIGHT_EXP = "부각경험ZZ"
+POSTING = "공고원문첫줄ZZ\n공고원문둘째줄ZZ"
+TREND_TEXT = "동향내용ZZ"
+
+
+def full_job(stores: Stores, user_id: int, company: str = "누리커머스", title: str = "데이터 엔지니어"):
+    return stores.jobs.create(
+        user_id,
+        JobInput(
+            company=company,
+            team="Data팀",
+            title=title,
+            url="https://example.com/jobs/1",
+            deadline=date(2026, 11, 30),
+            fit="상",
+            conclusion="결론 한 줄ZZ",
+            conditions=[JobCondition(label="경력 4년 이상", state="ok", text="총 5년")],
+            requirements=[
+                Requirement(
+                    category="duty",
+                    text="마트 설계",
+                    level="full",
+                    description="설명ZZ",
+                    evidence=[EVIDENCE],
+                    caution="주의ZZ",
+                ),
+                Requirement(category="must", text="dbt 경험", level="part", no_evidence="dbt는 안 써 봄"),
+                Requirement(category="pref", text="물류 도메인", level="none"),
+            ],
+            fit_notes=[FIT_NOTE, "둘째 문단"],
+            culture_grade="Green",
+            culture_score=97,
+            culture_type="지표 서포트형",
+            culture_items=[CultureItem(name="표준화", score=20, max=20, quote="지표를 표준화")],
+            culture_points="잘맞는점ZZ",
+            culture_read_between="행간ZZ",
+            culture_risks=["면접 2회"],
+            highlight=[HighlightItem(exp=HIGHLIGHT_EXP, maps="주요업무 1", why="이유ZZ")],
+            excluded=[ExcludedItem(exp="챗봇 PoC", where="AI 질문")],
+            questions=[ExpectedQuestion(question="물류를 아나요?", answer="정산에서 시작")],
+            to_write=["숫자로 쓰기"],
+            gaps=["물류 도메인"],
+            exp_suggestions=["dbt 튜토리얼"],
+            ask_back=["지표는 누가 관리하나요?"],
+            checks=["근무지"],
+            trends_checked_on=date(2026, 10, 16),
+            trends_note="조사메모ZZ",
+            trends=[
+                TrendItem(
+                    kind="spend",
+                    label="실적",
+                    text=TREND_TEXT,
+                    sources=[TrendSource(name="기사", date=date(2026, 4, 14), url="https://example.com/a")],
+                ),
+                TrendItem(kind="users", label="앱", text="평점 4.8"),
+            ],
+            direction_quotes=['"공고 문구"'],
+            direction_reading="해석ZZ",
+            appeals=[AppealPoint(situation="회사 상황ZZ", contribution="기여ZZ", evidence=["지표-SSOT"])],
+            appeal_gaps=["어필안함ZZ"],
+            notes="기타메모ZZ",
+            raw_text=POSTING,
+        ),
+    )
+
+
+def test_job_shows_everything_in_the_inbox_order(db_file, monkeypatch, capsys):
+    url, _, stores = db_file
+    job = full_job(stores, stores.users.dev_user().id)
+    out = run(monkeypatch, capsys, url, "job", str(job.id))
+
+    assert out.startswith("조회 DB: ")
+    headings = [
+        f"공고분석 id {job.id}",
+        "- 회사: 누리커머스",
+        "- 직무: 데이터 엔지니어",
+        "- 마감일: 2026-11-30",
+        "- 사람 확인: Y(확인됨)",
+        "## 한 줄 결론",
+        "## 지원 조건",
+        "## 요구사항",
+        "### 주요업무",
+        "### 자격요건",
+        "### 우대사항",
+        "## 핏 평가",
+        "## 성향 적합도",
+        "### 점수표",
+        "### 잘 맞는 점",
+        "### 공고 행간 읽기",
+        "### Risk · Red Flag 체크",
+        "## 부각할 경험",
+        "## 서류에서 뺀 경험",
+        "## 약한 부분 · 면접 예상 질문",
+        "## 작성 권장",
+        "## 갭",
+        "## 경험 보완 제안",
+        "## 면접 역질문",
+        "## 확인 필요",
+        "## 회사 동향",
+        "### 요즘 어디에 돈을 쓰는가",
+        "### 실제 사용자 반응",
+        "### 회사가 가는 방향",
+        "### 어필 포인트",
+        "### 어필 포인트로 쓰지 않은 것",
+        "## 기타 메모",
+        "## 공고 원문",
+    ]
+    for h in headings:
+        assert h in out, h
+    positions = [out.index(h) for h in headings]
+    assert positions == sorted(positions)
+    # 값은 그대로.
+    for text in (
+        "[충족] 경력 4년 이상 — 총 5년",
+        "[충족] 마트 설계",
+        f"  - 근거 경험: {EVIDENCE}",
+        "  - 주의: 주의ZZ",
+        "[부분] dbt 경험",
+        "  - 근거 없음: dbt는 안 써 봄",
+        "[없음] 물류 도메인",
+        FIT_NOTE,
+        "- 등급: Green",
+        "- 총점: 97",
+        "- 표준화: 20/20",
+        "  - 공고 근거: 지표를 표준화",
+        f"1. {HIGHLIGHT_EXP}",
+        "   - 대응하는 공고 요구: 주요업무 1",
+        "   - 이유 · 주의: 이유ZZ",
+        "조사일: 2026-10-16",
+        f"- 실적: {TREND_TEXT} — [기사 2026-04-14](https://example.com/a)",
+        '- "공고 문구"',
+        "해석 (추정): 해석ZZ",
+        "1. 회사 상황: 회사 상황ZZ",
+        "   - 근거 경험: 지표-SSOT",
+        POSTING,
+    ):
+        assert text in out, text
+    assert out.rstrip().endswith("공고원문둘째줄ZZ")
+
+
+def test_job_reader_shows_only_the_posting_and_company_trends(db_file, monkeypatch, capsys):
+    url, _, stores = db_file
+    job = full_job(stores, stores.users.dev_user().id)
+    out = run(monkeypatch, capsys, url, "job", str(job.id), "--reader")
+
+    assert POSTING in out and TREND_TEXT in out and "조사메모ZZ" in out and "해석ZZ" in out
+    for hidden in (
+        # 어필 포인트는 지원자의 기여와 근거 경험이라 면접관 시점에는 나오지 않는다.
+        "회사 상황ZZ",
+        "기여ZZ",
+        "지표-SSOT",
+        "어필안함ZZ",
+        "### 어필 포인트",
+        FIT_NOTE,
+        EVIDENCE,
+        HIGHLIGHT_EXP,
+        "결론 한 줄ZZ",
+        "잘맞는점ZZ",
+        "dbt는 안 써 봄",
+        "기타메모ZZ",
+        "챗봇 PoC",
+        "숫자로 쓰기",
+        "## 핏 평가",
+        "## 부각할 경험",
+        "## 요구사항",
+    ):
+        assert hidden not in out, hidden
+
+
+def test_job_reader_without_trends_still_has_the_posting(db_file, monkeypatch, capsys):
+    url, _, stores = db_file
+    job = stores.jobs.create(stores.users.dev_user().id, JobInput(company="누리", raw_text="원문만"))
+    out = run(monkeypatch, capsys, url, "job", str(job.id), "--reader")
+    assert "원문만" in out and "## 회사 동향" not in out
+
+
+def test_job_skips_empty_sections(db_file, monkeypatch, capsys):
+    url, _, stores = db_file
+    job = stores.jobs.create(stores.users.dev_user().id, JobInput(company="누리", raw_text="원문"))
+    out = run(monkeypatch, capsys, url, "job", str(job.id))
+    assert "## 공고 원문" in out and "## 핏 평가" not in out and "## 회사 동향" not in out
+
+
+def test_missing_job_id_fails(db_file, monkeypatch, capsys):
+    url, _, stores = db_file
+    full_job(stores, stores.users.dev_user().id)
+    code, err = fail(monkeypatch, capsys, url, "job", "9999")
+    assert code == 1 and "없어요" in err
+    code, _ = fail(monkeypatch, capsys, url, "job", "9999", "--reader")
+    assert code == 1
+
+
+def test_other_users_job_is_not_found(db_file, other_user_id, monkeypatch, capsys):
+    url, _, stores = db_file
+    stores.users.dev_user()
+    theirs = full_job(stores, other_user_id, OTHER_MARK + "회사")
+    code, err = fail(monkeypatch, capsys, url, "job", str(theirs.id))
+    assert code == 1 and "없어요" in err and OTHER_MARK not in err
+    code, _ = fail(monkeypatch, capsys, url, "job", str(theirs.id), "--reader")
+    assert code == 1
+    assert OTHER_MARK not in run(monkeypatch, capsys, url, "jobs")
+
+
+def test_job_does_not_change_the_database(db_file, monkeypatch, capsys):
+    url, engine, stores = db_file
+    job = full_job(stores, stores.users.dev_user().id)
+    before = snapshot(engine)
+    run(monkeypatch, capsys, url, "job", str(job.id))
+    run(monkeypatch, capsys, url, "job", str(job.id), "--reader")
+    assert snapshot(engine) == before
+
+
+# ── 조회 DB 고르기 ──
+
+
+def test_first_line_names_the_database(seeded, monkeypatch, capsys):
+    url, *_ = seeded
+    out = run(monkeypatch, capsys, url, "profile")
+    assert out.splitlines()[0] == f"조회 DB: {database_name(url)}"
+    assert database_name("postgresql://u:p@127.0.0.1:5442/saveme") == "saveme"
+    assert database_name("postgresql+psycopg://u:p@h/saveme_dev?x=1") == "saveme_dev"
+
+
+def test_agent_read_database_url_wins_over_database_url(seeded, monkeypatch, capsys):
+    url, *_ = seeded
+    monkeypatch.setenv("DATABASE_URL", "postgresql://nobody:x@127.0.0.1:1/ignored")
+    monkeypatch.setenv("AGENT_READ_DATABASE_URL", url)
+    main(["profile"])
+    assert "김지원" in capsys.readouterr().out
+
+
+def test_without_agent_read_url_database_url_is_used(seeded, monkeypatch, capsys):
+    url, *_ = seeded
+    assert "김지원" in run(monkeypatch, capsys, url, "profile")
+
+
+def test_read_database_url_priority(monkeypatch):
+    from app.agent_read import read_database_url
+    from app.db import DEFAULT_DATABASE_URL
+
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("AGENT_READ_DATABASE_URL", raising=False)
+    assert read_database_url() == DEFAULT_DATABASE_URL and database_name(DEFAULT_DATABASE_URL) == "saveme_dev"
+    monkeypatch.setenv("DATABASE_URL", "postgresql://a/b")
+    assert read_database_url() == "postgresql://a/b"
+    monkeypatch.setenv("AGENT_READ_DATABASE_URL", "postgresql://a/real")
+    assert read_database_url() == "postgresql://a/real"
+    monkeypatch.setenv("AGENT_READ_DATABASE_URL", "")
+    assert read_database_url() == "postgresql://a/b"
