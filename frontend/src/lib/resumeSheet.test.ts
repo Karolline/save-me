@@ -28,6 +28,7 @@ describe("splitComma / dotMonth", () => {
   });
   it("writes months with a dot", () => {
     expect(dotMonth("2021-10")).toBe("2021.10");
+    expect(dotMonth("2021-10-05")).toBe("2021.10.05");
     expect(dotMonth(null)).toBe("");
   });
 });

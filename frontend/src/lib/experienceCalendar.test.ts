@@ -92,6 +92,12 @@ describe("experienceIssues", () => {
     expect(issues(exp("2025-03", "2025-04", "개인 프로젝트"))).toEqual([]);
   });
 
+  it("reads career dates with a day as months", () => {
+    const dayCareers = [career("다올커머스", "2020-03-15", "2022-12-31")];
+    expect(issues(exp("2020-03", "2022-12", "다올커머스"), dayCareers)).toEqual([]);
+    expect(calendarAxis([], dayCareers, TODAY).years[0]).toBe(2020);
+  });
+
   it("flags an end before the start", () => {
     expect(issues(exp("2022-05", "2022-01", "다올커머스 · 데이터팀"))).toEqual(["끝이 시작보다 빨라요"]);
   });

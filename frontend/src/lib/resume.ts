@@ -20,10 +20,10 @@ export function monthsBetween(from: string | null, to: string | null, today: str
  * 휴직 시작이 없거나 아직 오지 않았으면 0.
  */
 export function leaveMonths(career: Career, today: string): number {
-  const start = career.leaveStartedOn;
+  const start = career.leaveStartedOn?.slice(0, 7);
   if (!start) return 0;
   const ends = [career.leaveEndedOn, career.endedOn, today].filter((m): m is string => !!m);
-  const end = ends.reduce((a, b) => (b < a ? b : a));
+  const end = ends.map((m) => m.slice(0, 7)).reduce((a, b) => (b < a ? b : a));
   return Math.max(0, monthIndex(end) - monthIndex(start) + 1);
 }
 
@@ -49,8 +49,32 @@ export function careerTotalText(careers: Career[], today: string): { total: stri
   return { total: `총 경력 ${yearsMonths(months)}`, leave: leave > 0 ? `(휴직 ${yearsMonths(leave)} 포함)` : "" };
 }
 
-/** `2023-01` → `2023.01`. */
-export const dotMonth = (ym: string) => ym.replace("-", ".");
+/** `2023-01` → `2023.01`, `2023-01-15` → `2023.01.15`. */
+export const dotMonth = (ym: string) => ym.replaceAll("-", ".");
+
+// ── 경력 날짜: `YYYY-MM-DD` 또는 `YYYY-MM` (일 생략). 점(`2023.03.15`)도 받아 하이픈으로 바꾼다. ──
+
+/**
+ * 칸에 적은 경력 날짜를 저장 모양(`YYYY-MM` 또는 `YYYY-MM-DD`)으로. 비었으면 null,
+ * 형식이 틀리거나 없는 날짜(2023-02-30, 2023-13)면 undefined.
+ */
+export function parseCareerDate(text: string): string | null | undefined {
+  const t = text.trim().replaceAll(".", "-");
+  if (!t) return null;
+  const m = /^(\d{4})-(0[1-9]|1[0-2])(?:-(\d{2}))?$/.exec(t);
+  if (!m) return undefined;
+  if (m[3] !== undefined) {
+    const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+    if (d.getUTCMonth() !== Number(m[2]) - 1 || d.getUTCDate() !== Number(m[3])) return undefined;
+  }
+  return t;
+}
+
+/** 끝이 시작보다 앞서지 않는지. 둘 다 일이 있으면 날짜로, 한쪽이라도 없으면 달로만 비교한다. */
+export function careerDateNotBefore(end: string, start: string): boolean {
+  if (end.length === 10 && start.length === 10) return end >= start;
+  return end.slice(0, 7) >= start.slice(0, 7);
+}
 
 /** 기간 글: "2011.03 – 2017.02", 한쪽만 있으면 "2011.03 –" / "– 2017.02", 둘 다 없으면 "". */
 export function periodText(from: string | null, to: string | null): string {
@@ -74,7 +98,7 @@ export function leaveLine(career: Career, today: string): string {
   if (!start) return "";
   const end = career.leaveEndedOn;
   if (!end) return `휴직 ${dotMonth(start)} – (휴직 중)`;
-  return `휴직 ${dotMonth(start)} – ${dotMonth(end)}${end > today ? " (복직 예정)" : ""}`;
+  return `휴직 ${dotMonth(start)} – ${dotMonth(end)}${end.slice(0, 7) > today ? " (복직 예정)" : ""}`;
 }
 
 /** 빈 것을 빼고 " · "로 잇는다. */
@@ -125,6 +149,7 @@ export const RESUME_FIELDS: Record<ResumeListCard, string[]> = {
 };
 
 const MONTH_FIELDS = new Set(["startedOn", "endedOn", "leaveStartedOn", "leaveEndedOn", "acquiredOn"]);
+const CAREER_DATE_FIELDS = ["startedOn", "endedOn", "leaveStartedOn", "leaveEndedOn"];
 
 /** 번호 카드 하나. key는 React key (저장하지 않는다). */
 export interface RowDraft {
@@ -152,7 +177,19 @@ export const isBlankRow = (row: RowDraft) => Object.values(row.v).every((x) => !
 export function fromRowDrafts<T>(card: ResumeListCard, rows: RowDraft[]): T[] {
   return rows
     .filter((r) => !isBlankRow(r))
-    .map((r) => Object.fromEntries(RESUME_FIELDS[card].map((f) => [f, MONTH_FIELDS.has(f) ? r.v[f] || null : r.v[f]])) as T);
+    .map(
+      (r) =>
+        Object.fromEntries(
+          RESUME_FIELDS[card].map((f) => [
+            f,
+            card === "careers" && CAREER_DATE_FIELDS.includes(f)
+              ? (parseCareerDate(r.v[f]) ?? null)
+              : MONTH_FIELDS.has(f)
+                ? r.v[f] || null
+                : r.v[f],
+          ]),
+        ) as T,
+    );
 }
 
 const REQUIRED: Record<ResumeListCard, [field: string, message: string]> = {
@@ -175,9 +212,16 @@ export function rowHints(card: ResumeListCard, row: RowDraft): Record<string, st
   if (!v[field].trim()) out[field] = message;
   const before = (a: string, b: string) => !!v[a] && !!v[b] && v[b] < v[a];
   if (card === "careers") {
-    if (before("startedOn", "endedOn")) out.endedOn = "퇴사가 입사보다 빨라요.";
+    // 틀린 날짜는 칸마다 안내하고, 순서는 둘 다 올바른 값일 때만 본다.
+    const date: Record<string, string | null | undefined> = {};
+    for (const f of CAREER_DATE_FIELDS) {
+      date[f] = parseCareerDate(v[f]);
+      if (date[f] === undefined) out[f] = "날짜를 2023-03-15나 2023-03 모양으로 적어 주세요.";
+    }
+    const earlier = (a: string, b: string) => !!date[a] && !!date[b] && !careerDateNotBefore(date[b]!, date[a]!);
+    if (!out.endedOn && earlier("startedOn", "endedOn")) out.endedOn = "퇴사가 입사보다 빨라요.";
     if (v.leaveEndedOn && !v.leaveStartedOn) out.leaveStartedOn = "휴직 시작을 적어 주세요.";
-    if (before("leaveStartedOn", "leaveEndedOn")) out.leaveEndedOn = "휴직 끝이 휴직 시작보다 빨라요.";
+    if (!out.leaveEndedOn && earlier("leaveStartedOn", "leaveEndedOn")) out.leaveEndedOn = "휴직 끝이 휴직 시작보다 빨라요.";
   }
   if (card === "educations" && before("startedOn", "endedOn")) out.endedOn = "졸업이 입학보다 빨라요.";
   return out;

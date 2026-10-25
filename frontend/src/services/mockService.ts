@@ -1,3 +1,4 @@
+import { careerDateNotBefore, parseCareerDate } from "@/lib/resume";
 import { COVER_LETTER_MAX_ITEMS, COVER_LETTER_MAX_LIMIT, overLimitCount, totalChars } from "@/lib/coverLetter";
 import { ApiError } from "./errors";
 import {
@@ -519,6 +520,13 @@ export function emptyResume(): Resume {
 
 const invalidResume = () => new ApiError(422, "Request failed (422): invalid resume");
 
+/** 경력 날짜: 빈 글자는 없음, `YYYY-MM`이나 `YYYY-MM-DD`(있는 날짜)가 아니면 422. */
+function careerDate(value: string | null): string | null {
+  const d = value || null;
+  if (d !== null && parseCareerDate(d) !== d) throw invalidResume();
+  return d;
+}
+
 /** 빈 글자는 달 없음, 형식이 틀리면 422. */
 function resumeMonth(value: string | null): string | null {
   const m = value || null;
@@ -537,20 +545,25 @@ function checkOrder(start: string | null, end: string | null) {
   if (start && end && end < start) throw invalidResume();
 }
 
+/** 경력 날짜의 순서: 둘 다 일이 있으면 날짜로, 아니면 달로만 본다. */
+function checkCareerOrder(start: string | null, end: string | null) {
+  if (start && end && !careerDateNotBefore(end, start)) throw invalidResume();
+}
+
 function cleanCareer(c: Career): Career {
   const clean: Career = {
     ...c,
     company: requiredText(c.company),
     team: c.team.trim(),
     role: c.role.trim(),
-    startedOn: resumeMonth(c.startedOn),
-    endedOn: resumeMonth(c.endedOn),
-    leaveStartedOn: resumeMonth(c.leaveStartedOn),
-    leaveEndedOn: resumeMonth(c.leaveEndedOn),
+    startedOn: careerDate(c.startedOn),
+    endedOn: careerDate(c.endedOn),
+    leaveStartedOn: careerDate(c.leaveStartedOn),
+    leaveEndedOn: careerDate(c.leaveEndedOn),
   };
-  checkOrder(clean.startedOn, clean.endedOn);
+  checkCareerOrder(clean.startedOn, clean.endedOn);
   if (clean.leaveEndedOn && !clean.leaveStartedOn) throw invalidResume();
-  checkOrder(clean.leaveStartedOn, clean.leaveEndedOn);
+  checkCareerOrder(clean.leaveStartedOn, clean.leaveEndedOn);
   return clean;
 }
 

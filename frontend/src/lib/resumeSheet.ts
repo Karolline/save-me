@@ -68,8 +68,8 @@ const blankEducationOf = (e: ResumeSheetEducation) => allBlank(e.school, e.from,
 
 // ── 이력 메뉴에서 복사 ──
 
-/** "2021-10" -> "2021.10". */
-export const dotMonth = (month: string | null): string => (month ? month.replace("-", ".") : "");
+/** "2021-10" -> "2021.10", 일이 있으면 "2021-10-05" -> "2021.10.05". */
+export const dotMonth = (month: string | null): string => (month ? month.replaceAll("-", ".") : "");
 
 /** 쉼표로 나누되 괄호 안의 쉼표는 지킨다 ("AWS (S3, EMR)"). */
 export function splitComma(text: string): string[] {

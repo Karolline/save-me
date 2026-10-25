@@ -552,6 +552,16 @@ describe("mockService resume", () => {
     expect(skills.skills.map((s) => s.category)).toEqual(["나", "가"]);
   });
 
+  it("keeps the day of a career date and accepts months without one", async () => {
+    const service = createMockService();
+    const got = await service.saveCareers([
+      career({ company: "가", startedOn: "2023-03-15", endedOn: "2024-02", leaveStartedOn: "2023-08-01", leaveEndedOn: "2023-09" }),
+    ]);
+    expect(got.careers[0]).toMatchObject({ startedOn: "2023-03-15", endedOn: "2024-02", leaveStartedOn: "2023-08-01", leaveEndedOn: "2023-09" });
+    // 한쪽만 일이 있으면 달로만 비교한다.
+    await service.saveCareers([career({ startedOn: "2022-05-20", endedOn: "2022-05" })]);
+  });
+
   it("refuses the same rows as the server and keeps the card", async () => {
     const service = createMockService({ resume: SAMPLE_RESUME });
     const bad = [
@@ -560,6 +570,10 @@ describe("mockService resume", () => {
       service.saveCareers([career({ leaveEndedOn: "2025-01" })]),
       service.saveCareers([career({ leaveStartedOn: "2025-05", leaveEndedOn: "2025-04" })]),
       service.saveCareers([career({ startedOn: "2022-13" })]),
+      service.saveCareers([career({ startedOn: "2023-02-30" })]),
+      service.saveCareers([career({ startedOn: "2023-3-1" })]),
+      service.saveCareers([career({ startedOn: "2023.03.15" })]),
+      service.saveCareers([career({ startedOn: "2022-05-10", endedOn: "2022-05-09" })]),
       service.saveEducations([{ school: "가", major: "", startedOn: "2011-03", endedOn: "2010-02", status: "" }]),
       service.saveCertificates([{ name: "", acquiredOn: null, issuer: "", number: "" }]),
       service.saveSkills([{ category: "", items: "", memo: "" }]),

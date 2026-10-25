@@ -283,6 +283,26 @@ describe("ResumeScreen editing", () => {
     expect(save).toBeEnabled();
   });
 
+  it("takes career dates as text with the day optional and hints a bad date", async () => {
+    const { user } = setup(createMockService());
+    await openEditor(user, "경력");
+    await user.click(screen.getByRole("button", { name: "+ 회사 추가" }));
+    await user.type(inRow("회사 1", /^회사/), "가");
+    const input = inRow("회사 1", /^입사/);
+    expect(input).toHaveAttribute("placeholder", "2023-03-15");
+    expect(input).not.toHaveAttribute("type", "month");
+    const save = within(card("경력")).getByRole("button", { name: "저장" });
+
+    fireEvent.change(input, { target: { value: "2023-02-30" } });
+    expect(input).toHaveAttribute("aria-invalid", "true");
+    expect(save).toBeDisabled();
+    fireEvent.change(input, { target: { value: "2023.03.15" } });
+    expect(input).not.toHaveAttribute("aria-invalid");
+    fireEvent.change(inRow("회사 1", /^퇴사/), { target: { value: "2024-02" } });
+    await user.click(save);
+    expect(await screen.findByText(/2023.03.15 – 2024.02/)).toBeInTheDocument();
+  });
+
   it("hints when 퇴사 or 휴직 dates are out of order", async () => {
     const { user } = setup(createMockService());
     await openEditor(user, "경력");

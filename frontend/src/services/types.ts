@@ -554,7 +554,7 @@ export interface ResumeBasics {
   summary: string;
 }
 
-/** 경력 하나. 달은 `YYYY-MM`, 없으면 null. */
+/** 경력 하나. 날짜는 `YYYY-MM-DD` 또는 일을 적지 않은 `YYYY-MM`, 없으면 null. */
 export interface Career {
   /** 필수. 경험의 소속과 같은 이름으로 적는다. */
   company: string;
@@ -565,7 +565,7 @@ export interface Career {
   /** null이면 재직 중. */
   endedOn: string | null;
   leaveStartedOn: string | null;
-  /** 휴직 끝 (복직 예정 달). 휴직 시작이 있어야 한다. */
+  /** 휴직 끝 (복직 예정일). 휴직 시작이 있어야 한다. */
   leaveEndedOn: string | null;
   /** 주요 업무, 한 줄에 하나. */
   duties: string;

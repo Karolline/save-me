@@ -34,7 +34,16 @@ const isPersonal = (company: string) => !company || company.includes("개인");
 
 /** 경력을 입사가 이른 순으로 (입사가 없으면 맨 뒤, 같으면 받은 순서). 색과 범례가 이 순서다. */
 export function careersByStart(careers: Career[]): Career[] {
+  // 경력 날짜는 일까지 올 수 있다: 캘린더는 달 단위라 앞 7글자(YYYY-MM)만 쓴다.
+  const month = (v: string | null) => (v ? v.slice(0, 7) : null);
   return careers
+    .map((c) => ({
+      ...c,
+      startedOn: month(c.startedOn),
+      endedOn: month(c.endedOn),
+      leaveStartedOn: month(c.leaveStartedOn),
+      leaveEndedOn: month(c.leaveEndedOn),
+    }))
     .map((c, i) => ({ c, i }))
     .sort((a, b) => {
       if (!a.c.startedOn || !b.c.startedOn) return (a.c.startedOn ? 0 : 1) - (b.c.startedOn ? 0 : 1) || a.i - b.i;

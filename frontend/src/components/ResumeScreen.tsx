@@ -38,6 +38,8 @@ interface Column {
   label: string;
   help?: string;
   month?: boolean;
+  /** 경력 날짜: 글 칸 (`2023-03-15`, 일 생략 가능). */
+  date?: boolean;
   area?: boolean;
   wide?: boolean;
 }
@@ -53,10 +55,10 @@ const RCARDS: Record<CardKey, { title: string; intro?: string; unit?: string; co
       { k: "company", label: "회사", help: "경험의 소속과 같은 이름으로 적어요 (캘린더에서 비교)" },
       { k: "team", label: "부서" },
       { k: "role", label: "직무·직급" },
-      { k: "startedOn", label: "입사", month: true },
-      { k: "endedOn", label: "퇴사", month: true, help: "재직 중이면 비워 둬요" },
-      { k: "leaveStartedOn", label: "휴직 시작", month: true, help: "없으면 비워 둬요" },
-      { k: "leaveEndedOn", label: "휴직 끝", month: true, help: "복직 예정 달" },
+      { k: "startedOn", label: "입사", date: true },
+      { k: "endedOn", label: "퇴사", date: true, help: "재직 중이면 비워 둬요" },
+      { k: "leaveStartedOn", label: "휴직 시작", date: true, help: "없으면 비워 둬요" },
+      { k: "leaveEndedOn", label: "휴직 끝", date: true, help: "복직 예정일" },
       { k: "duties", label: "주요 업무", area: true, wide: true, help: "한 줄에 하나" },
     ],
   },
@@ -318,8 +320,9 @@ export function ResumeScreen({ today: given }: { /** 테스트에서 정하는 �
                         />
                       ) : (
                         <input
-                          className={`input${col.month ? " mono" : ""}${hint ? " invalid" : ""}`}
+                          className={`input${col.month || col.date ? " mono" : ""}${hint ? " invalid" : ""}`}
                           type={col.month ? "month" : undefined}
+                          placeholder={col.date ? "2023-03-15" : undefined}
                           id={id}
                           value={row.v[col.k]}
                           aria-invalid={hint ? true : undefined}

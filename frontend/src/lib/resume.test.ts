@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Career, PersonalityAnswer } from "@/services";
 import {
+  careerDateNotBefore,
   careerPeriod,
   careerTotal,
   careerTotalText,
+  dotMonth,
   fromRowDrafts,
   groupPersonality,
   isBlankRow,
@@ -11,6 +13,7 @@ import {
   leaveMonths,
   monthsBetween,
   newRowDraft,
+  parseCareerDate,
   periodText,
   rowHints,
   seoulMonth,
@@ -88,6 +91,55 @@ describe("careerTotal", () => {
   it("says nothing about leave when there is none", () => {
     expect(careerTotalText(careers.slice(1), TODAY)).toEqual({ total: "총 경력 2년 10개월", leave: "" });
     expect(careerTotalText([], TODAY)).toEqual({ total: "총 경력 0년 0개월", leave: "" });
+  });
+});
+
+describe("career dates with a day", () => {
+  it("dotMonth turns every hyphen into a dot", () => {
+    expect(dotMonth("2023-03")).toBe("2023.03");
+    expect(dotMonth("2023-03-15")).toBe("2023.03.15");
+  });
+
+  it("parses hyphen or dot, with or without the day", () => {
+    expect(parseCareerDate("2023-03-15")).toBe("2023-03-15");
+    expect(parseCareerDate(" 2023.03.15 ")).toBe("2023-03-15");
+    expect(parseCareerDate("2023-03")).toBe("2023-03");
+    expect(parseCareerDate("2023.03")).toBe("2023-03");
+    expect(parseCareerDate("  ")).toBeNull();
+    for (const bad of ["2023-02-30", "2023-13", "2023-3-1", "2023-03-5", "2023", "abc", "2023-03-15-01"]) {
+      expect(parseCareerDate(bad), bad).toBeUndefined();
+    }
+    expect(parseCareerDate("2024-02-29")).toBe("2024-02-29");
+  });
+
+  it("orders by day only when both have one", () => {
+    expect(careerDateNotBefore("2023-05-10", "2023-05-10")).toBe(true);
+    expect(careerDateNotBefore("2023-05-09", "2023-05-10")).toBe(false);
+    expect(careerDateNotBefore("2023-05", "2023-05-20")).toBe(true);
+    expect(careerDateNotBefore("2023-05-01", "2023-05")).toBe(true);
+    expect(careerDateNotBefore("2023-04-30", "2023-05")).toBe(false);
+  });
+
+  it("writes the header, leave line and keeps month counts day-free", () => {
+    const c = career({ startedOn: "2023-01-15", leaveStartedOn: "2025-05-10", leaveEndedOn: "2026-12-31" });
+    expect(careerPeriod(c, TODAY)).toBe("2023.01.15 – 재직 중 · 3년 10개월");
+    expect(leaveLine(c, TODAY)).toBe("휴직 2025.05.10 – 2026.12.31 (복직 예정)");
+    // 이번 달 안의 날은 복직 예정이 아니다 (달 단위).
+    expect(leaveLine(career({ leaveStartedOn: "2025-05-10", leaveEndedOn: "2026-10-31" }), TODAY)).toBe("휴직 2025.05.10 – 2026.10.31");
+    expect(careerTotal([c], TODAY)).toEqual(careerTotal([career({ startedOn: "2023-01", leaveStartedOn: "2025-05", leaveEndedOn: "2026-12" })], TODAY));
+  });
+
+  it("drafts keep a typed date, normalised on save, and hint on bad ones", () => {
+    const r = newRowDraft("careers");
+    const row = { ...r, v: { ...r.v, company: "가", startedOn: "2023.03.15", endedOn: "2024-02" } };
+    expect(fromRowDrafts<Career>("careers", [row])).toEqual([career({ company: "가", startedOn: "2023-03-15", endedOn: "2024-02" })]);
+    const hints = (v: Record<string, string>) => rowHints("careers", { ...r, v: { ...r.v, company: "가", ...v } });
+    expect(hints({ startedOn: "2023-02-30" })).toEqual({ startedOn: expect.stringContaining("2023-03-15") });
+    expect(hints({ endedOn: "2023-13" })).toEqual({ endedOn: expect.stringContaining("2023-03-15") });
+    expect(hints({ startedOn: "2023-05-10", endedOn: "2023-05-09" })).toEqual({ endedOn: "퇴사가 입사보다 빨라요." });
+    expect(hints({ startedOn: "2023-05-10", endedOn: "2023-05" })).toEqual({});
+    expect(hints({ startedOn: "2023-05", endedOn: "2023-04-30" })).toEqual({ endedOn: "퇴사가 입사보다 빨라요." });
+    expect(hints({ leaveStartedOn: "2025-05-10", leaveEndedOn: "2025-05-09" })).toEqual({ leaveEndedOn: "휴직 끝이 휴직 시작보다 빨라요." });
   });
 });
 

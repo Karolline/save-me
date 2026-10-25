@@ -196,7 +196,7 @@ describe("httpService", () => {
       company: "가",
       team: "",
       role: "",
-      startedOn: "2023-01",
+      startedOn: "2023-01-15",
       endedOn: null,
       leaveStartedOn: null,
       leaveEndedOn: null,

@@ -246,6 +246,7 @@ uv run python -m app.importers.experiences ../private/experiences.json --replace
 ```
 
 - 경력의 회사 이름은 경험의 소속과 같은 이름으로 적는다 (경험 캘린더가 이름으로 비교).
+- 경력의 `startedOn`·`endedOn`·`leaveStartedOn`·`leaveEndedOn`은 `YYYY-MM` 또는 `YYYY-MM-DD`(일까지, 없는 날짜는 거절). 학력·자격증 날짜는 `YYYY-MM`만.
 - 카드마다: 로컬 사용자의 카드가 비어 있으면 채우고, 이미 적은 것이 있으면 건너뛴다. `--replace`는 그 카드를 통째로 바꾼다. 파일에서 비어 있는 카드(빈 목록, 빈 글, 칸이 모두 빈 기본 정보)는 없는 것처럼 다룬다 (`--replace`로도 지우지 않는다). 같은 파일을 두 번 돌리면 두 번째는 모두 건너뛴다.
 - 출력:
 
