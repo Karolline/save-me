@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SaveMe 이력서 서류 목업</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#F5F6F9; --surface:#fff; --line:#E2E5EC; --fg:#1B2130; --muted:#687184; --faint:#9AA1B0;
+    --accent:#2B3F7C; --accent-weak:#EDF0F8; --fail:#C2453B; --stage:#D9DDE5; --ing:#2C8452;
+    --font:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif; --r:10px;
+    /* 종이(A4) 안쪽 색 */ --ink:#222; --sub:#666; --soft:#e6e6e6; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font-family:var(--font); font-size:14px; line-height:1.5; }
+  button { font:inherit; cursor:pointer; }
+  .btn { border:1px solid var(--line); background:var(--surface); color:var(--fg); border-radius:8px; padding:6px 12px; }
+  .btn-primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn-text { border-color:transparent; background:none; color:var(--muted); }
+  .btn-text.danger { color:var(--fail); }
+  .link { border:0; background:none; padding:0; color:var(--accent); text-decoration:underline; }
+  .hint { color:var(--muted); font-size:13px; }
+
+  /* 위 줄: 실제 서류 상세와 같다 (묶음으로 · 서류 전환 · 저장 상태 · 지우기 · PDF) */
+  .top { padding:14px 20px 10px; background:var(--surface); border-bottom:1px solid var(--line); }
+  .top .back { font-size:13px; margin-bottom:8px; display:inline-block; }
+  .bar { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .seg button { border:0; background:var(--surface); padding:6px 14px; }
+  .seg button[aria-pressed="true"] { background:var(--accent-weak); color:var(--accent); font-weight:600; }
+  .grow { flex:1; }
+
+  /* 본문: 왼쪽 서류 한 장 (미리보기 겸 편집), 오른쪽 리뷰 */
+  .body { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:0; align-items:start; }
+  .stage { background:var(--stage); padding:20px; min-height:calc(100vh - 100px); }
+  .tools { max-width:210mm; margin:0 auto 10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .review { padding:16px; border-left:1px solid var(--line); background:var(--surface); min-height:calc(100vh - 100px); }
+  .review h2 { margin:0 0 10px; font-size:15px; }
+  .empty { border:1px dashed var(--line); border-radius:var(--r); padding:18px; text-align:center; }
+
+  /* ───── 종이 (toss-resume.html과 같은 모양) ───── */
+  .page { width:210mm; min-height:297mm; margin:0 auto; padding:16mm 17mm; background:#fff; color:var(--ink);
+    box-shadow:0 1px 6px rgba(0,0,0,.18); font-size:9.5pt; line-height:1.7; }
+  .page header { display:flex; justify-content:space-between; align-items:flex-start; gap:8mm; margin-bottom:7mm; }
+  .page h1 { margin:0 0 2mm; font-size:19pt; letter-spacing:.2em; line-height:1.2; font-weight:700; }
+  .contact { color:var(--sub); font-size:9pt; display:flex; gap:2mm; flex-wrap:wrap; }
+  .photo { flex:none; width:30mm; height:40mm; border:1px dashed #aaa; background:#fafafa; color:#999; font-size:9pt;
+    text-align:center; display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden;
+    padding:2mm; line-height:1.4; }
+  .photo.has, .logo.has { border:0; padding:0; }
+  .photo img, .logo img { width:100%; height:100%; display:block; object-fit:cover; }
+  .logo img { object-fit:contain; }
+  .intro { margin:0; min-height:1.7em; word-break:keep-all; white-space:pre-wrap; text-align:justify; }
+  .sec { display:flex; align-items:baseline; gap:3mm; margin:7mm 0 0; padding-bottom:1.6mm; border-bottom:1.5px solid var(--ink); }
+  .sec h2 { margin:0; font-size:12pt; }
+  .co, .edu { display:flex; gap:5mm; margin-top:5mm; position:relative; }
+  .logo { flex:none; width:11mm; height:11mm; border-radius:2.5mm; background:var(--soft); cursor:pointer; overflow:hidden; }
+  .logo.has { background:#fff; border:1px solid var(--soft); }
+  .co-body { flex:1; min-width:0; }
+  .co-head { padding-bottom:2.4mm; border-bottom:1px solid var(--soft); margin-bottom:3.5mm; }
+  .co-name { font-size:10.5pt; font-weight:700; }
+  .co-info { font-size:9pt; display:flex; flex-wrap:wrap; align-items:baseline; gap:0 2mm; }
+  .co-info .sep { color:#bbb; }
+  .block { margin:0 0 4.5mm; position:relative; }
+  .block h3, .proj .t { margin:0 0 1.6mm; font-size:10.5pt; font-weight:700; }
+  .proj { margin:0 0 2.6mm; position:relative; }
+  .proj .t { font-size:9.5pt; font-weight:400; margin-bottom:.6mm; }
+  ul { list-style:none; margin:0; padding:0; }
+  li { position:relative; padding-left:3.4mm; word-break:keep-all; }
+  li::before { content:"-"; position:absolute; left:0; color:var(--sub); }
+  .skills { display:flex; flex-wrap:wrap; gap:2mm; margin-top:4mm; align-items:center; }
+  .skills .chip { border:1px solid #ccc; border-radius:2mm; padding:.6mm 3mm; font-size:9pt; display:inline-flex; gap:1.5mm; }
+
+  /* 칸: 글자 자리 표시 + 눌러서 바로 고친다 */
+  [contenteditable] { outline:none; border-radius:2px; min-width:1ch; }
+  [contenteditable]:empty::before { content:attr(data-ph); color:#b5b5b5; font-weight:400; pointer-events:none; }
+  [contenteditable]:hover { background:#f3f5fb; }
+  [contenteditable]:focus { background:#eef2fc; box-shadow:0 0 0 1.5px #9fb2e6; }
+
+  /* 편집 도구: 종이에만 있고 인쇄에는 안 나온다. hover가 아니라 늘 보인다 (옅게). */
+  .x { border:0; background:none; color:#b0b0b0; font-size:11px; padding:0 3px; line-height:1; }
+  .x:hover, .x:focus-visible { color:var(--fail); }
+  .add { border:0; background:none; color:#8a97c4; font-size:11px; padding:1px 0; text-align:left; }
+  .add:hover { color:var(--accent); }
+  .row-tools { display:flex; gap:3mm; align-items:center; margin-top:1mm; }
+  .co > .x.del, .edu > .x.del { position:absolute; right:-6mm; top:0; }
+  .block > .x.del, .proj > .x.del { position:absolute; right:-6mm; top:0; }
+  li > .x { position:absolute; right:-6mm; top:3px; }
+  .count { color:var(--faint); font-size:11px; }
+
+  .toast { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#1B2130; color:#fff; padding:8px 16px;
+    border-radius:8px; font-size:13px; opacity:0; transition:opacity .2s; pointer-events:none; }
+  .toast.on { opacity:1; }
+
+  @page { size:A4; margin:14mm 0; }
+  @media print {
+    body, .stage { background:#fff; padding:0; }
+    .top, .tools, .review, .x, .add, .row-tools, .toast { display:none !important; }
+    .body { display:block; }
+    .page { margin:0; box-shadow:none; width:210mm; min-height:auto; padding:0 17mm; }
+    [contenteditable]:empty::before { content:""; }
+    .photo:not(.has) { color:transparent; border-color:transparent; }
+    .logo:not(.has) { background:none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="top">
+  <button class="link back">← 토스 · 2026-10-24 묶음으로</button>
+  <div class="bar">
+    <div class="seg" role="group" aria-label="서류">
+      <button aria-pressed="true">이력서</button><button aria-pressed="false">경력기술서</button><button aria-pressed="false">포트폴리오</button>
+    </div>
+    <span class="grow"></span>
+    <span class="hint" id="state" role="status">자동 저장됨 · 2026-10-24</span>
+    <button class="btn btn-text danger">이 서류 지우기</button>
+    <button class="btn btn-primary" onclick="window.print()">PDF로 내려받기</button>
+  </div>
+</div>
+
+<div class="body">
+  <div class="stage">
+    <div class="tools">
+      <button class="btn" id="fill">이력에서 불러오기</button>
+      <span class="hint">종이의 글자를 눌러 바로 고쳐요. 이력 메뉴의 기본 정보·경력·학력·스킬을 채워 줍니다 (예시 데이터).</span>
+    </div>
+
+    <main class="page" id="sheet">
+      <header>
+        <div>
+          <h1 contenteditable data-ph="이름" id="f-name"></h1>
+          <div class="contact">
+            <span contenteditable data-ph="전화번호" id="f-phone"></span>
+            <span>/</span>
+            <span contenteditable data-ph="이메일" id="f-email"></span>
+          </div>
+        </div>
+        <div class="photo" id="photo" title="증명사진 (3×4cm) · 누르거나 파일을 끌어다 놓기">증명사진<br>3×4cm</div>
+      </header>
+
+      <p class="intro" contenteditable data-ph="소개 글: 어떤 사람인지, 어떤 일을 해 왔는지 두세 문장으로 적어요." id="f-intro"></p>
+
+      <div class="sec"><h2>경력</h2></div>
+      <div id="careers"></div>
+      <div class="row-tools"><button class="add" data-act="add-company">+ 회사 추가</button></div>
+
+      <div class="sec"><h2>개인 프로젝트</h2></div>
+      <div id="personal" style="margin-top:4mm"></div>
+      <div class="row-tools"><button class="add" data-act="add-personal">+ 프로젝트 추가</button></div>
+
+      <div class="sec"><h2>학력</h2></div>
+      <div id="edus"></div>
+      <div class="row-tools"><button class="add" data-act="add-edu">+ 학교 추가</button></div>
+
+      <div class="sec"><h2>스킬</h2></div>
+      <div class="skills" id="skills"></div>
+      <div class="row-tools"><button class="add" data-act="add-skill">+ 스킬 추가</button></div>
+    </main>
+  </div>
+
+  <aside class="review" aria-label="리뷰">
+    <h2>이력서 리뷰</h2>
+    <div class="empty">
+      <p class="hint" style="margin-top:0">아직 리뷰가 없어요.</p>
+      <button class="btn">리뷰 적기</button>
+    </div>
+  </aside>
+</div>
+<div class="toast" id="toast"></div>
+<input type="file" id="pick" accept="image/*" hidden>
+
+<script>
+  const $ = (s, r = document) => r.querySelector(s);
+  const E = (ph, cls = "", text = "") => `<span class="${cls}" contenteditable data-ph="${ph}">${text}</span>`;
+  const X = (act = "del", label = "지우기") => `<button class="x del" data-act="${act}" aria-label="${label}">✕</button>`;
+
+  const T = {
+    bullet: (t = "") => `<li><span contenteditable data-ph="한 일, 기준, 결과를 한 줄로" style="display:inline-block;min-width:60%">${t}</span><button class="x" data-act="del-li" aria-label="줄 지우기">✕</button></li>`,
+    bullets: (items = [""]) => `<ul>${items.map(T.bullet).join("")}</ul><div class="row-tools"><button class="add" data-act="add-li">+ 줄 추가</button></div>`,
+    proj: (n, title = "", items = [""]) => `<div class="proj">${X("del", "프로젝트 지우기")}<p class="t">${n ? n + ". " : ""}${E("프로젝트 이름 (기간)", "", title)}</p>${T.bullets(items)}</div>`,
+    block: (title = "", projects = null, items = [""]) => `<div class="block">${X("del", "묶음 지우기")}<h3>${E("묶음 제목 (예: 데이터 품질 관리)", "", title)}</h3>
+      <div class="projs">${projects ? projects.map((p, i) => T.proj(i + 1, p[0], p[1])).join("") : T.bullets(items)}</div>
+      <div class="row-tools">${projects ? '<button class="add" data-act="add-proj">+ 프로젝트 추가</button>' : ""}</div></div>`,
+    company: (c = {}) => `<div class="co"><div class="logo" title="로고 넣기"></div>${X("del", "회사 지우기")}
+      <div class="co-body"><div class="co-head"><div class="co-name">${E("회사 이름", "", c.name || "")}</div>
+        <div class="co-info">${E("2021.10", "", c.from || "")} - ${E("재직중", "", c.to || "")}<span class="sep">|</span>${E("정규직", "", c.type || "")}<span class="sep">|</span>${E("직무", "", c.role || "")}</div></div>
+        <div class="blocks">${(c.blocks || [T.block()]).join("")}</div>
+        <div class="row-tools"><button class="add" data-act="add-block">+ 업무 묶음 추가</button><button class="add" data-act="add-block-proj">+ 프로젝트형 묶음 추가</button></div></div></div>`,
+    personal: (p = {}) => `<div class="block">${X("del", "프로젝트 지우기")}<h3>${E("프로젝트 이름 (기간, 역할)", "", p.title || "")}</h3>${T.bullets(p.items || [""])}</div>`,
+    edu: (e = {}) => `<div class="edu"><div class="logo" title="로고 넣기"></div>${X("del", "학교 지우기")}<div class="co-body"><div class="co-name">${E("학교 이름", "", e.school || "")}</div>
+      <div class="co-info">${E("2013.03", "", e.from || "")} - ${E("2017.08", "", e.to || "")}<span class="sep">|</span>${E("졸업", "", e.status || "")}<span class="sep">|</span>${E("전공", "", e.major || "")}</div></div></div>`,
+    skill: (s = "") => `<span class="chip">${E("스킬", "", s)}<button class="x" data-act="del" aria-label="스킬 지우기">✕</button></span>`,
+  };
+
+  function reset() {
+    $("#careers").innerHTML = T.company();
+    $("#personal").innerHTML = T.personal();
+    $("#edus").innerHTML = T.edu();
+    $("#skills").innerHTML = T.skill();
+  }
+  reset();
+
+  // 이력 메뉴에서 불러오기: 예시 데이터 (실제로는 resume_basics·careers·educations·skill_groups).
+  $("#fill").addEventListener("click", () => {
+    $("#f-name").textContent = "홍길동";
+    $("#f-phone").textContent = "010-0000-0000";
+    $("#f-email").textContent = "gildong@example.com";
+    $("#f-intro").textContent = "예시 회사에서 데이터 파이프라인을 만들고 운영해 온 엔지니어입니다. 지표 기준을 정리하고 적재 구조를 설계하는 일을 주로 맡았습니다.";
+    $("#careers").innerHTML =
+      T.company({ name: "예시주식회사", from: "2021.10", to: "재직중", type: "정규직", role: "데이터 엔지니어", blocks: [
+        T.block("지표 표준화와 원천 모델링", [["지표 식별 기준 정립 (2021.11 - 2021.12)", ["팀별로 다르던 기준 전수 조사", "표준 기준 정립과 공통 테이블 제공"]], ["외부 데이터 적재 설계 (2022.01 - 2022.03)", ["적재 단위 유일성 검증", "Fact 1개·Dimension 2개로 분리"]]]),
+        T.block("클라우드 데이터 플랫폼 전환 (2022.10 - 2023.08)", null, ["적재 모듈 개발과 공통 모듈 통합", "이관 전/후 통계 대조로 정합성 검증"]),
+      ] }) +
+      T.company({ name: "예시아이티", from: "2020.06", to: "2021.09", type: "정규직", role: "데이터 엔지니어", blocks: [T.block("추천·검색 지표 파이프라인 개발", null, ["태깅 서버 데이터 수집", "연관 검색어·인기 검색어 마트 설계"])] });
+    $("#edus").innerHTML = T.edu({ school: "예시대학교", from: "2013.03", to: "2017.08", status: "졸업", major: "영어영문학과, 컴퓨터과학부(부전공)" });
+    $("#skills").innerHTML = ["Python", "SQL", "Apache Spark", "Apache Airflow", "BigQuery"].map(T.skill).join("");
+    touch(); toast("이력에서 불러왔어요. 비어 있던 칸만 채웠어요(예시).");
+  });
+
+  // 추가·지우기 (이벤트 위임)
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    const act = b.dataset.act;
+    const add = (box, html) => { box.insertAdjacentHTML("beforeend", html); const f = box.lastElementChild.querySelector("[contenteditable]"); f && f.focus(); touch(); };
+    if (act === "add-company") add($("#careers"), T.company());
+    else if (act === "add-personal") add($("#personal"), T.personal());
+    else if (act === "add-edu") add($("#edus"), T.edu());
+    else if (act === "add-skill") add($("#skills"), T.skill());
+    else if (act === "add-block") add(b.closest(".co-body").querySelector(".blocks"), T.block());
+    else if (act === "add-block-proj") add(b.closest(".co-body").querySelector(".blocks"), T.block("", [["", [""]]]));
+    else if (act === "add-proj") { const box = b.closest(".block").querySelector(".projs"); add(box, T.proj(box.children.length + 1)); }
+    else if (act === "add-li") { const ul = b.closest(".row-tools").previousElementSibling; add(ul, T.bullet()); }
+    else if (act === "del-li") { const li = b.closest("li"), ul = li.parentElement; li.remove(); if (!ul.children.length) ul.insertAdjacentHTML("beforeend", T.bullet()); touch(); }
+    else if (act === "del") { b.closest(".co, .edu, .block, .proj, .chip").remove(); touch(); renumber(); }
+  });
+  function renumber() { document.querySelectorAll(".projs").forEach((box) => box.querySelectorAll(".proj").forEach((p, i) => { const t = p.querySelector(".t"); t.firstChild.nodeType === 3 && (t.firstChild.textContent = (i + 1) + ". "); })); }
+
+  // 줄 안에서 Enter = 다음 줄, 빈 줄에서 Backspace = 줄 지우기, 붙여넣기는 글자만
+  document.addEventListener("keydown", (e) => {
+    const f = e.target.closest("li [contenteditable]");
+    if (f && e.key === "Enter") { e.preventDefault(); const li = f.closest("li"); li.insertAdjacentHTML("afterend", T.bullet()); li.nextElementSibling.querySelector("[contenteditable]").focus(); touch(); }
+    else if (f && e.key === "Backspace" && !f.textContent) {
+      const li = f.closest("li"), prev = li.previousElementSibling;
+      if (prev) { e.preventDefault(); li.remove(); const p = prev.querySelector("[contenteditable]"); p.focus(); getSelection().selectAllChildren(p); getSelection().collapseToEnd(); touch(); }
+    } else if (e.target.matches("h1[contenteditable], .co-name [contenteditable], h3 [contenteditable]") && e.key === "Enter") e.preventDefault();
+  });
+  document.addEventListener("paste", (e) => { if (!e.target.closest("[contenteditable]")) return; e.preventDefault(); document.execCommand("insertText", false, e.clipboardData.getData("text/plain")); });
+
+  // 자동 저장 표시 (실제는 입력을 멈추고 0.8초 뒤 저장)
+  let t; const st = $("#state");
+  function touch() { st.textContent = "저장 중…"; clearTimeout(t); t = setTimeout(() => (st.textContent = "자동 저장됨 · 방금"), 800); }
+  document.addEventListener("input", touch);
+
+  // 사진·로고: 누르거나 끌어다 놓기 (이 목업에서는 화면에만 남는다)
+  const pick = $("#pick"); let target = null;
+  function setImg(el, file) {
+    if (!file || !file.type.startsWith("image/")) return;
+    const r = new FileReader();
+    r.onload = () => { el.innerHTML = `<img src="${r.result}" alt="">`; el.classList.add("has"); touch(); };
+    r.readAsDataURL(file);
+  }
+  document.addEventListener("click", (e) => { const el = e.target.closest(".photo, .logo"); if (el) { target = el; pick.click(); } });
+  pick.addEventListener("change", () => { setImg(target, pick.files[0]); pick.value = ""; });
+  document.addEventListener("dragover", (e) => e.preventDefault());
+  document.addEventListener("drop", (e) => { e.preventDefault(); const el = e.target.closest(".photo, .logo"); if (el) setImg(el, e.dataTransfer.files[0]); });
+
+  function toast(m) { const el = $("#toast"); el.textContent = m; el.classList.add("on"); setTimeout(() => el.classList.remove("on"), 2200); }
+</script>
+</body>
+</html>
