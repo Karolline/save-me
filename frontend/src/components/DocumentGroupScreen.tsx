@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { DOC_BLANK, DOC_ORDER, DOC_LABELS, SOURCE_LABELS, isTextDocument, seoulDay } from "@/lib/documents";
 import { formatCount } from "@/lib/coverLetter";
+import { blankResume } from "@/lib/resumeSheet";
 import { useService, type DocumentGroup, type DocumentType } from "@/services";
 import { DocumentGroupDialog } from "./DocumentGroupDialog";
 import { DocumentReviewForm } from "./DocumentReviewForm";
@@ -59,7 +60,12 @@ export function DocumentGroupScreen({
   async function create(type: DocumentType) {
     if (!group) return;
     try {
-      await service.createDocument(group.id, type, isTextDocument(type) ? DOC_BLANK[type] : "");
+      // 이력서는 빈 칸으로 시작한다 (이력 메뉴를 자동으로 채우지 않는다).
+      await service.createDocument(
+        group.id,
+        type,
+        type === "resume" ? { data: blankResume() } : isTextDocument(type) ? DOC_BLANK[type] : "",
+      );
       toast(`${DOC_LABELS[type]} 틀을 만들었어요`);
       onOpenDocument(type);
     } catch (error) {

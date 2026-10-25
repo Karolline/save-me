@@ -33,6 +33,7 @@ import type {
   Review,
   ReviewInput,
   ReviewList,
+  DocumentContent,
   SavedDocument,
   SaveMeService,
   SkillGroup,
@@ -326,8 +327,8 @@ export function createHttpService(
       await empty(await request(documentGroupPath(id), send("DELETE")));
     },
 
-    async createDocument(groupId: number, type: DocumentType, body: string) {
-      return json<SavedDocument>(await request(`${documentGroupPath(groupId)}/documents`, send("POST", { type, body })));
+    async createDocument(groupId: number, type: DocumentType, content: DocumentContent) {
+      return json<SavedDocument>(await request(`${documentGroupPath(groupId)}/documents`, send("POST", { type, ...(typeof content === "string" ? { body: content } : content) })));
     },
 
     async getDocument(groupId: number, type: DocumentType) {
@@ -336,8 +337,8 @@ export function createHttpService(
       return json<SavedDocument>(response);
     },
 
-    async saveDocument(groupId: number, type: DocumentType, body: string) {
-      return json<SavedDocument>(await request(documentPath(groupId, type), send("PUT", { body })));
+    async saveDocument(groupId: number, type: DocumentType, content: DocumentContent) {
+      return json<SavedDocument>(await request(documentPath(groupId, type), send("PUT", typeof content === "string" ? { body: content } : content)));
     },
 
     async getCoverLetter(groupId: number) {

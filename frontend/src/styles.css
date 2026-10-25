@@ -717,6 +717,8 @@ td.mono { white-space: nowrap; }
 .pane-tabs { display: none; align-self: flex-start; }
 .d3 { display: grid; grid-template-columns: minmax(0,.95fr) minmax(0,1.1fr) minmax(0,.95fr); gap: 10px; }
 .d3.no-preview { grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); }
+.d3.resume { grid-template-columns: minmax(0,1fr) 340px; }
+.rs-pane { background: var(--stage); }
 .pane { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .pane-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--bg); flex-wrap: wrap; }
 .pane-h .hint { font-size: 11px; }
@@ -787,4 +789,59 @@ textarea.ed::selection { background: #FFE58A; }
   .print-only .pg:last-child { break-after: auto; }
   .pg { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
   .pg-measure { display: none; }
+}
+
+/* ───── 이력서 서류 한 장 (ResumeSheet, 목업 resume-form): 종이 안쪽 색은 목업 값 그대로 ───── */
+.rs-stage { background: var(--stage); padding: 20px; border-radius: var(--r); min-width: 0; overflow-x: auto; }
+.rs-tools { max-width: 210mm; margin: 0 auto 10px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rs-page { --ink: #222; --sub: #666; --soft: #e6e6e6; width: 210mm; min-height: 297mm; margin: 0 auto; padding: 16mm 17mm; background: #fff; color: var(--ink); box-shadow: 0 1px 6px rgba(0,0,0,.18); font-size: 9.5pt; line-height: 1.7; box-sizing: border-box; }
+.rs-page header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8mm; margin-bottom: 7mm; }
+.rs-page h1 { margin: 0 0 2mm; font-size: 19pt; letter-spacing: .2em; line-height: 1.2; font-weight: 700; }
+.rs-contact { color: var(--sub); font-size: 9pt; display: flex; gap: 2mm; flex-wrap: wrap; }
+.rs-photo { flex: none; width: 30mm; height: 40mm; border: 1px dashed #aaa; background: #fafafa; color: #999; font-size: 9pt; text-align: center; display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; padding: 2mm; line-height: 1.4; box-sizing: border-box; }
+.rs-photo.has, .rs-logo.has { border: 0; padding: 0; }
+.rs-photo img, .rs-logo img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.rs-logo img { object-fit: contain; }
+.rs-intro { margin: 0; min-height: 1.7em; word-break: keep-all; white-space: pre-wrap; text-align: justify; }
+.rs-intro > span { display: block; white-space: pre-wrap; }
+.rs-sec { display: flex; align-items: baseline; gap: 3mm; margin: 7mm 0 0; padding-bottom: 1.6mm; border-bottom: 1.5px solid var(--ink); }
+.rs-sec h2 { margin: 0; font-size: 12pt; }
+.rs-co, .rs-edu { display: flex; gap: 5mm; margin-top: 5mm; position: relative; }
+.rs-logo { flex: none; width: 11mm; height: 11mm; border-radius: 2.5mm; background: var(--soft); cursor: pointer; overflow: hidden; }
+.rs-logo.has { background: #fff; border: 1px solid var(--soft); }
+.rs-co-body { flex: 1; min-width: 0; }
+.rs-co-head { padding-bottom: 2.4mm; border-bottom: 1px solid var(--soft); margin-bottom: 3.5mm; }
+.rs-co-name { font-size: 10.5pt; font-weight: 700; }
+.rs-co-info { font-size: 9pt; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 2mm; }
+.rs-sep { color: #bbb; }
+.rs-block { margin: 0 0 4.5mm; position: relative; }
+.rs-block h3, .rs-proj .rs-t { margin: 0 0 1.6mm; font-size: 10.5pt; font-weight: 700; }
+.rs-proj { margin: 0 0 2.6mm; position: relative; }
+.rs-proj .rs-t { font-size: 9.5pt; font-weight: 400; margin-bottom: .6mm; }
+.rs-page ul { list-style: none; margin: 0; padding: 0; }
+.rs-page li { position: relative; padding-left: 3.4mm; word-break: keep-all; }
+.rs-page li::before { content: "-"; position: absolute; left: 0; color: var(--sub); }
+.rs-li { display: inline-block; min-width: 60%; }
+.rs-personal { margin-top: 4mm; }
+.rs-skills { display: flex; flex-wrap: wrap; gap: 2mm; margin-top: 4mm; align-items: center; }
+.rs-chip { border: 1px solid #ccc; border-radius: 2mm; padding: .6mm 3mm; font-size: 9pt; display: inline-flex; gap: 1.5mm; }
+/* 칸: 글자 자리 표시 + 눌러서 바로 고친다. 서류 글꼴이라 16px 규칙은 이 안에서 적용하지 않는다 (PC 전용 A4 서류). */
+.rs-page [contenteditable] { outline: none; border-radius: 2px; min-width: 1ch; }
+.rs-page [contenteditable]:empty::before { content: attr(data-ph); color: #b5b5b5; font-weight: 400; pointer-events: none; }
+.rs-page [contenteditable]:hover { background: #f3f5fb; }
+.rs-page [contenteditable]:focus { background: #eef2fc; box-shadow: 0 0 0 1.5px #9fb2e6; }
+/* 추가·지우기 도구: hover가 아니라 늘 보인다 (옅게). 인쇄에는 안 나온다. */
+.rs-x { border: 0; background: none; color: #b0b0b0; font-size: 11px; padding: 0 3px; line-height: 1; cursor: pointer; }
+.rs-x:hover, .rs-x:focus-visible { color: var(--fail); }
+.rs-add { border: 0; background: none; color: #8a97c4; font-size: 11px; padding: 1px 0; text-align: left; cursor: pointer; }
+.rs-add:hover { color: var(--accent); }
+.rs-row-tools { display: flex; gap: 3mm; align-items: center; margin-top: 1mm; }
+.rs-co > .rs-x, .rs-edu > .rs-x, .rs-block > .rs-x, .rs-proj > .rs-x { position: absolute; right: -6mm; top: 0; }
+.rs-page li > .rs-x { position: absolute; right: -6mm; top: 3px; }
+@page resume { size: A4; margin: 14mm 0; }
+@media print {
+  /* 이력서 인쇄: 서류 한 장만 나온다 (편집 도구·자리 표시 글은 인쇄용 사본에 없다). 용지 여백은 위 @page resume. */
+  .print-only .rs-page { page: resume; margin: 0; box-shadow: none; width: 210mm; min-height: auto; padding: 0 17mm; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .print-only .rs-block, .print-only .rs-proj, .print-only .rs-co-head, .print-only .rs-edu { break-inside: avoid; }
+  .print-only .rs-sec { break-after: avoid; }
 }

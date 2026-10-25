@@ -719,12 +719,60 @@ export interface DocumentGroup extends DocumentGroupSummary {
   review: DocumentReview | null;
 }
 
+/** 이력서 서류의 프로젝트 하나: 제목 + 줄 목록. */
+export interface ResumeProject {
+  title: string;
+  items: string[];
+}
+
+/** 업무 묶음. 화면의 약속은 items와 projects 중 하나만 채우는 것. */
+export interface ResumeBlock {
+  title: string;
+  items: string[];
+  projects: ResumeProject[];
+}
+
+/** 이력서 서류의 경력 (이력 메뉴의 `Career`와 다르다). 날짜는 "2021.10" 같은 글 그대로. */
+export interface ResumeSheetCareer {
+  company: string;
+  from: string;
+  to: string;
+  type: string;
+  role: string;
+  blocks: ResumeBlock[];
+}
+
+export interface ResumeSheetEducation {
+  school: string;
+  from: string;
+  to: string;
+  status: string;
+  major: string;
+}
+
+/** 이력서 서류(type `resume`)의 칸 구조. 백엔드 `ResumeData`. */
+export interface ResumeData {
+  name: string;
+  phone: string;
+  email: string;
+  intro: string;
+  careers: ResumeSheetCareer[];
+  personalProjects: ResumeProject[];
+  educations: ResumeSheetEducation[];
+  skills: string[];
+}
+
+/** 서류 저장·만들기의 내용: 글, 또는 이력서의 칸 구조. */
+export type DocumentContent = string | { data: ResumeData };
+
 /** 서류 하나 (글 전체). */
 export interface SavedDocument {
   id: number;
   groupId: number;
   type: DocumentType;
   body: string;
+  /** 이력서의 칸 구조. null이면 아직 없다 (body가 기준, 열 때 화면이 칸으로 바꿔 보여 준다). */
+  data: ResumeData | null;
   source: DocumentSource;
   createdAt: string;
   updatedAt: string;
@@ -855,12 +903,12 @@ export interface SaveMeService {
   updateDocumentGroup(id: number, input: DocumentGroupInput): Promise<DocumentGroup>;
   /** 서류와 리뷰도 함께 지워진다. */
   deleteDocumentGroup(id: number): Promise<void>;
-  /** 서류 만들기: 작성 출처는 "직접 작성". 같은 종류가 이미 있으면 409. */
-  createDocument(groupId: number, type: DocumentType, body: string): Promise<SavedDocument>;
+  /** 서류 만들기: 작성 출처는 "직접 작성". 같은 종류가 이미 있으면 409. 이력서는 `{ data }`(빈 구조)로 만들 수 있다. */
+  createDocument(groupId: number, type: DocumentType, content: DocumentContent): Promise<SavedDocument>;
   /** 없으면 null. */
   getDocument(groupId: number, type: DocumentType): Promise<SavedDocument | null>;
-  /** 글 저장 (자동 저장). 가져온 서류를 고치면 "가져옴 · 내가 수정"이 된다. 자소서는 422 (`saveCoverLetter`를 쓴다). */
-  saveDocument(groupId: number, type: DocumentType, body: string): Promise<SavedDocument>;
+  /** 글 또는 이력서 칸 구조(`{ data }`, 이력서만, 아니면 422) 저장 (자동 저장). `data`를 저장해도 body는 그대로. 가져온 서류를 고치면 "가져옴 · 내가 수정"이 된다. 자소서는 422 (`saveCoverLetter`를 쓴다). */
+  saveDocument(groupId: number, type: DocumentType, content: DocumentContent): Promise<SavedDocument>;
   /** 자소서의 문항들. 자소서가 없거나 남의 묶음이면 null. */
   getCoverLetter(groupId: number): Promise<CoverLetter | null>;
   /** 문항 목록을 통째로 저장한다 (자동 저장). 6개 이상이거나 글자 수 제한이 1 미만이면 422, 자소서가 없으면 404. */

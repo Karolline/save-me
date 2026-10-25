@@ -12,7 +12,7 @@ export interface DocumentSeed {
   review?: DocumentReviewInput & { reviewedAt?: string };
 }
 
-const RESUME = `# 김지원
+export const RESUME = `# 김지원
 jiwon.kim@example.com · 010-0000-0000 · 희망: 데이터 엔지니어 (데이터 플랫폼)
 
 ## 요약

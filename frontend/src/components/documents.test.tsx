@@ -549,7 +549,7 @@ describe("DocumentScreen", () => {
     vi.spyOn(service, "saveDocument").mockImplementation(async (g, t, text) => {
       active++;
       maxActive = Math.max(maxActive, active);
-      order.push(text.slice(-1));
+      order.push(String(text).slice(-1));
       await new Promise((r) => setTimeout(r, 150));
       active--;
       return real(g, t, text);

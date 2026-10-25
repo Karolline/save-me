@@ -51,6 +51,7 @@ import {
   type ReviewPart,
   type ReviewSummary,
   type ReviewVerdict,
+  type DocumentContent,
   type SavedDocument,
   type SaveMeService,
   type SkillGroup,
@@ -1050,7 +1051,7 @@ export function createMockService(options: MockOptions = {}): MockService {
   function addDocument(g: StoredDocumentGroup, type: DocumentType, body: string, source: SavedDocument["source"]) {
     const stamp = now();
     // 자소서의 글은 문항에 있어서 본문은 늘 비어 있다 (백엔드와 같음).
-    const doc: SavedDocument = { id: nextDocumentId++, groupId: g.id, type, body: type === "coverletter" ? "" : body, source, createdAt: stamp, updatedAt: stamp };
+    const doc: SavedDocument = { id: nextDocumentId++, groupId: g.id, type, body: type === "coverletter" ? "" : body, data: null, source, createdAt: stamp, updatedAt: stamp };
     g.documents.set(type, doc);
     return doc;
   }
@@ -1479,24 +1480,32 @@ export function createMockService(options: MockOptions = {}): MockService {
         if (!documentGroups.delete(id)) throw notFound("Document group");
       }),
 
-    createDocument: (groupId: number, type: DocumentType, body: string) =>
+    createDocument: (groupId: number, type: DocumentType, content: DocumentContent) =>
       call((): SavedDocument => {
         const g = documentGroup(groupId);
         if (!DOCUMENT_TYPES.includes(type)) throw new ApiError(422, "Request failed (422): invalid type");
+        if (typeof content !== "string" && type !== "resume") throw new ApiError(422, "Request failed (422): data는 이력서에만");
         if (g.documents.has(type)) throw new ApiError(409, "Request failed (409): 이 묶음에 같은 종류의 서류가 이미 있어요");
-        return addDocument(g, type, body, "written");
+        const doc = addDocument(g, type, typeof content === "string" ? content : "", "written");
+        if (typeof content !== "string") doc.data = structuredClone(content.data);
+        return doc;
       }),
 
     getDocument: (groupId: number, type: DocumentType) =>
       call(() => documentGroups.get(groupId)?.documents.get(type) ?? null),
 
-    saveDocument: (groupId: number, type: DocumentType, body: string) =>
+    saveDocument: (groupId: number, type: DocumentType, content: DocumentContent) =>
       call((): SavedDocument => {
         const d = savedDocument(groupId, type);
         if (type === "coverletter") throw new ApiError(422, "Request failed (422): 자소서는 saveCoverLetter로 저장해요");
-        // 글이 바뀔 때만 고친 날이 바뀌고, 가져온 서류는 "가져옴 · 내가 수정"이 된다 (백엔드와 같음).
-        if (body !== d.body) {
-          d.body = body;
+        if (typeof content !== "string" && type !== "resume") throw new ApiError(422, "Request failed (422): data는 이력서에만");
+        // 글(또는 칸 구조)이 바뀔 때만 고친 날이 바뀌고, 가져온 서류는 "가져옴 · 내가 수정"이 된다 (백엔드와 같음).
+        // 칸 구조를 저장해도 body는 그대로 둔다.
+        const changed =
+          typeof content === "string" ? content !== d.body : JSON.stringify(content.data) !== JSON.stringify(d.data);
+        if (changed) {
+          if (typeof content === "string") d.body = content;
+          else d.data = structuredClone(content.data);
           d.updatedAt = now();
           if (d.source === "imported") d.source = "imported_edited";
         }

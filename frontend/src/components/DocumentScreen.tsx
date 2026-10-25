@@ -1,11 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { DOC_LABELS, FORMAT_GUIDE, findLine, isTextDocument, pdfFileName, seoulDay } from "@/lib/documents";
-import { useService, type DocumentGroup, type DocumentType, type SavedDocument } from "@/services";
+import { bodyToResumeData, withBlanks } from "@/lib/resumeSheet";
+import {
+  useService,
+  type DocumentContent,
+  type DocumentGroup,
+  type DocumentType,
+  type ResumeData,
+  type SavedDocument,
+} from "@/services";
 import { DocumentReviewForm } from "./DocumentReviewForm";
 import { DocumentPages } from "./documentPages";
 import { ReviewPartView } from "./documentReviewParts";
 import { ConfirmDialog, useEscape, useToast } from "./feedback";
+import { ResumeSheet, type ResumeSheetHandle } from "./ResumeSheet";
 import { useSessionErrors } from "./session";
 import { NotFoundScreen } from "./SettingsScreen";
 
@@ -17,8 +26,11 @@ export const AUTOSAVE_MS = 800;
 
 /**
  * 서류 상세 (완료분 기획안 S2 13번, 목업 doc): 위에 같은 묶음의 서류 전환 탭 · 저장 표시,
- * 본문은 세로 2분할 (편집기 · 지금 서류의 리뷰). 좁으면 탭.
- * 왼쪽에 A4 미리보기가 더해져 3분할이 된다. [PDF로 내려받기]는 서버 없이 브라우저 인쇄 창을 연다 (docs/pdf.md).
+ * 경력기술서·포트폴리오는 본문이 세로 3분할 (A4 미리보기 · 글 편집기 · 지금 서류의 리뷰), 좁으면 탭.
+ * 이력서는 미리보기와 글 편집기 없이 서류 한 장 위의 칸을 바로 입력하는 2분할 (서류 한 장 · 리뷰, `ResumeSheet`,
+ * 목업 resume-form)이고 칸 구조(`data`)로 저장한다. 칸 구조가 없는 옛 이력서는 글(`body`)을 칸으로 바꿔 보여 주고,
+ * 사용자가 고칠 때 처음 저장한다 (`body`는 그대로 남는다).
+ * [PDF로 내려받기]는 서버 없이 브라우저 인쇄 창을 연다 (docs/pdf.md).
  * 편집은 입력을 멈추고 잠깐 뒤 저장한다. 서류를 바꾸면 `key`로 새로 시작한다.
  */
 export function DocumentScreen({
@@ -47,6 +59,8 @@ export function DocumentScreen({
   const [doc, setDoc] = useState<SavedDocument | null | undefined>(undefined);
   const [failed, setFailed] = useState(false);
   const [body, setBody] = useState("");
+  // 이력서의 칸 구조 (type이 resume일 때만 쓴다).
+  const [resume, setResume] = useState<ResumeData | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("saved");
   const [savedAt, setSavedAt] = useState("");
   const [pane, setPane] = useState<Pane>("edit");
@@ -55,9 +69,11 @@ export function DocumentScreen({
   const [reviewing, setReviewing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const editor = useRef<HTMLTextAreaElement>(null);
+  const sheet = useRef<ResumeSheetHandle>(null);
+  const isResume = type === "resume";
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  // 아직 저장하지 못한 글: 화면을 떠날 때 마지막으로 한 번 더 저장한다.
-  const pending = useRef<string | null>(null);
+  // 아직 저장하지 못한 글(또는 이력서 칸 구조): 화면을 떠날 때 마지막으로 한 번 더 저장한다.
+  const pending = useRef<DocumentContent | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -68,6 +84,8 @@ export function DocumentScreen({
         setDoc(foundDoc);
         if (foundDoc) {
           setBody(foundDoc.body);
+          // 칸 구조가 없는 옛 이력서는 글을 읽어 칸으로 바꿔 보여 준다. 여기서는 저장하지 않는다.
+          if (type === "resume") setResume(foundDoc.data ? withBlanks(foundDoc.data) : bodyToResumeData(foundDoc.body));
           setSavedAt(seoulDay(foundDoc.updatedAt));
         }
       })
@@ -106,9 +124,18 @@ export function DocumentScreen({
     return run;
   }, [save]);
 
+  function editResume(next: ResumeData) {
+    setResume(next);
+    queueSave({ data: next });
+  }
+
   function edit(text: string) {
     setBody(text);
-    pending.current = text;
+    queueSave(text);
+  }
+
+  function queueSave(content: DocumentContent) {
+    pending.current = content;
     setSaveState("dirty");
     clearTimeout(timer.current);
     timer.current = setTimeout(() => void flush(), AUTOSAVE_MS);
@@ -127,6 +154,10 @@ export function DocumentScreen({
   );
 
   const select = useCallback((text: string) => {
+    if (type === "resume") {
+      if (!sheet.current?.find(text)) toast("서류에서 그 부분을 찾지 못했어요");
+      return;
+    }
     const el = editor.current;
     const range = el && findLine(el.value, text);
     if (!el || !range) {
@@ -137,7 +168,7 @@ export function DocumentScreen({
     el.setSelectionRange(range[0], range[1]);
     const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || 22;
     el.scrollTop = Math.max(0, el.value.slice(0, range[0]).split("\n").length * lineHeight - 60);
-  }, [toast]);
+  }, [toast, type]);
 
   // 리뷰에서 넘어왔으면 열자마자 그 줄을 고른다.
   const found = useRef(false);
@@ -284,7 +315,10 @@ export function DocumentScreen({
               ["edit", "편집"],
               ["review", "리뷰"],
             ] as [Pane, string][]
-          ).map(([key, label]) => (
+          )
+            // 이력서는 서류 한 장이 미리보기 겸 편집이라 미리보기 탭이 없다.
+            .filter(([key]) => !(isResume && key === "preview"))
+            .map(([key, label]) => (
             <button type="button" key={key} aria-pressed={pane === key} onClick={() => setPane(key)}>
               {label}
             </button>
@@ -292,34 +326,42 @@ export function DocumentScreen({
         </div>
       </div>
 
-      <div className={`d3 show-${pane}`}>
-        <section className="pane p-preview" aria-label="PDF 미리보기">
-          <div className="pane-h">
-            <b>PDF 미리보기</b>
-            <span className="hint">{pages ? `${pages}쪽` : ""}</span>
-          </div>
-          <div className="pane-b pv-wrap">
-            <DocumentPages body={body} fit warn onLayout={(l) => setPages(l.pageCount)} />
-          </div>
-        </section>
-        <section className="pane p-edit" aria-label="편집기">
-          <div className="pane-h">
-            <b>편집</b>
-            <button type="button" className="link sm" onClick={() => setGuide(true)}>
-              서식 안내
-            </button>
-          </div>
-          <div className="pane-b">
-            <textarea
-              ref={editor}
-              className="ed"
-              value={body}
-              spellCheck={false}
-              aria-label={`${DOC_LABELS[type]} 본문`}
-              onChange={(e) => edit(e.target.value)}
-            />
-          </div>
-        </section>
+      <div className={`d3 show-${pane}${isResume ? " resume" : ""}`}>
+        {isResume ? (
+          <section className="pane p-edit" aria-label="이력서 서류">
+            <div className="pane-b rs-pane">{resume && <ResumeSheet ref={sheet} data={resume} onChange={editResume} />}</div>
+          </section>
+        ) : (
+          <>
+            <section className="pane p-preview" aria-label="PDF 미리보기">
+              <div className="pane-h">
+                <b>PDF 미리보기</b>
+                <span className="hint">{pages ? `${pages}쪽` : ""}</span>
+              </div>
+              <div className="pane-b pv-wrap">
+                <DocumentPages body={body} fit warn onLayout={(l) => setPages(l.pageCount)} />
+              </div>
+            </section>
+            <section className="pane p-edit" aria-label="편집기">
+              <div className="pane-h">
+                <b>편집</b>
+                <button type="button" className="link sm" onClick={() => setGuide(true)}>
+                  서식 안내
+                </button>
+              </div>
+              <div className="pane-b">
+                <textarea
+                  ref={editor}
+                  className="ed"
+                  value={body}
+                  spellCheck={false}
+                  aria-label={`${DOC_LABELS[type]} 본문`}
+                  onChange={(e) => edit(e.target.value)}
+                />
+              </div>
+            </section>
+          </>
+        )}
         <section className="pane p-review" aria-label="리뷰">
           <div className="pane-h">
             <b>{DOC_LABELS[type]} 리뷰</b>
@@ -357,12 +399,13 @@ export function DocumentScreen({
 
       {/* 인쇄용 쪽: 화면에서는 숨기고 인쇄할 때만 보인다 (styles.css의 .print-only). 앱 밖(body)에 그려서
           인쇄할 때 앱 전체를 숨기고 이것만 남긴다. 미리보기와 같은 글이라 쪽 나눔이 같다. */}
-      {createPortal(
-        <div className="print-only" aria-hidden="true">
-          <DocumentPages body={body} />
-        </div>,
-        document.body,
-      )}
+      {!isResume &&
+        createPortal(
+          <div className="print-only" aria-hidden="true">
+            <DocumentPages body={body} />
+          </div>,
+          document.body,
+        )}
       {guide && <FormatGuide onClose={() => setGuide(false)} />}
       {reviewing && (
         <DocumentReviewForm
