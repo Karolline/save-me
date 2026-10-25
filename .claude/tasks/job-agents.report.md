@@ -9,7 +9,7 @@
 - 파일: `backend/app/agent_read.py`, `backend/tests/unit/test_agent_read.py`, `backend/tests/unit/test_agent_files.py`.
 
 ### 커밋
-- (커밋 해시는 아래 최종 보고에 추가)
+- 903ff0e 취업 역할 에이전트 4개 이식과 agent_read job 조회, 조회 DB 고르기 추가 (이 보고서를 고친 작은 커밋이 하나 더 뒤따른다)
 
 ### 테스트
 - backend pytest (`test_agent_read.py`, `test_agent_files.py`, `test_import_confirm.py`; PostgreSQL 임시 컨테이너): 147 통과.
