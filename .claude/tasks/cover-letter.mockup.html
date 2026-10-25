@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>자소서 목업 (#22)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --bg: #F5F6F9; --surface: #FFFFFF; --line: #E2E5EC; --fg: #1B2130; --muted: #687184; --faint: #9AA1B0;
+  --accent: #2B3F7C; --accent-weak: #EDF0F8; --fail: #C2453B; --fail-weak: #FBEDEB; --warn: #A27627; --warn-weak: #FBF5E6; --ing: #2C8452;
+  --font: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace; --r: 10px; color-scheme: light;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px var(--font); }
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mbar { background: #1A1F2B; color: #E7EAF1; padding: 10px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.mbar button { background: #262C3A; border: 1px solid #3A4152; color: inherit; border-radius: 6px; padding: 4px 10px; }
+.mbar button[aria-pressed="true"] { background: #3D4558; }
+.mbar span { color: #9BA3B4; font-size: 12px; }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 24px 20px 80px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; }
+.hint { color: var(--muted); font-size: 13px; }
+.mono { font-family: var(--mono); }
+.btn { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); font-weight: 500; }
+.btn:hover { background: var(--bg); }
+.btn:disabled { color: var(--faint); cursor: not-allowed; background: var(--bg); }
+.btn-sm { height: 30px; padding: 0 10px; font-size: 13px; }
+.link { background: none; border: 0; padding: 0; color: var(--accent); }
+.back { margin-bottom: 8px; display: inline-block; }
+.eyebrow { color: var(--muted); font-size: 12px; }
+h1 { margin: 2px 0 14px; font-size: 22px; }
+
+.dslots { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 12px; }
+.dslot { display: flex; flex-direction: column; gap: 6px; text-align: left; min-height: 130px; }
+.dslot-t { font-weight: 600; }
+.dslot-go { margin-top: auto; color: var(--accent); font-size: 13px; }
+.pill { display: inline-block; align-self: flex-start; padding: 2px 8px; border-radius: 99px; background: var(--bg); border: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+.pill.new { background: var(--accent-weak); border-color: #C9D7F2; color: var(--accent); }
+.pill.over { background: var(--fail-weak); border-color: #EBC3BE; color: var(--fail); }
+
+.bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.seg { display: inline-flex; background: #E9ECF2; border-radius: 8px; padding: 3px; }
+.seg button { background: none; border: 0; padding: 5px 14px; border-radius: 6px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--fg); font-weight: 600; box-shadow: 0 1px 2px #0002; }
+.spacer { flex: 1; }
+.cl { display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: start; }
+.cl { display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: start; }
+.toc { position: sticky; top: 16px; }
+.toc h2 { font-size: 13px; margin: 0 0 6px; color: var(--muted); font-weight: 600; }
+#toc { display: flex; flex-direction: column; gap: 4px; }
+.toc a { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 8px; border: 1px solid transparent; color: var(--fg); text-decoration: none; font-size: 13px; }
+.toc a:hover { background: var(--surface); border-color: var(--line); }
+.toc .n { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.toc .n.over { color: var(--fail); font-weight: 600; }
+.toc .n.near { color: var(--warn); }
+.toc .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toc .total { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.qs { display: flex; flex-direction: column; gap: 16px; }
+.q-h { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.q-no { font-weight: 700; color: var(--accent); }
+.q-tools { margin-left: auto; display: flex; gap: 4px; }
+.icon-btn { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); }
+.icon-btn:hover:not(:disabled) { background: var(--bg); color: var(--fg); }
+.icon-btn:disabled { opacity: .4; cursor: not-allowed; }
+label.f { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; font-weight: 500; }
+textarea, input[type=number] { width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; background: var(--surface); font-size: 16px; line-height: 1.6; }
+textarea { resize: vertical; }
+textarea.q-text { min-height: 64px; }
+textarea.q-ans { min-height: 220px; }
+.limit-row { display: flex; align-items: center; gap: 8px; }
+.limit-row input { width: 110px; }
+.counter { display: flex; align-items: baseline; gap: 12px; margin-top: 6px; font-size: 13px; color: var(--muted); }
+.counter .main { font-family: var(--mono); font-size: 15px; color: var(--fg); font-weight: 600; }
+.counter.near .main { color: var(--warn); }
+.counter.over .main { color: var(--fail); }
+.counter .msg { margin-left: auto; }
+.counter.over .msg { color: var(--fail); font-weight: 600; }
+.counter.near .msg { color: var(--warn); }
+.meter { height: 4px; border-radius: 2px; background: #E9ECF2; margin-top: 6px; overflow: hidden; }
+.meter i { display: block; height: 100%; background: var(--accent); width: 0; }
+.counter.near + .meter i { background: var(--warn); }
+.counter.over + .meter i { background: var(--fail); }
+.add { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+</style>
+</head>
+<body>
+<div class="mbar">
+  <b>자소서 목업 (#22)</b>
+  <button id="v1" aria-pressed="false">① 묶음 화면 (4번째 칸)</button>
+  <button id="v2" aria-pressed="true">② 자소서 편집 (문항 최대 5개)</button>
+  <span>직접 입력해 보세요: 글자 수가 바로 세어지고, 문항 추가·삭제도 동작합니다.</span>
+</div>
+
+<div class="wrap">
+
+<div id="view1" hidden>
+  <button class="link back">← 지원서류</button>
+  <div class="eyebrow mono">2026-10-25</div>
+  <h1>토스</h1>
+  <div class="dslots">
+    <div class="card dslot"><span class="dslot-t">이력서</span><span class="hint">직접 작성 · 고친 날 <span class="mono">10-20</span></span><span class="pill">검토 전</span><span class="dslot-go">열기 →</span></div>
+    <div class="card dslot"><span class="dslot-t">경력기술서</span><span class="hint">가져옴 · 고친 날 <span class="mono">10-18</span></span><span class="pill">남은 지적 3</span><span class="dslot-go">열기 →</span></div>
+    <div class="card dslot"><span class="dslot-t">포트폴리오</span><p class="hint" style="margin:0">아직 없어요</p><button class="btn btn-sm" style="margin-top:auto;align-self:flex-start">만들기</button></div>
+    <div class="card dslot" style="border-color:#C9D7F2;background:#FAFBFE"><span class="dslot-t">자소서 <span class="pill new">새로</span></span><span class="hint">직접 작성 · 고친 날 <span class="mono">10-25</span></span><span class="hint">문항 3개 · 합계 <span class="mono">2,140자</span></span><span class="pill over">글자 수 초과 1문항</span><span class="dslot-go">열기 →</span></div>
+  </div>
+  <p class="hint" style="margin-top:16px">자소서 칸은 문항 수, 글자 수 합계, 제한을 넘은 문항이 있으면 그 수를 보여 줍니다. 리뷰 판정은 #6에서 다루므로 이번에는 넣지 않습니다.</p>
+</div>
+
+<div id="view2">
+  <div class="bar">
+    <button class="link back" style="margin:0">← 토스</button>
+    <div class="seg" role="group" aria-label="서류">
+      <button aria-pressed="false">이력서</button>
+      <button aria-pressed="false">경력기술서</button>
+      <button aria-pressed="false">포트폴리오</button>
+      <button aria-pressed="true">자소서</button>
+    </div>
+    <span class="spacer"></span>
+    <span class="hint">합계 <span class="mono" id="total">0</span>자 <span id="count-of"></span></span>
+    <span class="hint" id="saved" role="status">저장됨</span>
+    <button class="link" style="color:var(--fail)">자소서 지우기</button>
+  </div>
+
+  <div class="cl">
+    <aside class="toc" aria-label="문항 목록">
+      <h2>문항</h2>
+      <div id="toc"></div>
+      <div class="total hint">합계 <span class="mono" id="total2">0</span>자 · <span id="count2"></span></div>
+    </aside>
+    <div>
+      <div class="qs" id="qs"></div>
+      <div class="add">
+        <button class="btn" id="add">+ 문항 추가</button>
+        <span class="hint" id="add-hint"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+const MAX = 5;
+let items = [
+  { q: "지원 동기와 입사 후 포부를 서술해 주세요.", limit: 1000, a: "저는 금융을 쉽게 만드는 일에 오래 관심을 가져 왔습니다. ".repeat(17) },
+  { q: "가장 몰입해서 문제를 해결한 경험을 적어 주세요.", limit: 700, a: "결제 오류율이 높던 서비스에서 원인을 추적해 개선한 경험이 있습니다. ".repeat(10) },
+  { q: "협업에서 갈등을 해결한 경험은?", limit: null, a: "" },
+];
+const $ = (s) => document.querySelector(s);
+const nf = (n) => n.toLocaleString("ko-KR");
+// 공백 포함: 코드 포인트 수 (\r\n은 1자). 공백 제외: 공백·줄바꿈을 뺀 수. 제한은 공백 포함 기준.
+const count = (t) => { const s = t.replace(/\r\n/g, "\n"); return { all: Array.from(s).length, nospace: Array.from(s.replace(/\s/g, "")).length }; };
+const state = (c, limit) => !limit ? "" : c.all > limit ? "over" : c.all >= limit * 0.9 ? "near" : "";
+const msg = (c, limit) => !limit ? "" : c.all > limit ? `${nf(c.all - limit)}자 초과` : `${nf(limit - c.all)}자 남음`;
+const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const counter = (c, limit) => `<span class="main">${nf(c.all)}${limit ? " / " + nf(limit) : ""}자</span><span>공백 제외 ${nf(c.nospace)}자</span><span class="msg">${msg(c, limit)}</span>`;
+const pct = (c, limit) => (limit ? Math.min(100, c.all / limit * 100) : 0) + "%";
+
+function render() {
+  $("#qs").innerHTML = items.map((it, i) => {
+    const c = count(it.a), st = state(c, it.limit);
+    return `<section class="card" id="q${i}" data-i="${i}">
+      <div class="q-h"><span class="q-no">문항 ${i + 1}</span>
+        <div class="q-tools">
+          <button class="icon-btn" data-act="del" aria-label="문항 지우기" style="color:var(--fail)">✕</button>
+        </div></div>
+      <label class="f" for="qt${i}">문항</label>
+      <textarea id="qt${i}" class="q-text" data-f="q" placeholder="지원서의 문항을 그대로 붙여 넣으세요">${esc(it.q)}</textarea>
+      <label class="f" for="ql${i}">글자 수 제한 (공백 포함)</label>
+      <div class="limit-row"><input id="ql${i}" type="number" min="1" data-f="limit" placeholder="없음" value="${it.limit ?? ""}"><span class="hint">자 · 비우면 제한 없음</span></div>
+      <label class="f" for="qa${i}">답변</label>
+      <textarea id="qa${i}" class="q-ans" data-f="a" placeholder="답변을 쓰세요">${esc(it.a)}</textarea>
+      <div class="counter ${st}" data-counter>${counter(c, it.limit)}</div>
+      <div class="meter"><i style="width:${pct(c, it.limit)}"></i></div>
+    </section>`;
+  }).join("");
+  side();
+}
+function side() {
+  $("#toc").innerHTML = items.map((it, i) => {
+    const c = count(it.a), st = state(c, it.limit);
+    return `<a href="#q${i}"><span class="t">${i + 1}. ${esc(it.q.slice(0, 18) || "(문항 없음)")}</span><span class="n ${st}">${nf(c.all)}${it.limit ? "/" + nf(it.limit) : ""}</span></a>`;
+  }).join("");
+  $("#total2").textContent = nf(items.reduce((s, it) => s + count(it.a).all, 0));
+  $("#count2").textContent = items.length + "/" + MAX + "문항";
+  $("#total").textContent = nf(items.reduce((s, it) => s + count(it.a).all, 0));
+  $("#count-of").textContent = `· ${items.length}/${MAX}문항`;
+  $("#add").disabled = items.length >= MAX;
+  $("#add-hint").textContent = items.length >= MAX ? "문항은 최대 5개까지예요." : "";
+}
+let timer;
+$("#qs").addEventListener("input", (e) => {
+  const sec = e.target.closest("section"); if (!sec) return;
+  const it = items[+sec.dataset.i], f = e.target.dataset.f;
+  it[f] = f === "limit" ? (e.target.value ? Math.max(1, +e.target.value) : null) : e.target.value;
+  const c = count(it.a), box = sec.querySelector("[data-counter]");
+  box.className = "counter " + state(c, it.limit); box.innerHTML = counter(c, it.limit);
+  sec.querySelector(".meter i").style.width = pct(c, it.limit);
+  side();
+  $("#saved").textContent = "저장 중…"; clearTimeout(timer); timer = setTimeout(() => $("#saved").textContent = "저장됨", 700);
+});
+$("#qs").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-act]"); if (!b) return;
+  const i = +b.closest("section").dataset.i, a = b.dataset.act;
+  if (a === "del") { if (!confirm(`문항 ${i + 1}을 지울까요?`)) return; items.splice(i, 1); }
+  render();
+});
+$("#add").onclick = () => { if (items.length < MAX) { items.push({ q: "", limit: null, a: "" }); render(); $("#qt" + (items.length - 1)).focus(); } };
+function show(n) {
+  $("#view1").hidden = n !== 1; $("#view2").hidden = n !== 2;
+  $("#v1").setAttribute("aria-pressed", n === 1); $("#v2").setAttribute("aria-pressed", n === 2);
+}
+$("#v1").onclick = () => show(1); $("#v2").onclick = () => show(2);
+render();
+</script>
+</body>
+</html>
