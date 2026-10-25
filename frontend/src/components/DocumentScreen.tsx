@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { DOC_LABELS, FORMAT_GUIDE, findLine, pdfFileName, seoulDay } from "@/lib/documents";
+import { DOC_LABELS, FORMAT_GUIDE, findLine, isTextDocument, pdfFileName, seoulDay } from "@/lib/documents";
 import { useService, type DocumentGroup, type DocumentType, type SavedDocument } from "@/services";
 import { DocumentReviewForm } from "./DocumentReviewForm";
 import { DocumentPages } from "./documentPages";
@@ -367,7 +367,7 @@ export function DocumentScreen({
       {reviewing && (
         <DocumentReviewForm
           groupId={group.id}
-          types={types}
+          types={types.filter(isTextDocument)}
           again={false}
           onSaved={(saved) => {
             setGroup(saved);

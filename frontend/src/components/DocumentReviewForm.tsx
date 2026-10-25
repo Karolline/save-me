@@ -11,7 +11,7 @@ import {
   type PartDraft,
   type ReviewDraft,
 } from "@/lib/documents";
-import { useService, type DocumentGroup, type DocumentType, type ReviewVerdict } from "@/services";
+import { useService, type DocumentGroup, type ReviewVerdict, type TextDocumentType } from "@/services";
 import { useEscape, useToast } from "./feedback";
 import { useSessionErrors } from "./session";
 
@@ -31,7 +31,7 @@ export function DocumentReviewForm({
 }: {
   groupId: number;
   /** 묶음에 있는 서류 종류. */
-  types: DocumentType[];
+  types: TextDocumentType[];
   /** 이미 리뷰가 있어서 다시 적는 것이다 (이전 [반영함]이 이어지지 않는다고 알려 준다). */
   again: boolean;
   onSaved: (group: DocumentGroup) => void;
@@ -123,7 +123,7 @@ export function DocumentReviewForm({
                   <select
                     className="select"
                     value={part.documentType}
-                    onChange={(e) => setPart(index, { documentType: e.target.value as DocumentType })}
+                    onChange={(e) => setPart(index, { documentType: e.target.value as TextDocumentType })}
                   >
                     {[part.documentType, ...free].map((t) => (
                       <option key={t} value={t}>
@@ -203,7 +203,7 @@ export function DocumentReviewForm({
                         <select
                           className="select"
                           value={fix.jumpType}
-                          onChange={(e) => setFix(index, fixIndex, { jumpType: e.target.value as DocumentType | "" })}
+                          onChange={(e) => setFix(index, fixIndex, { jumpType: e.target.value as TextDocumentType | "" })}
                         >
                           <option value="">이 서류</option>
                           {types.map((t) => (

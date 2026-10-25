@@ -630,8 +630,9 @@ export type ResumeListCard = "careers" | "educations" | "certificates" | "skills
 
 // ── 지원서류 (완료분 기획안 S2 13번) ──
 
-export type DocumentType = "resume" | "career" | "portfolio";
-/** written 직접 작성, imported 가져옴, imported_edited 가져온 것을 고쳐 저장. */
+export type DocumentType = "resume" | "career" | "portfolio" | "coverletter";
+/** 글 한 덩어리로 된 서류 (본문 저장, 리뷰, 인쇄가 되는 것). 자소서는 문항 목록이라 따로 다룬다. */
+export type TextDocumentType = Exclude<DocumentType, "coverletter">;/** written 직접 작성, imported 가져옴, imported_edited 가져온 것을 고쳐 저장. */
 export type DocumentSource = "written" | "imported" | "imported_edited";
 /** fix 보완 권장, ok 이대로 제출 가능, redo 다시 쓰기 권장. */
 export type ReviewVerdict = "fix" | "ok" | "redo";
@@ -661,6 +662,10 @@ export interface DocumentSlot {
   verdict: ReviewVerdict | null;
   /** [반영함] 안 한 지적 수 (리뷰 덩어리가 있을 때만). */
   remaining: number | null;
+  /** 자소서 칸에만 (그 밖의 서류는 null): 문항 수, 답변 글자 수 합계(공백 포함), 글자 수 제한을 넘은 문항 수. */
+  itemCount: number | null;
+  totalChars: number | null;
+  overLimitCount: number | null;
 }
 
 export interface ReviewFix {
@@ -670,7 +675,7 @@ export interface ReviewFix {
   headline: string;
   details: string[];
   /** 편집기에서 찾을 서류와 말. 찾을 말이 없으면 jumpFind가 "". */
-  jumpType: DocumentType | null;
+  jumpType: TextDocumentType | null;
   jumpFind: string;
   done: boolean;
 }
@@ -683,7 +688,7 @@ export interface ReviewStuck {
 
 /** 리뷰의 서류별 덩어리: 서류 하나, 판정 하나. */
 export interface ReviewPart {
-  documentType: DocumentType;
+  documentType: TextDocumentType;
   verdict: ReviewVerdict;
   /** 면접관이 동료에게 할 한 줄 소개 (맨 첫 덩어리에만). */
   intro: string;
@@ -728,17 +733,31 @@ export interface ReviewFixInput {
   label: string;
   headline: string;
   details: string[];
-  jumpType: DocumentType | null;
+  jumpType: TextDocumentType | null;
   jumpFind: string;
 }
 
 export interface ReviewPartInput {
-  documentType: DocumentType;
+  documentType: TextDocumentType;
   verdict: ReviewVerdict;
   intro: string;
   fixes: ReviewFixInput[];
   stuck: string[];
   good: string[];
+}
+
+/** 자소서 문항 하나. 글자 수 제한(공백 포함)이 null이면 제한 없음. */
+export interface CoverLetterItem {
+  question: string;
+  charLimit: number | null;
+  answer: string;
+}
+
+/** 자소서: 문항 목록 통째 (위치는 배열 순서). */
+export interface CoverLetter {
+  updatedAt: string;
+  source: DocumentSource;
+  items: CoverLetterItem[];
 }
 
 export interface DocumentReviewInput {
@@ -839,8 +858,12 @@ export interface SaveMeService {
   createDocument(groupId: number, type: DocumentType, body: string): Promise<SavedDocument>;
   /** 없으면 null. */
   getDocument(groupId: number, type: DocumentType): Promise<SavedDocument | null>;
-  /** 글 저장 (자동 저장). 가져온 서류를 고치면 "가져옴 · 내가 수정"이 된다. */
+  /** 글 저장 (자동 저장). 가져온 서류를 고치면 "가져옴 · 내가 수정"이 된다. 자소서는 422 (`saveCoverLetter`를 쓴다). */
   saveDocument(groupId: number, type: DocumentType, body: string): Promise<SavedDocument>;
+  /** 자소서의 문항들. 자소서가 없거나 남의 묶음이면 null. */
+  getCoverLetter(groupId: number): Promise<CoverLetter | null>;
+  /** 문항 목록을 통째로 저장한다 (자동 저장). 6개 이상이거나 글자 수 제한이 1 미만이면 422, 자소서가 없으면 404. */
+  saveCoverLetter(groupId: number, items: CoverLetterItem[]): Promise<CoverLetter>;
   /** 그 서류의 리뷰 덩어리도 지워진다. */
   deleteDocument(groupId: number, type: DocumentType): Promise<void>;
   /** 새 리뷰를 쓰고 묶음을 돌려준다 (이전 리뷰는 남고 화면은 가장 새 것만 본다). 묶음에 없는 서류면 422. */

@@ -1,4 +1,4 @@
-import type { DocumentGroupSummary, DocumentReviewInput, DocumentType, ReviewVerdict } from "@/services/types";
+import type { DocumentGroupSummary, DocumentReviewInput, DocumentType, ReviewVerdict, TextDocumentType } from "@/services/types";
 
 /**
  * 지원서류 글(마크다운 비슷한 형식)의 파싱과 쪽 나눔. 순수 함수만 있다 (완료분 기획안 S2 13번, 5.12).
@@ -11,19 +11,23 @@ import type { DocumentGroupSummary, DocumentReviewInput, DocumentType, ReviewVer
  * raw HTML은 쓰지 않는다: 글자 그대로 보인다.
  */
 
-export const DOC_ORDER: DocumentType[] = ["resume", "career", "portfolio"];
+export const DOC_ORDER: DocumentType[] = ["resume", "career", "portfolio", "coverletter"];
 export const DOC_LABELS: Record<DocumentType, string> = {
   resume: "이력서",
   career: "경력기술서",
   portfolio: "포트폴리오",
+  coverletter: "자소서",
 };
 
 /** 처음 만들 때의 틀 (목업의 DOC_BLANK). */
-export const DOC_BLANK: Record<DocumentType, string> = {
+export const DOC_BLANK: Record<TextDocumentType, string> = {
   resume: "# 이름\nname@example.com · 010-0000-0000\n\n## 요약\n\n## 경력\n\n## 기술 스택\n\n## 학력 · 자격증\n",
   career: "# 경력기술서\n\n## 요약\n\n## 1. 프로젝트 이름\n- \n",
   portfolio: "# 포트폴리오\n\n## 소개\n\n## 프로젝트 1\n",
 };
+
+/** 글 한 덩어리로 된 서류인가 (자소서가 아니다): 본문 저장, 리뷰, 인쇄가 되는 서류. */
+export const isTextDocument = (type: DocumentType): type is TextDocumentType => type !== "coverletter";
 
 export const VERDICT_LABELS: Record<ReviewVerdict, string> = {
   fix: "보완 권장",
@@ -71,12 +75,12 @@ export interface FixDraft {
   /** 이유: 한 줄에 하나. */
   details: string;
   /** 편집기에서 찾을 서류 ("" = 이 덩어리의 서류). */
-  jumpType: DocumentType | "";
+  jumpType: TextDocumentType | "";
   jumpFind: string;
 }
 
 export interface PartDraft {
-  documentType: DocumentType;
+  documentType: TextDocumentType;
   verdict: ReviewVerdict;
   intro: string;
   fixes: FixDraft[];
@@ -94,7 +98,7 @@ export const DEFAULT_REVIEWER = "직접 작성";
 
 export const emptyFixDraft = (): FixDraft => ({ label: "", headline: "", details: "", jumpType: "", jumpFind: "" });
 
-export const newPartDraft = (documentType: DocumentType): PartDraft => ({
+export const newPartDraft = (documentType: TextDocumentType): PartDraft => ({
   documentType,
   verdict: "fix",
   intro: "",

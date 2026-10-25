@@ -645,7 +645,7 @@ td.mono { white-space: nowrap; }
 .dt-portfolio { background: var(--memo); color: var(--closed); }
 .dgrow { grid-template-columns: minmax(0,1fr) auto; }
 .dgrow b { font-size: 15px; }
-.dslots { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 10px; }
+.dslots { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; }
 @media (max-width: 1040px) { .dslots { grid-template-columns: minmax(0,1fr); } }
 .dslot { text-align: left; padding: 16px; display: flex; flex-direction: column; gap: 8px; min-height: 150px; cursor: pointer; }
 .dslot:hover { border-color: var(--d2); }
@@ -653,6 +653,40 @@ td.mono { white-space: nowrap; }
 .dslot-go { margin-top: auto; color: var(--accent); font-weight: 600; font-size: 13px; }
 .dslot.empty-slot { cursor: default; border-style: dashed; background: var(--bg); align-items: flex-start; }
 .dslot.empty-slot:hover { border-color: var(--line); }
+
+/* ── 자소서 (이슈 #22, 목업 .claude/tasks/cover-letter.mockup.html. 입력 칸은 .input/.textarea라 16px 이상) ── */
+.pill.over { background: #FBECEA; color: var(--fail); }
+.cl-wrap { display: grid; grid-template-columns: 220px minmax(0,1fr); gap: 20px; align-items: start; }
+.cl-toc { position: sticky; top: 16px; }
+.cl-toc h2 { font-size: 13px; margin: 0 0 6px; color: var(--muted); font-weight: 600; }
+.cl-toc-list { display: flex; flex-direction: column; gap: 4px; }
+.cl-toc-item { display: flex; justify-content: space-between; gap: 8px; padding: 8px 10px; border-radius: 8px; border: 1px solid transparent; background: none; color: var(--fg); font-size: 13px; text-align: left; cursor: pointer; }
+.cl-toc-item:hover { background: var(--surface); border-color: var(--line); }
+.cl-toc-t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cl-toc-n { font-family: var(--mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+.cl-toc-n.near { color: var(--closed); }
+.cl-toc-n.over { color: var(--fail); font-weight: 600; }
+.cl-toc-total { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.cl-qs { display: flex; flex-direction: column; gap: 16px; }
+.cl-q-h { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.cl-q-no { font-weight: 700; color: var(--accent); }
+.cl-q-del { margin-left: auto; width: 30px; height: 30px; border-color: var(--line); color: var(--fail); }
+.cl-f { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; font-weight: 500; }
+.cl-q { min-height: 64px; }
+.cl-a { min-height: 220px; }
+.cl-limit { display: flex; align-items: center; gap: 8px; }
+.cl-limit .input { width: 110px; }
+.cl-counter { display: flex; align-items: baseline; gap: 12px; margin-top: 6px; font-size: 13px; color: var(--muted); }
+.cl-main { font-size: 15px; color: var(--fg); font-weight: 600; }
+.cl-msg { margin-left: auto; }
+.cl-counter.near .cl-main, .cl-counter.near .cl-msg { color: var(--closed); }
+.cl-counter.over .cl-main, .cl-counter.over .cl-msg { color: var(--fail); }
+.cl-counter.over .cl-msg { font-weight: 600; }
+.cl-meter { height: 4px; border-radius: 2px; background: var(--line); margin-top: 6px; overflow: hidden; }
+.cl-meter i { display: block; height: 100%; background: var(--accent); }
+.cl-meter.near i { background: var(--closed); }
+.cl-meter.over i { background: var(--fail); }
+.cl-add { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
 .vd-fix { background: var(--memo); color: var(--closed); } .vd-ok { background: var(--retry); color: var(--ing); } .vd-redo { background: #FBECEA; color: var(--fail); }
 .rpart { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 14px; border-bottom: 1px solid var(--grid); }
 .rpart:last-child { border-bottom: 0; padding-bottom: 0; }

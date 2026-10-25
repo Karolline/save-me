@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useService, type DocumentType } from "@/services";
+import { useService, type TextDocumentType } from "@/services";
 import { DocumentPages, type PageLayout } from "./documentPages";
 
 /**
@@ -8,7 +8,7 @@ import { DocumentPages, type PageLayout } from "./documentPages";
  * 쪽과 글꼴이 다 준비되면 `data-print-ready="true"`, 못 열면 `data-print-error="true"`가 붙는다
  * (서버가 이것을 기다린다).
  */
-export function DocumentPrintScreen({ groupId, type }: { groupId: number; type: DocumentType }) {
+export function DocumentPrintScreen({ groupId, type }: { groupId: number; type: TextDocumentType }) {
   const service = useService();
   const [body, setBody] = useState<string | null | undefined>(undefined);
   const [failed, setFailed] = useState(false);

@@ -13,6 +13,7 @@ import { ApplicationFormPanel } from "@/components/ApplicationFormPanel";
 import { ApplicationsScreen } from "@/components/ApplicationsScreen";
 import { DocumentGroupScreen } from "@/components/DocumentGroupScreen";
 import { DocumentPrintScreen } from "@/components/DocumentPrintScreen";
+import { CoverLetterScreen } from "@/components/CoverLetterScreen";
 import { DocumentScreen } from "@/components/DocumentScreen";
 import { DocumentsScreen } from "@/components/DocumentsScreen";
 import { ExperienceEditScreen } from "@/components/ExperienceEditScreen";
@@ -30,6 +31,7 @@ import { LoginScreen } from "@/components/LoginScreen";
 import { SESSION_EXPIRED, SessionContext, useSession } from "@/components/session";
 import { NotFoundScreen, SettingsScreen } from "@/components/SettingsScreen";
 import { Shell } from "@/components/Shell";
+import { isTextDocument } from "@/lib/documents";
 import { PDF_ENABLED } from "@/lib/features";
 import { useService, type DocumentType, type ExperienceView, type JobStatusFilter, type User } from "@/services";
 
@@ -667,7 +669,7 @@ const documentGroupRoute = createRoute({
   },
 });
 
-const DOCUMENT_TYPES: DocumentType[] = ["resume", "career", "portfolio"];
+const DOCUMENT_TYPES: DocumentType[] = ["resume", "career", "portfolio", "coverletter"];
 const asDocumentType = (value: string): DocumentType | null =>
   (DOCUMENT_TYPES as string[]).includes(value) ? (value as DocumentType) : null;
 
@@ -682,6 +684,19 @@ const documentRoute = createRoute({
     const navigate = useNavigate();
     const documentType = asDocumentType(type);
     if (!documentType) return <NotFoundScreen onHome={() => navigate({ to: "/applications" })} />;
+    // 자소서는 글 한 덩어리가 아니라 문항 목록이라 편집 화면이 따로다.
+    if (documentType === "coverletter") {
+      return (
+        <CoverLetterScreen
+          key={`${groupId}/${type}`}
+          groupId={toId(groupId)}
+          onBack={() => navigate({ to: "/documents/$groupId", params: { groupId } })}
+          onOpenDocument={(next) => navigate({ to: "/documents/$groupId/$type", params: { groupId, type: next }, search: {} })}
+          onDeleted={() => navigate({ to: "/documents/$groupId", params: { groupId } })}
+          onHome={() => navigate({ to: "/applications" })}
+        />
+      );
+    }
     return (
       <DocumentScreen
         key={`${groupId}/${type}`}
@@ -706,7 +721,7 @@ const printDocumentRoute = createRoute({
   component: function PrintDocumentPage() {
     const { groupId, type } = printDocumentRoute.useParams();
     const documentType = asDocumentType(type);
-    if (!PDF_ENABLED || !documentType) return <div className="print-msg" data-print-error="true">서류를 열지 못했어요.</div>;
+    if (!PDF_ENABLED || !documentType || !isTextDocument(documentType)) return <div className="print-msg" data-print-error="true">서류를 열지 못했어요.</div>;
     return <DocumentPrintScreen groupId={toId(groupId)} type={documentType} />;
   },
 });

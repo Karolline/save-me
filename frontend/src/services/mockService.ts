@@ -1,3 +1,4 @@
+import { COVER_LETTER_MAX_ITEMS, overLimitCount, totalChars } from "@/lib/coverLetter";
 import { ApiError } from "./errors";
 import {
   ANSWER_KINDS,
@@ -10,6 +11,8 @@ import {
   type ApplicationStats,
   type Career,
   type Certificate,
+  type CoverLetter,
+  type CoverLetterItem,
   type DocumentGroup,
   type DocumentGroupInput,
   type DocumentGroupSummary,
@@ -54,6 +57,7 @@ import {
   type Stage,
   type StageKind,
   type StatusFilter,
+  type TextDocumentType,
   type User,
 } from "./types";
 import type { DocumentSeed } from "./sampleDocuments";
@@ -230,7 +234,9 @@ function validateReview(input: ReviewInput): ReviewInput {
 
 const notFound = (what: string) => new ApiError(404, `Request failed (404): ${what} not found`);
 
-const DOCUMENT_TYPES: DocumentType[] = ["resume", "career", "portfolio"];
+const DOCUMENT_TYPES: DocumentType[] = ["resume", "career", "portfolio", "coverletter"];
+// 글 한 덩어리로 된 서류: 리뷰는 이 서류들만 받는다 (자소서는 422).
+const TEXT_DOCUMENT_TYPES: TextDocumentType[] = ["resume", "career", "portfolio"];
 const REVIEW_VERDICTS: ReviewVerdict[] = ["fix", "ok", "redo"];
 const DUPLICATE_DOCUMENT_GROUP = "같은 회사, 같은 날짜의 묶음이 이미 있어요";
 
@@ -243,7 +249,7 @@ function cleanDocumentReview(input: DocumentReviewInput): DocumentReviewInput {
   return {
     reviewer: input.reviewer.trim() || "직접 작성",
     parts: input.parts.map((p) => {
-      if (!DOCUMENT_TYPES.includes(p.documentType) || !REVIEW_VERDICTS.includes(p.verdict)) throw invalid();
+      if (!TEXT_DOCUMENT_TYPES.includes(p.documentType) || !REVIEW_VERDICTS.includes(p.verdict)) throw invalid();
       return {
         documentType: p.documentType,
         verdict: p.verdict,
@@ -253,6 +259,7 @@ function cleanDocumentReview(input: DocumentReviewInput): DocumentReviewInput {
           const headline = f.headline.trim();
           if (!label || !headline) throw invalid();
           const jumpFind = f.jumpFind.trim();
+          if (f.jumpType !== null && !TEXT_DOCUMENT_TYPES.includes(f.jumpType)) throw invalid();
           return {
             label,
             headline,
@@ -276,6 +283,8 @@ interface StoredDocumentGroup {
   createdAt: string;
   updatedAt: string;
   documents: Map<DocumentType, SavedDocument>;
+  /** 자소서의 문항들 (자소서가 있을 때만 뜻이 있다). */
+  coverItems: CoverLetterItem[];
   /** 쓴 순서대로. 화면은 마지막 것만 본다. */
   reviews: DocumentReview[];
 }
@@ -994,7 +1003,19 @@ export function createMockService(options: MockOptions = {}): MockService {
       const d = g.documents.get(type);
       if (!d) return [];
       const part = review?.parts.find((p) => p.documentType === type);
-      return [{ type, source: d.source, updatedAt: d.updatedAt, verdict: part?.verdict ?? null, remaining: part?.remaining ?? null }];
+      const cover = type === "coverletter";
+      return [
+        {
+          type,
+          source: d.source,
+          updatedAt: d.updatedAt,
+          verdict: part?.verdict ?? null,
+          remaining: part?.remaining ?? null,
+          itemCount: cover ? g.coverItems.length : null,
+          totalChars: cover ? totalChars(g.coverItems) : null,
+          overLimitCount: cover ? overLimitCount(g.coverItems) : null,
+        },
+      ];
     });
     return {
       id: g.id,
@@ -1022,9 +1043,14 @@ export function createMockService(options: MockOptions = {}): MockService {
     return { company, writtenOn: input.writtenOn, jobAnalysisId: input.jobAnalysisId };
   }
 
+  function coverLetterOf(g: StoredDocumentGroup, d: SavedDocument): CoverLetter {
+    return { updatedAt: d.updatedAt, source: d.source, items: g.coverItems.map((i) => ({ ...i })) };
+  }
+
   function addDocument(g: StoredDocumentGroup, type: DocumentType, body: string, source: SavedDocument["source"]) {
     const stamp = now();
-    const doc: SavedDocument = { id: nextDocumentId++, groupId: g.id, type, body, source, createdAt: stamp, updatedAt: stamp };
+    // 자소서의 글은 문항에 있어서 본문은 늘 비어 있다 (백엔드와 같음).
+    const doc: SavedDocument = { id: nextDocumentId++, groupId: g.id, type, body: type === "coverletter" ? "" : body, source, createdAt: stamp, updatedAt: stamp };
     g.documents.set(type, doc);
     return doc;
   }
@@ -1061,6 +1087,7 @@ export function createMockService(options: MockOptions = {}): MockService {
       createdAt: stamp,
       updatedAt: stamp,
       documents: new Map(),
+      coverItems: [],
       reviews: [],
     };
     documentGroups.set(g.id, g);
@@ -1433,6 +1460,7 @@ export function createMockService(options: MockOptions = {}): MockService {
           createdAt: stamp,
           updatedAt: stamp,
           documents: new Map(),
+          coverItems: [],
           reviews: [],
         };
         documentGroups.set(g.id, g);
@@ -1465,6 +1493,7 @@ export function createMockService(options: MockOptions = {}): MockService {
     saveDocument: (groupId: number, type: DocumentType, body: string) =>
       call((): SavedDocument => {
         const d = savedDocument(groupId, type);
+        if (type === "coverletter") throw new ApiError(422, "Request failed (422): 자소서는 saveCoverLetter로 저장해요");
         // 글이 바뀔 때만 고친 날이 바뀌고, 가져온 서류는 "가져옴 · 내가 수정"이 된다 (백엔드와 같음).
         if (body !== d.body) {
           d.body = body;
@@ -1474,10 +1503,31 @@ export function createMockService(options: MockOptions = {}): MockService {
         return d;
       }),
 
+    getCoverLetter: (groupId: number) =>
+      call((): CoverLetter | null => {
+        const g = documentGroups.get(groupId);
+        const d = g?.documents.get("coverletter");
+        return g && d ? coverLetterOf(g, d) : null;
+      }),
+
+    saveCoverLetter: (groupId: number, items: CoverLetterItem[]) =>
+      call((): CoverLetter => {
+        const g = documentGroup(groupId);
+        const d = savedDocument(groupId, "coverletter");
+        if (items.length > COVER_LETTER_MAX_ITEMS) throw new ApiError(422, "Request failed (422): too many items");
+        if (items.some((i) => i.charLimit !== null && (!Number.isInteger(i.charLimit) || i.charLimit < 1))) {
+          throw new ApiError(422, "Request failed (422): invalid charLimit");
+        }
+        g.coverItems = items.map((i) => ({ question: i.question, charLimit: i.charLimit, answer: i.answer }));
+        d.updatedAt = now();
+        return coverLetterOf(g, d);
+      }),
+
     deleteDocument: (groupId: number, type: DocumentType) =>
       call(() => {
         const g = documentGroup(groupId);
         if (!g.documents.delete(type)) throw notFound("Document");
+        if (type === "coverletter") g.coverItems = [];
         // 그 서류의 리뷰 덩어리도, 덩어리가 남지 않은 리뷰도 지운다.
         for (const r of g.reviews) r.parts = r.parts.filter((p) => p.documentType !== type);
         g.reviews = g.reviews.filter((r) => r.parts.length > 0);

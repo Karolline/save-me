@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { DOC_BLANK, DOC_ORDER, DOC_LABELS, SOURCE_LABELS, seoulDay } from "@/lib/documents";
+import { DOC_BLANK, DOC_ORDER, DOC_LABELS, SOURCE_LABELS, isTextDocument, seoulDay } from "@/lib/documents";
+import { formatCount } from "@/lib/coverLetter";
 import { useService, type DocumentGroup, type DocumentType } from "@/services";
 import { DocumentGroupDialog } from "./DocumentGroupDialog";
 import { DocumentReviewForm } from "./DocumentReviewForm";
@@ -58,7 +59,7 @@ export function DocumentGroupScreen({
   async function create(type: DocumentType) {
     if (!group) return;
     try {
-      await service.createDocument(group.id, type, DOC_BLANK[type]);
+      await service.createDocument(group.id, type, isTextDocument(type) ? DOC_BLANK[type] : "");
       toast(`${DOC_LABELS[type]} 틀을 만들었어요`);
       onOpenDocument(type);
     } catch (error) {
@@ -180,8 +181,19 @@ export function DocumentGroupScreen({
               <span className="hint">
                 {SOURCE_LABELS[slot.source]} · 고친 날 <span className="mono">{seoulDay(slot.updatedAt)}</span>
               </span>
+              {slot.itemCount !== null && (
+                <span className="hint">
+                  문항 {slot.itemCount}개 · 합계 <span className="mono">{formatCount(slot.totalChars ?? 0)}</span>자
+                </span>
+              )}
               <span className="xchips">
-                {slot.verdict ? (
+                {type === "coverletter" ? (
+                  // 자소서는 아직 리뷰와 연결하지 않는다: 검토 전 표시만.
+                  <>
+                    <span className="pill">검토 전</span>
+                    {!!slot.overLimitCount && <span className="pill over">글자 수 초과 {slot.overLimitCount}문항</span>}
+                  </>
+                ) : slot.verdict ? (
                   <>
                     <VerdictPill verdict={slot.verdict} />
                     {slot.remaining ? (
@@ -232,7 +244,7 @@ export function DocumentGroupScreen({
       {reviewing && (
         <DocumentReviewForm
           groupId={group.id}
-          types={DOC_ORDER.filter((t) => slots.has(t))}
+          types={DOC_ORDER.filter(isTextDocument).filter((t) => slots.has(t))}
           again={!!review}
           onSaved={(saved) => {
             setGroup(saved);

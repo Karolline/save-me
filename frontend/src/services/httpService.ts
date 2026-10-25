@@ -10,6 +10,8 @@ import type {
   DocumentGroupInput,
   DocumentGroupSummary,
   DocumentReviewInput,
+  CoverLetter,
+  CoverLetterItem,
   DocumentType,
   Education,
   Experience,
@@ -336,6 +338,16 @@ export function createHttpService(
 
     async saveDocument(groupId: number, type: DocumentType, body: string) {
       return json<SavedDocument>(await request(documentPath(groupId, type), send("PUT", { body })));
+    },
+
+    async getCoverLetter(groupId: number) {
+      const response = await request(`${documentGroupPath(groupId)}/cover-letter`);
+      if (response.status === 404) return null;
+      return json<CoverLetter>(response);
+    },
+
+    async saveCoverLetter(groupId: number, items: CoverLetterItem[]) {
+      return json<CoverLetter>(await request(`${documentGroupPath(groupId)}/cover-letter`, send("PUT", { items })));
     },
 
     async deleteDocument(groupId: number, type: DocumentType) {
