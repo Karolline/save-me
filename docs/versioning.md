@@ -25,7 +25,7 @@
 1. 위의 모든 파일에서 버전을 고치고, `uv run pytest tests/unit/test_versions.py`만 돌리고 (전체 테스트는 병합 전에 작업 브랜치의 CI에서 이미 통과했고, 릴리즈 커밋은 버전 숫자만 바꾼다), 소요 시간·메모리 표를 만들어 (아래 절) 함께 커밋한다 (`Release vX.Y.Z`).
 2. 그 커밋에 태그를 단다: `git tag -a vX.Y.Z -m "vX.Y.Z"`.
 3. 사용자가 `scripts/update.ps1`(백업, 다시 빌드, 마이그레이션)로 로컬 앱을 업데이트하고, 원할 때 커밋과 태그를 push한다 (`git push && git push --tags`).
-4. 사용자가 부탁하면 GitHub 릴리즈 노트를 올린다: `gh release create vX.Y.Z --generate-notes --notes-file docs/metrics/vX.Y.Z.md`. 소요 시간·메모리 표가 앞에 오고, 이전 태그 이후 커밋에서 만든 노트가 이어진다.
+4. 사용자가 부탁하면 GitHub 릴리즈 노트를 올린다. 노트는 위에서부터 **바뀐 것 → 소요 시간·메모리 표 → 이전 태그 이후 자동 변경 목록** 순서다 (v0.8.0 모양). 지시서·개발자 보고·커밋 로그를 보고 사용자가 알아볼 말로 `## 바뀐 것` 절(한 줄 소개와 `###` 소절들, 화면·API·데이터가 바뀌었으면 그 말까지)을 쓰고, 이어서 `---`와 `docs/metrics/vX.Y.Z.md`의 표(제목은 `## 소요 시간과 메모리`)를 붙여 스크래치패드의 파일 하나로 만든다. `gh release create vX.Y.Z --verify-tag --title vX.Y.Z --generate-notes --notes-file <그 파일>`: `--generate-notes`가 파일 뒤에 자동 변경 목록(`Full Changelog`)을 붙인다. 이미 올린 노트를 고칠 때는 `gh release edit`로는 자동 목록이 다시 안 만들어지므로 `gh release delete vX.Y.Z --yes`(태그는 남는다) 뒤 다시 만든다.
 
 배포(이미지 저장소와 호스팅 환경)는 나중에 한다 (기획안 12단계). 그때 이 절이 늘어난다.
 
