@@ -70,7 +70,8 @@ describe("parseLimit", () => {
   it("takes whole numbers from 1 and treats anything else as no limit", () => {
     expect(parseLimit("500")).toBe(500);
     expect(parseLimit(" 7 ")).toBe(7);
-    for (const text of ["", " ", "0", "-3", "1.5", "abc", "1e3"]) expect(parseLimit(text), text).toBeNull();
+    expect(parseLimit("100000")).toBe(100000);
+    for (const text of ["", " ", "0", "-3", "1.5", "abc", "1e3", "100001", "99999999999999999999"]) expect(parseLimit(text), text).toBeNull();
   });
 });
 

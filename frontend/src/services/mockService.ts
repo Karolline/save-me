@@ -1,4 +1,4 @@
-import { COVER_LETTER_MAX_ITEMS, overLimitCount, totalChars } from "@/lib/coverLetter";
+import { COVER_LETTER_MAX_ITEMS, COVER_LETTER_MAX_LIMIT, overLimitCount, totalChars } from "@/lib/coverLetter";
 import { ApiError } from "./errors";
 import {
   ANSWER_KINDS,
@@ -1512,12 +1512,19 @@ export function createMockService(options: MockOptions = {}): MockService {
 
     saveCoverLetter: (groupId: number, items: CoverLetterItem[]) =>
       call((): CoverLetter => {
-        const g = documentGroup(groupId);
-        const d = savedDocument(groupId, "coverletter");
+        // 백엔드와 같은 순서: 본문 422가 404보다 먼저.
         if (items.length > COVER_LETTER_MAX_ITEMS) throw new ApiError(422, "Request failed (422): too many items");
-        if (items.some((i) => i.charLimit !== null && (!Number.isInteger(i.charLimit) || i.charLimit < 1))) {
+        if (
+          items.some(
+            (i) =>
+              i.charLimit !== null &&
+              (!Number.isInteger(i.charLimit) || i.charLimit < 1 || i.charLimit > COVER_LETTER_MAX_LIMIT),
+          )
+        ) {
           throw new ApiError(422, "Request failed (422): invalid charLimit");
         }
+        const g = documentGroup(groupId);
+        const d = savedDocument(groupId, "coverletter");
         g.coverItems = items.map((i) => ({ question: i.question, charLimit: i.charLimit, answer: i.answer }));
         d.updatedAt = now();
         return coverLetterOf(g, d);

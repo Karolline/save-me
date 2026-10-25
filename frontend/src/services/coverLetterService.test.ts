@@ -33,6 +33,7 @@ describe("mock service: cover letter", () => {
     expect(await service.getCoverLetter(group.id)).toBeNull();
     expect(await service.getCoverLetter(999)).toBeNull();
     await expect(service.saveCoverLetter(group.id, [])).rejects.toSatisfy(isNotFound);
+    await expect(service.saveCoverLetter(999, Array.from({ length: 6 }, () => item()))).rejects.toMatchObject({ status: 422 });
   });
 
   it("saves the whole list and reads it back in order, with a null limit kept", async () => {
@@ -55,6 +56,7 @@ describe("mock service: cover letter", () => {
 
     await expect(service.saveCoverLetter(group.id, Array.from({ length: 6 }, () => item()))).rejects.toMatchObject({ status: 422 });
     await expect(service.saveCoverLetter(group.id, [item("", "", 0)])).rejects.toMatchObject({ status: 422 });
+    await expect(service.saveCoverLetter(group.id, [item("", "", 100001)])).rejects.toMatchObject({ status: 422 });
     await expect(service.saveCoverLetter(group.id, [item("", "", -1)])).rejects.toMatchObject({ status: 422 });
     await service.saveCoverLetter(group.id, Array.from({ length: 5 }, () => item()));
   });

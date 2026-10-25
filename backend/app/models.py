@@ -910,6 +910,7 @@ DOCUMENT_TYPES: tuple[str, ...] = ("resume", "career", "portfolio", "coverletter
 # 글 한 덩어리로 된 서류 (본문 저장, 리뷰, 가져오기가 되는 것). 자소서는 문항 목록이라 따로 다룬다.
 TextDocumentType = Literal["resume", "career", "portfolio"]
 COVER_LETTER_MAX_ITEMS = 5
+COVER_LETTER_MAX_LIMIT = 100000  # 글자 수 제한의 위쪽 끝
 
 
 def count_chars(text: str) -> int:
@@ -1087,7 +1088,7 @@ class CoverLetterItem(ApiModel):
     """자소서 문항 하나: 문항 글, 글자 수 제한(공백 포함, 없으면 제한 없음), 답변."""
 
     question: str = ""
-    char_limit: int | None = Field(default=None, ge=1)
+    char_limit: int | None = Field(default=None, ge=1, le=COVER_LETTER_MAX_LIMIT)
     answer: str = ""
 
 

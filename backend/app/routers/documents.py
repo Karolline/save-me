@@ -157,7 +157,7 @@ def save_document(
     """글 저장 (자동 저장). 가져온 서류를 고치면 작성 출처가 "가져옴 · 내가 수정"이 된다.
     자소서는 글이 아니라 문항 목록이라 이 경로로 저장하지 않는다 (422, `/cover-letter`를 쓴다)."""
     if type == "coverletter":
-        raise HTTPException(422,"자소서는 /cover-letter로 저장해요")
+        raise HTTPException(422, "자소서는 /cover-letter로 저장해요")
     document = stores.documents.save_document(user.id, group_id, type, data.body)
     if document is None:
         raise not_found("Document")

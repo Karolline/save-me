@@ -309,7 +309,7 @@ class DocumentStore(BaseStore):
         """문항 목록을 통째로 바꾼다 (자동 저장, 위치는 배열 순서). 자소서가 없거나 남의 것이면 None."""
         now = self.clock()
         with self.session() as db, db.begin():
-            row = self._document(db, user_id, group_id, "coverletter")
+            row = self._document(db, user_id, group_id, "coverletter", lock=True)
             if row is None:
                 return None
             # 유니크(document_id, position) 때문에 지운 뒤에 넣는다.
@@ -480,14 +480,16 @@ class DocumentStore(BaseStore):
         ).unique().first()
 
     @staticmethod
-    def _document(db: Session, user_id: int, group_id: int, type: str) -> DocumentRow | None:
-        return db.scalar(
-            select(DocumentRow).where(
-                DocumentRow.group_id == group_id,
-                DocumentRow.type == type,
-                DocumentRow.user_id == user_id,
-            )
+    def _document(
+        db: Session, user_id: int, group_id: int, type: str, lock: bool = False
+    ) -> DocumentRow | None:
+        """서류 한 건. lock이면 행을 잠가(FOR UPDATE) 같은 서류의 동시 쓰기가 차례로 처리된다."""
+        query = select(DocumentRow).where(
+            DocumentRow.group_id == group_id,
+            DocumentRow.type == type,
+            DocumentRow.user_id == user_id,
         )
+        return db.scalar(query.with_for_update() if lock else query)
 
     @staticmethod
     def _check_job(db: Session, user_id: int, job_analysis_id: int | None) -> None:

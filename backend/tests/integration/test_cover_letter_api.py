@@ -91,6 +91,15 @@ def test_char_limit_must_be_one_or_more(client: TestClient):
     assert put(client, group["id"], [item(limit=1)]).status_code == 200
 
 
+def test_char_limit_has_an_upper_end(client: TestClient):
+    group = make_group(client)
+    make_cover_letter(client, group["id"])
+
+    assert put(client, group["id"], [item(limit=100000)]).status_code == 200
+    assert put(client, group["id"], [item(limit=100001)]).status_code == 422
+    assert put(client, group["id"], [item(limit=10**30)]).status_code == 422
+
+
 def test_deleting_the_cover_letter_removes_its_items(client: TestClient, engine):
     from sqlalchemy import text
 

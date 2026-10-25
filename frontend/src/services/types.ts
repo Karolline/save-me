@@ -632,7 +632,8 @@ export type ResumeListCard = "careers" | "educations" | "certificates" | "skills
 
 export type DocumentType = "resume" | "career" | "portfolio" | "coverletter";
 /** 글 한 덩어리로 된 서류 (본문 저장, 리뷰, 인쇄가 되는 것). 자소서는 문항 목록이라 따로 다룬다. */
-export type TextDocumentType = Exclude<DocumentType, "coverletter">;/** written 직접 작성, imported 가져옴, imported_edited 가져온 것을 고쳐 저장. */
+export type TextDocumentType = Exclude<DocumentType, "coverletter">;
+/** written 직접 작성, imported 가져옴, imported_edited 가져온 것을 고쳐 저장. */
 export type DocumentSource = "written" | "imported" | "imported_edited";
 /** fix 보완 권장, ok 이대로 제출 가능, redo 다시 쓰기 권장. */
 export type ReviewVerdict = "fix" | "ok" | "redo";

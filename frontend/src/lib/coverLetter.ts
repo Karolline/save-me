@@ -60,12 +60,15 @@ export function overLimitCount(items: Pick<CoverLetterItem, "answer" | "charLimi
   return items.filter((item) => limitState(countChars(item.answer), item.charLimit) === "over").length;
 }
 
-/** 글자 수 제한 칸의 글을 값으로: 1 이상의 정수만, 비우거나 그 밖이면 제한 없음(null). */
+/** 글자 수 제한의 위쪽 끝 (백엔드 COVER_LETTER_MAX_LIMIT과 같다). */
+export const COVER_LETTER_MAX_LIMIT = 100000;
+
+/** 글자 수 제한 칸의 글을 값으로: 1 이상 끝(100000) 이하의 정수만, 비우거나 그 밖이면 제한 없음(null). */
 export function parseLimit(text: string): number | null {
   const value = text.trim();
   if (!/^\d+$/.test(value)) return null;
   const n = Number(value);
-  return Number.isSafeInteger(n) && n >= 1 ? n : null;
+  return Number.isSafeInteger(n) && n >= 1 && n <= COVER_LETTER_MAX_LIMIT ? n : null;
 }
 
 /** 숫자에 천 단위 쉼표. */
