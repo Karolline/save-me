@@ -496,6 +496,9 @@ ExperienceView = Literal["all", "unv", "need"]
 # 시작·끝 달: "YYYY-MM". DB에는 그달 1일로 저장한다.
 MONTH_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])$"
 Month = Annotated[str, Field(pattern=MONTH_PATTERN)] | None
+# 경력의 날짜: "YYYY-MM" 또는 "YYYY-MM-DD" (일은 선택, 없는 날짜는 거절).
+CAREER_DATE_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])(-\d{2})?$"
+CareerDate = Annotated[str, Field(pattern=CAREER_DATE_PATTERN)] | None
 
 
 class ExperienceAction(ApiModel):
@@ -719,6 +722,23 @@ def _blank_month(value: object) -> object:
     return None if value == "" else value
 
 
+def _check_career_date(value: str | None) -> str | None:
+    """"YYYY-MM-DD"면 실제 있는 날짜인지 본다."""
+    if value is not None and len(value) == 10:
+        try:
+            date.fromisoformat(value)
+        except ValueError:
+            raise ValueError("not a real date") from None
+    return value
+
+
+def _not_before(later: str, earlier: str) -> bool:
+    """later가 earlier보다 앞서지 않는지. 둘 다 일이 있으면 날짜로, 아니면 달로만 비교한다."""
+    if len(later) == 10 and len(earlier) == 10:
+        return later >= earlier
+    return later[:7] >= earlier[:7]
+
+
 class ResumeBasics(ApiModel):
     """기본 정보. 모두 비워도 된다. 입력과 출력이 같은 모양이다."""
 
@@ -743,16 +763,16 @@ class DirectionInput(ApiModel):
 
 
 class Career(ApiModel):
-    """경력 하나. 회사만 필수. 퇴사가 비면 재직 중, 휴직은 선택."""
+    """경력 하나. 회사만 필수. 퇴사가 비면 재직 중, 휴직은 선택. 날짜는 일까지 적어도 된다."""
 
     company: str
     team: str = ""
     role: str = ""
-    started_on: Month = None
-    ended_on: Month = None
-    leave_started_on: Month = None
-    # 휴직 끝 (복직 예정 달).
-    leave_ended_on: Month = None
+    started_on: CareerDate = None
+    ended_on: CareerDate = None
+    leave_started_on: CareerDate = None
+    # 휴직 끝 (복직 예정일).
+    leave_ended_on: CareerDate = None
     # 주요 업무, 한 줄에 하나.
     duties: str = ""
 
@@ -773,13 +793,18 @@ class Career(ApiModel):
     def empty_month_is_none(cls, value: object) -> object:
         return _blank_month(value)
 
+    @field_validator("started_on", "ended_on", "leave_started_on", "leave_ended_on")
+    @classmethod
+    def real_date(cls, value: str | None) -> str | None:
+        return _check_career_date(value)
+
     @model_validator(mode="after")
-    def check_months(self) -> "Career":
-        if self.started_on and self.ended_on and self.ended_on < self.started_on:
+    def check_dates(self) -> "Career":
+        if self.started_on and self.ended_on and not _not_before(self.ended_on, self.started_on):
             raise ValueError("endedOn is before startedOn")
         if self.leave_ended_on and not self.leave_started_on:
             raise ValueError("leaveEndedOn needs leaveStartedOn")
-        if self.leave_started_on and self.leave_ended_on and self.leave_ended_on < self.leave_started_on:
+        if self.leave_started_on and self.leave_ended_on and not _not_before(self.leave_ended_on, self.leave_started_on):
             raise ValueError("leaveEndedOn is before leaveStartedOn")
         return self
 

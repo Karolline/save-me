@@ -124,7 +124,12 @@ def test_skills_and_personality_keep_the_order_given(stores: Stores, user_id: in
         lambda: Career(company="가", leave_ended_on="2025-01"),
         lambda: Career(company="가", leave_started_on="2025-05", leave_ended_on="2025-04"),
         lambda: Career(company="가", started_on="2022-13"),
-        lambda: Career(company="가", ended_on="2022-01-01"),
+        lambda: Career(company="가", ended_on="2022-02-30"),
+        lambda: Career(company="가", started_on="2022-3-1"),
+        lambda: Career(company="가", started_on="2022.03.01"),
+        lambda: Career(company="가", started_on="2022-05-10", ended_on="2022-05-09"),
+        lambda: Career(company="가", leave_started_on="2025-05-10", leave_ended_on="2025-05-09"),
+        lambda: Career(company="가", started_on="2022-06", ended_on="2022-05-31"),
         lambda: Education(school=""),
         lambda: Education(school="가", started_on="2011-03", ended_on="2010-02"),
         lambda: Certificate(name=" "),
@@ -143,6 +148,27 @@ def test_empty_months_are_none_and_same_month_is_fine():
     assert (career.leave_started_on, career.leave_ended_on) == (None, None)
     # 휴직 끝만 없으면 휴직 중.
     assert Career(company="가", leave_started_on="2025-05").leave_ended_on is None
+
+
+def test_career_dates_keep_the_day_only_when_given(stores: Stores, user_id: int):
+    got = stores.resume.save_list(
+        user_id,
+        "careers",
+        [Career(company="가", started_on="2023-03-15", ended_on="2024-02", leave_started_on="2023-08-01",
+                leave_ended_on="2023-09-30")],
+    ).careers[0]
+    assert (got.started_on, got.ended_on) == ("2023-03-15", "2024-02")
+    assert (got.leave_started_on, got.leave_ended_on) == ("2023-08-01", "2023-09-30")
+
+
+def test_career_order_check_uses_days_only_when_both_have_one():
+    # 둘 다 일: 날짜로. 한쪽만 일: 달로만 (같은 달이면 통과). 앞서면 오류.
+    Career(company="가", started_on="2022-05-10", ended_on="2022-05-10")
+    Career(company="가", started_on="2022-05-10", ended_on="2022-05")
+    Career(company="가", started_on="2022-05", ended_on="2022-05-01")
+    Career(company="가", leave_started_on="2025-05-20", leave_ended_on="2025-05")
+    with pytest.raises(ValidationError):
+        Career(company="가", started_on="2022-05", ended_on="2022-04-30")
 
 
 def test_users_never_see_or_change_each_others_resume(stores: Stores, user_id: int, other_user_id: int):

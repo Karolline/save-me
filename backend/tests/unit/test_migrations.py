@@ -234,6 +234,20 @@ def test_resume_migration_one_basics_row_per_user_and_cascades(engine):
             assert c.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() == 0
 
 
+def test_careers_has_day_migration_reads_existing_rows_as_month_only(engine):
+    # 경력 날짜의 일 유무 칸은 기본 false라 기존 행은 일이 비어 있는 것으로 읽힌다.
+    with engine.begin() as c:
+        c.execute(text("INSERT INTO users (id, nickname, status, created_at) VALUES (1, '나', 'active', '2026-10-01')"))
+        c.execute(text("INSERT INTO careers (user_id, position, company, started_on) VALUES (1, 0, '회사', '2023-03-01')"))
+        row = c.execute(
+            text(
+                "SELECT started_on_has_day, ended_on_has_day, leave_started_on_has_day, leave_ended_on_has_day"
+                " FROM careers"
+            )
+        ).one()
+        assert tuple(row) == (False, False, False, False)
+
+
 def test_experience_groups_migration_keeps_experiences_and_sets_null(mig_url):
     url = mig_url
     # 이력까지 올린 DB의 경험은 그룹 마이그레이션 뒤에도 남고 그룹이 없다. 그룹을 지우면

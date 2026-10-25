@@ -548,6 +548,11 @@ class CareerRow(Base):
     leave_started_on: Mapped[date | None] = mapped_column(Date, nullable=True)
     # 휴직 끝 (복직 예정 달).
     leave_ended_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # 날짜에 일이 있는지. false면 일을 적지 않은 것이고 날짜는 그달 1일이다.
+    started_on_has_day: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    ended_on_has_day: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    leave_started_on_has_day: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    leave_ended_on_has_day: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     # 주요 업무, 적은 그대로 (한 줄에 하나).
     duties: Mapped[str] = mapped_column(Text, default="", server_default="")
 

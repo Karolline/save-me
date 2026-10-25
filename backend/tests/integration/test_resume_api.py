@@ -67,6 +67,14 @@ def test_every_card_round_trips_and_put_returns_the_whole_resume(client: TestCli
     assert response.json() == {**got, "skills": []}
 
 
+def test_career_dates_come_back_with_or_without_the_day(client: TestClient):
+    body = [{"company": "가", "startedOn": "2023-03-15", "endedOn": "2024-02", "leaveStartedOn": "2023-08-01",
+             "leaveEndedOn": "2023-09"}]
+    got = client.put("/api/resume/careers", json=body).json()["careers"][0]
+    assert (got["startedOn"], got["endedOn"]) == ("2023-03-15", "2024-02")
+    assert (got["leaveStartedOn"], got["leaveEndedOn"]) == ("2023-08-01", "2023-09")
+
+
 def test_empty_months_and_missing_fields_get_defaults(client: TestClient):
     got = client.put("/api/resume/careers", json=[{"company": "가", "startedOn": "", "leaveStartedOn": ""}]).json()
 
@@ -85,6 +93,10 @@ def test_empty_months_and_missing_fields_get_defaults(client: TestClient):
         ("careers", [{"company": "가", "leaveEndedOn": "2025-01"}]),
         ("careers", [{"company": "가", "leaveStartedOn": "2025-05", "leaveEndedOn": "2025-04"}]),
         ("careers", [{"company": "가", "startedOn": "2022-13"}]),
+        ("careers", [{"company": "가", "startedOn": "2023-02-30"}]),
+        ("careers", [{"company": "가", "startedOn": "2023-3-1"}]),
+        ("careers", [{"company": "가", "startedOn": "2023.03.15"}]),
+        ("careers", [{"company": "가", "startedOn": "2023-03-15", "endedOn": "2023-03-14"}]),
         ("educations", [{"school": ""}]),
         ("educations", [{"school": "가", "startedOn": "2011-03", "endedOn": "2010-02"}]),
         ("certificates", [{"name": ""}]),

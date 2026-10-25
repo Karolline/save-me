@@ -54,6 +54,41 @@ def newest_first(day: Callable[[Any], date | None]) -> Callable[[Any], tuple]:
     return key
 
 
+def to_career_date(value: str | None) -> tuple[date | None, bool]:
+    """"YYYY-MM" 또는 "YYYY-MM-DD" → (날짜, 일이 있는지). 일이 없으면 그달 1일."""
+    if not value:
+        return None, False
+    if len(value) == 10:
+        return date.fromisoformat(value), True
+    return to_month(value), False
+
+
+def from_career_date(value: date | None, has_day: bool) -> str | None:
+    if not value:
+        return None
+    return value.strftime("%Y-%m-%d" if has_day else "%Y-%m")
+
+
+CAREER_DATES = ("started_on", "ended_on", "leave_started_on", "leave_ended_on")
+
+
+def career_to_row(c: Career) -> dict:
+    out: dict = dict(company=c.company, team=c.team, role=c.role, duties=c.duties)
+    for name in CAREER_DATES:
+        out[name], out[f"{name}_has_day"] = to_career_date(getattr(c, name))
+    return out
+
+
+def career_from_row(r: Any) -> Career:
+    return Career(
+        company=r.company,
+        team=r.team,
+        role=r.role,
+        duties=r.duties,
+        **{name: from_career_date(getattr(r, name), getattr(r, f"{name}_has_day")) for name in CAREER_DATES},
+    )
+
+
 @dataclass(frozen=True)
 class ListSpec:
     row: type[Base]
@@ -66,26 +101,8 @@ class ListSpec:
 LISTS: dict[ListCard, ListSpec] = {
     "careers": ListSpec(
         CareerRow,
-        lambda c: dict(
-            company=c.company,
-            team=c.team,
-            role=c.role,
-            started_on=to_month(c.started_on),
-            ended_on=to_month(c.ended_on),
-            leave_started_on=to_month(c.leave_started_on),
-            leave_ended_on=to_month(c.leave_ended_on),
-            duties=c.duties,
-        ),
-        lambda r: Career(
-            company=r.company,
-            team=r.team,
-            role=r.role,
-            started_on=from_month(r.started_on),
-            ended_on=from_month(r.ended_on),
-            leave_started_on=from_month(r.leave_started_on),
-            leave_ended_on=from_month(r.leave_ended_on),
-            duties=r.duties,
-        ),
+        career_to_row,
+        career_from_row,
         newest_first(lambda r: r.started_on),
     ),
     "educations": ListSpec(

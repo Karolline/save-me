@@ -134,7 +134,7 @@ def seed(stores: Stores, user_id: int, mark: str = "") -> dict:
     )
     stores.resume.save_basics(user_id, ResumeBasics(name=f"{mark}김지원", want="백엔드", summary="요약\n둘째 줄"))
     stores.resume.save_list(
-        user_id, "careers", [Career(company=f"{mark}누리", role="개발", started_on="2024-01", duties="결제\n정산")]
+        user_id, "careers", [Career(company=f"{mark}누리", role="개발", started_on="2024-01-15", duties="결제\n정산")]
     )
     stores.resume.save_list(user_id, "skills", [SkillGroup(category=f"{mark}언어", items="Python, SQL", memo="3년")])
     stores.resume.save_list(
@@ -229,7 +229,7 @@ def test_profile_personality_and_jobs(seeded, monkeypatch, capsys):
     profile = run(monkeypatch, capsys, url, "profile")
     assert "김지원" in profile and "백엔드" in profile
     assert "요약\n  둘째 줄" in profile
-    assert "누리 · 개발" in profile and "결제\n  정산" in profile
+    assert "누리 · 개발" in profile and "2024-01-15 ~ 재직 중" in profile and "결제\n  정산" in profile
     assert "Python, SQL" in profile and "3년" in profile
 
     personality = run(monkeypatch, capsys, url, "personality")

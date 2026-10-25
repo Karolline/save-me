@@ -22,7 +22,7 @@ FILE = {
     "basics": {"name": "김지원", "email": "jiwon.kim@example.com", "status": "재직 중", "summary": "요약\n둘째 줄"},
     "direction": "플랫폼 쪽.\n\n## 피하고 싶은 것\n- 야간 대응만",
     "careers": [
-        {"company": "다올커머스", "startedOn": "2021-03", "endedOn": "2022-12", "duties": "정산\n이전"},
+        {"company": "다올커머스", "startedOn": "2021-03-02", "endedOn": "2022-12", "duties": "정산\n이전"},
         {"company": "미담플랫폼", "startedOn": "2023-01", "leaveStartedOn": "2025-08", "leaveEndedOn": "2026-12"},
     ],
     "educations": [{"school": "한빛대학교", "major": "통계학", "startedOn": "2011-03", "endedOn": "2017-02"}],
@@ -47,6 +47,8 @@ def test_fills_every_empty_card(stores: Stores, user_id: int, tmp_path):
     assert got.direction == FILE["direction"]
     assert [c.company for c in got.careers] == ["미담플랫폼", "다올커머스"]
     assert got.careers[0].leave_ended_on == "2026-12"
+    # 일이 있는 날짜와 월만 낸 날짜가 그대로 읽힌다.
+    assert (got.careers[1].started_on, got.careers[1].ended_on) == ("2021-03-02", "2022-12")
     assert got.certificates[0].number == "SQLD-0123456"
     assert got.skills[0].memo == "AQE 안 써 봄"
     assert got.personality[0].topic == "이직 사유"
