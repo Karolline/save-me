@@ -18,3 +18,6 @@
 ### 내가 정한 것
 - 액션 버전: configure-pages@v5, upload-pages-artifact@v3, deploy-pages@v4, checkout은 기존 파일대로 v7. (CI의 checkout만 최신 표기를 따랐고, Pages 액션 버전은 내가 아는 안정판이라 push 후 CI에서 해석되는지 확인 필요.)
 - concurrency 그룹 이름은 `pages`, `environment: github-pages`와 page_url 출력 사용.
+
+### 리뷰 지적 수정
+- `.github/workflows/pages.yml`의 Pages 액션을 최신 메이저로 올림 (`gh api`로 최신 확인): configure-pages v5 -> v6, upload-pages-artifact v3 -> v5, deploy-pages v4 -> v5. YAML 파싱 확인. 그 외는 바꾸지 않음. push하지 않음.
