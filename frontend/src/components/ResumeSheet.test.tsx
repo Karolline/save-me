@@ -139,6 +139,19 @@ describe("resume sheet screen", () => {
     }
   });
 
+  it("does nothing on Enter and Backspace while Korean text is being composed", async () => {
+    await openBlank();
+    const lines = () => within(sheet().querySelector<HTMLElement>(".rs-co")!).getAllByRole("textbox", { name: "한 일, 기준, 결과를 한 줄로" });
+    const first = lines()[0];
+    first.focus();
+
+    fireEvent.keyDown(first, { key: "Enter", isComposing: true });
+    fireEvent.keyDown(first, { key: "Backspace", isComposing: true });
+
+    expect(lines()).toHaveLength(1);
+    expect(fireEvent.keyDown(field("이름"), { key: "Enter", isComposing: true })).toBe(true);
+  });
+
   it("pastes plain text only, on one line for single-line fields", async () => {
     await openBlank();
     const name = field("이름");

@@ -92,6 +92,8 @@ function Field({
       data-ph={ph}
       onInput={(e) => onChange(domText(e.currentTarget))}
       onKeyDown={(e) => {
+        // 한글 조합 중의 Enter·Backspace는 조합을 끝내는 키라 건드리지 않는다.
+        if (e.nativeEvent.isComposing) return;
         if (single && e.key === "Enter") e.preventDefault();
         else onKey?.(e, domText(e.currentTarget));
       }}
@@ -192,6 +194,7 @@ export function ResumeSheet({
 
   useImperativeHandle(ref, () => ({
     find(text: string) {
+      if (!text) return false;
       const fields = [...(root.current?.querySelectorAll<HTMLElement>("[contenteditable]") ?? [])];
       const hit = fields.find((el) => domText(el).includes(text));
       if (!hit) return false;

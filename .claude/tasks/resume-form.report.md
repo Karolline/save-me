@@ -40,3 +40,13 @@
 
 ### 질문 (멈춘 경우)
 - 없음. 참고: 실제 브라우저에서 줄바꿈 입력(소개 글 Enter)과 인쇄 미리보기는 jsdom으로 못 봐서 사람이 확인하면 좋다(`scripts/preview.ps1`).
+
+
+## 리뷰 수정 (2차)
+
+- ResumeSheet.tsx: 모든 글 칸의 onKeyDown 맨 앞에 `if (e.nativeEvent.isComposing) return;` (한글 조합 중 Enter/Backspace 무시, 한 줄 칸의 Enter 무시도 조합 중에는 건너뜀). 테스트 추가(조합 중에는 줄이 안 생기고 Enter가 막히지 않음).
+- `find("")`는 false.
+- styles.css 리뷰 칸 폭 340px -> 320px.
+- test_resume_data_api.py: 본문과 data를 같이 보내면 `== 422`만 확인 (PostgreSQL에서 8개 통과).
+- 안 고친 것: 프로젝트형 묶음의 프로젝트를 다 지우고 다시 열면 줄형이 된다. 데이터에 묶음의 형태 표시가 없어 `withBlanks`만으로는 구분할 수 없고, 형태 칸을 더하면 저장 구조가 바뀌므로 그대로 둠.
+- 테스트: frontend `ResumeSheet` 테스트 2개 파일 41개 통과, lint(경고만)와 build 통과, backend 해당 파일 PostgreSQL 통과. 전체 테스트는 돌리지 않았다, CI가 돈다.

@@ -105,7 +105,7 @@ def test_create_resume_with_empty_data_and_with_nothing(client: TestClient):
     assert with_data.json()["body"] == ""
     assert plain.status_code == 201 and plain.json()["data"] is None and plain.json()["body"] == ""
     both = client.post(f"{BASE}/{other['id']}/documents", json={"type": "resume", "body": "x", "data": {}})
-    assert both.status_code in (409, 422)
+    assert both.status_code == 422
 
 
 def test_saving_the_same_data_does_not_change_updated_at(client: TestClient):

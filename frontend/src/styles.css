@@ -717,7 +717,7 @@ td.mono { white-space: nowrap; }
 .pane-tabs { display: none; align-self: flex-start; }
 .d3 { display: grid; grid-template-columns: minmax(0,.95fr) minmax(0,1.1fr) minmax(0,.95fr); gap: 10px; }
 .d3.no-preview { grid-template-columns: minmax(0,1.3fr) minmax(0,1fr); }
-.d3.resume { grid-template-columns: minmax(0,1fr) 340px; }
+.d3.resume { grid-template-columns: minmax(0,1fr) 320px; }
 .rs-pane { background: var(--stage); }
 .pane { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
 .pane-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--bg); flex-wrap: wrap; }
