@@ -62,6 +62,7 @@ function Field({
   single = false,
   className,
   onKey,
+  onPasteLines,
 }: {
   value: string;
   onChange: (text: string) => void;
@@ -71,6 +72,8 @@ function Field({
   single?: boolean;
   className?: string;
   onKey?: (e: KeyboardEvent<HTMLSpanElement>, text: string) => void;
+  /** 여러 줄을 붙여 넣으면 이 칸에는 첫 줄만 넣고 나머지 줄을 알린다 (줄 칸이 새 줄로 나눈다). */
+  onPasteLines?: (current: string, rest: string[]) => void;
 }) {
   const ref = useRef<HTMLSpanElement>(null);
   // 값이 밖에서 바뀌었을 때만 칸 안의 글을 다시 쓴다 (입력 중에는 같아서 커서가 그대로다).
@@ -100,6 +103,12 @@ function Field({
       onPaste={(e: ClipboardEvent<HTMLSpanElement>) => {
         e.preventDefault();
         const text = e.clipboardData.getData("text/plain");
+        const pasted = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+        if (onPasteLines && pasted.length > 1) {
+          insertPlain(e.currentTarget, pasted[0]);
+          onPasteLines(domText(e.currentTarget), pasted.slice(1));
+          return;
+        }
         insertPlain(e.currentTarget, single ? text.replace(/\s*\n\s*/g, " ") : text);
       }}
     />
@@ -282,6 +291,12 @@ export function ResumeSheet({
                 ph="한 일, 기준, 결과를 한 줄로"
                 value={text}
                 onChange={(v) => edit((d) => void (list(d)[i] = v))}
+                onPasteLines={(current, rest) =>
+                  edit((d) => {
+                    list(d)[i] = current;
+                    list(d).splice(i + 1, 0, ...rest);
+                  }, `${prefix}-${i + rest.length}`)
+                }
                 onKey={(e, current) => {
                   if (e.key === "Enter") {
                     e.preventDefault();

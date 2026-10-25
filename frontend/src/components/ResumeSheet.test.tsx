@@ -165,6 +165,18 @@ describe("resume sheet screen", () => {
     expect(name.querySelector("*")).toBeNull();
   });
 
+  it("splits a multi-line paste in a line field into separate lines", async () => {
+    await openBlank();
+    const lines = () => within(sheet().querySelector<HTMLElement>(".rs-co")!).getAllByRole("textbox", { name: "한 일, 기준, 결과를 한 줄로" });
+    const first = lines()[0];
+    first.focus();
+    window.getSelection()!.selectAllChildren(first);
+
+    fireEvent.paste(first, { clipboardData: { getData: () => "첫째 줄\n - 둘째 줄\r\n\n셋째 줄" } });
+
+    expect(lines().map((l) => l.textContent)).toEqual(["첫째 줄", "- 둘째 줄", "셋째 줄"]);
+  });
+
   it("adds a line below on Enter, removes an empty line on Backspace and keeps one blank line", async () => {
     const { user, service, groupId } = await openBlank();
     // 개인 프로젝트에도 줄 칸이 있어서, 경력 안의 줄만 센다.

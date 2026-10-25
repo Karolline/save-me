@@ -413,6 +413,10 @@ describe("print styles", () => {
   });
 });
 describe("resume sheet styles", () => {
+  it("keeps line breaks inside a line when printing", () => {
+    const css = readFileSync("src/styles.css", "utf-8");
+    expect(css).toMatch(/\.rs-page li \{[^}]*white-space:\s*pre-line/);
+  });
   it("draws no dash before lines, on screen or in print", () => {
     const css = readFileSync("src/styles.css", "utf-8");
     expect(css).not.toMatch(/.rs-page li::before/);
