@@ -447,6 +447,12 @@ CATEGORY_LABELS = {"duty": "주요업무", "must": "자격요건", "pref": "우�
 TREND_LABELS = {"spend": "요즘 어디에 돈을 쓰는가", "rival": "경쟁사 대비", "users": "실제 사용자 반응"}
 
 
+def trend_source_text(s) -> str:
+    """출처 한 건. url이 비면 링크 없이 이름(과 날짜)만 낸다."""
+    label = f"{s.name} {s.date}" if s.date else s.name
+    return f"[{label}]({s.url})" if s.url else label
+
+
 def job_trend_lines(job: Job, reader: bool = False) -> list[str]:
     """## 회사 동향 섹션의 줄들 (내용이 없으면 빈 목록).
 
@@ -478,9 +484,7 @@ def job_trend_lines(job: Job, reader: bool = False) -> list[str]:
         out += ["", f"### {label}"]
         for t in rows:
             line = f"{t.label}: {text_block(t.text)}" if t.label else text_block(t.text)
-            sources = ", ".join(
-                f"[{s.name} {s.date}]({s.url})" if s.date else f"[{s.name}]({s.url})" for s in t.sources
-            )
+            sources = ", ".join(trend_source_text(s) for s in t.sources)
             out.append(item(line + (f" — {sources}" if sources else "")))
     if job.direction_quotes or job.direction_reading.strip():
         out += ["", "### 회사가 가는 방향"]

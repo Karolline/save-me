@@ -545,6 +545,14 @@ def test_job_reader_shows_only_the_posting_and_company_trends(db_file, monkeypat
         assert hidden not in out, hidden
 
 
+def test_trend_source_without_url_is_plain_name():
+    from app.agent_read import trend_source_text
+
+    assert trend_source_text(TrendSource(name="기사", date=date(2026, 4, 14), url="")) == "기사 2026-04-14"
+    assert trend_source_text(TrendSource(name="기사", url="")) == "기사"
+    assert trend_source_text(TrendSource(name="기사", url="https://e.com/a")) == "[기사](https://e.com/a)"
+
+
 def test_job_reader_without_trends_still_has_the_posting(db_file, monkeypatch, capsys):
     url, _, stores = db_file
     job = stores.jobs.create(stores.users.dev_user().id, JobInput(company="누리", raw_text="원문만"))
