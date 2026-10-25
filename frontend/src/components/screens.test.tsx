@@ -412,6 +412,12 @@ describe("print styles", () => {
     expect(print).toMatch(/\.print-only \.pg\s*\{[^}]*box-shadow:\s*none/);
   });
 });
+describe("resume sheet styles", () => {
+  it("hides the leading dash on an empty line so only the placeholder shows", () => {
+    const css = readFileSync("src/styles.css", "utf-8");
+    expect(css).toMatch(/\.rs-page li:has\(> \.rs-li:empty\)::before\s*\{[^}]*content:\s*none/);
+  });
+});
 describe("text fields", () => {
   it("are at least 16px, so iPhone Safari doesn't zoom in on focus", () => {
     const css = readFileSync("src/styles.css", "utf-8");

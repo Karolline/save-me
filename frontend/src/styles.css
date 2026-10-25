@@ -821,6 +821,8 @@ textarea.ed::selection { background: #FFE58A; }
 .rs-page ul { list-style: none; margin: 0; padding: 0; }
 .rs-page li { position: relative; padding-left: 3.4mm; word-break: keep-all; }
 .rs-page li::before { content: "-"; position: absolute; left: 0; color: var(--sub); }
+/* 빈 줄(자리 표시 글만 보이는 줄)에는 왼쪽 "-"를 그리지 않는다. */
+.rs-page li:has(> .rs-li:empty)::before { content: none; }
 .rs-li { display: inline-block; min-width: 60%; }
 .rs-personal { margin-top: 4mm; }
 .rs-skills { display: flex; flex-wrap: wrap; gap: 2mm; margin-top: 4mm; align-items: center; }
