@@ -27,6 +27,7 @@ ABSOLUTE_PHRASES = (
     "근거로 쓰지 않는다",
     "프레이밍 주의",
     "본인이 하지 않은 일",
+    "다시 답한다면",
 )
 
 # 옛 프로젝트(파일 기반 경험 DB)의 흔적.
@@ -85,11 +86,19 @@ def test_no_old_project_traces(name):
         assert trace not in text, f"{name}: 옛 프로젝트 흔적 '{trace}'"
 
 
-def test_rule_files_have_no_old_project_traces_or_absolute_rules():
+def test_rule_files_have_no_old_project_traces():
     for path in RULES_DIR.glob("*.md"):
         text = path.read_text(encoding="utf-8")
         for trace in OLD_TRACES:
             assert trace not in text, f"{path.name}: 옛 프로젝트 흔적 '{trace}'"
+
+
+def test_rule_files_do_not_carry_absolute_rules():
+    # 절대 규칙은 에이전트 본문에만 둔다 (규칙 파일에 따로 두면 두 벌이 어긋난다).
+    for path in RULES_DIR.glob("*.md"):
+        text = path.read_text(encoding="utf-8")
+        assert not re.search(r"^#+\s*절대 규칙", text, re.MULTILINE), f"{path.name}: 절대 규칙 절이 있어요"
+        assert "다시 답한다면" not in text, f"{path.name}: 절대 규칙 문구가 있어요"
 
 
 def test_rule_files_exist():
