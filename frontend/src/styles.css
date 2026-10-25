@@ -819,10 +819,8 @@ textarea.ed::selection { background: #FFE58A; }
 .rs-proj { margin: 0 0 2.6mm; position: relative; }
 .rs-proj .rs-t { font-size: 9.5pt; font-weight: 400; margin-bottom: .6mm; }
 .rs-page ul { list-style: none; margin: 0; padding: 0; }
-.rs-page li { position: relative; padding-left: 3.4mm; word-break: keep-all; }
-.rs-page li::before { content: "-"; position: absolute; left: 0; color: var(--sub); }
-/* 빈 줄(자리 표시 글만 보이는 줄)에는 왼쪽 "-"를 그리지 않는다. */
-.rs-page li:has(> .rs-li:empty)::before { content: none; }
+.rs-page li { position: relative; word-break: keep-all; }
+/* 줄 앞에 "-"를 그리지 않는다. 필요하면 사용자가 글에 직접 적는다 (사용자 결정, 2026-10-25). */
 .rs-li { display: inline-block; min-width: 60%; }
 .rs-personal { margin-top: 4mm; }
 .rs-skills { display: flex; flex-wrap: wrap; gap: 2mm; margin-top: 4mm; align-items: center; }

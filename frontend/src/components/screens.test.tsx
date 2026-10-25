@@ -413,9 +413,9 @@ describe("print styles", () => {
   });
 });
 describe("resume sheet styles", () => {
-  it("hides the leading dash on an empty line so only the placeholder shows", () => {
+  it("draws no dash before lines, on screen or in print", () => {
     const css = readFileSync("src/styles.css", "utf-8");
-    expect(css).toMatch(/\.rs-page li:has\(> \.rs-li:empty\)::before\s*\{[^}]*content:\s*none/);
+    expect(css).not.toMatch(/.rs-page li::before/);
   });
 });
 describe("text fields", () => {
