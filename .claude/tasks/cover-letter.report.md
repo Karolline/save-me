@@ -29,3 +29,10 @@
 - 서류 전환 탭의 `types`에 자소서가 보이고, 서류 상세(글 편집기)에서 자소서 탭을 누르면 `/documents/:groupId/coverletter` 편집 화면으로 간다 (`/print/...`는 자소서면 "서류를 열지 못했어요").
 - `DocumentSlot`의 새 칸은 JSON `itemCount/totalChars/overLimitCount`. 서버 글자 수 `count_chars`는 `app/models.py`에 둠.
 - 병합 시 지시서·목업은 worktree에 없어서(브랜치가 main의 지시서 커밋 전에 만들어짐) main 쪽 파일을 읽어 구현했다.
+
+## 리뷰 수정
+- `CoverLetterItem.char_limit`에 위쪽 끝 100000(`COVER_LETTER_MAX_LIMIT`): 넘으면 422. `parseLimit`은 넘는 값을 비움(null)으로, mock도 같은 끝에서 422. 테스트: API(100000 통과, 100001·10**30 422), `parseLimit`, mock 서비스.
+- `save_cover_letter`의 `_document` 조회에 `lock=True`(`with_for_update()`). 잠금 없이는 동시 저장 테스트가 `uq_cover_letter_items_document_id_position` 위반으로 실패하는 것을 확인했고, 잠금 뒤에는 통과(다른 연결이 행을 잠그면 저장이 기다리는지 + 6개 스레드 x 5회 동시 저장).
+- mock `saveCoverLetter`: 본문 422 검사를 404보다 먼저 (테스트 추가).
+- `types.ts` 주석 줄바꿈, `routers/documents.py` 띄어쓰기.
+- 테스트(PostgreSQL 임시 컨테이너): backend pytest (cover letter store/api, documents api/store) 47 통과; frontend 해당 테스트 42 통과, build, lint 통과(경고만 기존). 전체 테스트는 돌리지 않았다, CI가 돈다.
