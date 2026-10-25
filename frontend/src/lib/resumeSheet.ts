@@ -205,7 +205,7 @@ function headingOf(line: string): [level: number, text: string] | null {
 function metaOf(line: string): { from: string; to: string; parts: string[] } | null {
   const text = clean(line.replace(/^\s*>\s*/, ""));
   const m = RANGE.exec(text);
-  if (!m || m.index > 12) return null;
+  if (!m || m.index > 12 || /[가-힣A-Za-z]/.test(text.slice(0, m.index))) return null;
   const rest = (text.slice(0, m.index) + " | " + text.slice(m.index + m[0].length)).split(/\s*[·/|,]\s*/);
   const norm = (d: string) => d.replace(/\s+/g, "");
   const to = (m[2] ?? "").trim();
@@ -260,17 +260,27 @@ function parseCareer(lines: string[], draft: Draft): void {
     return false;
   };
 
+  const nextIsBullet = (from: number): boolean => {
+    for (let i = from; i < lines.length; i++) {
+      if (!lines[i].trim()) continue;
+      return bullet(lines[i]);
+    }
+    return false;
+  };
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim() || /^\s*(-{3,}|\*{3,})\s*$/.test(line)) continue;
     const heading = headingOf(line);
-    const meta = !heading && !bullet(line) ? metaOf(line) : null;
+    const meta = !heading && !bullet(line) && !numbered(line) ? metaOf(line) : null;
     if (meta) {
       const c = st.company ?? newCompany("");
       c.from = meta.from;
       c.to = meta.to;
       for (const part of meta.parts) {
-        if (!c.type && EMPLOY.test(part)) c.type = part;
+        // "(1년 4개월)"은 끝 날짜 칸에 붙여 둔다 (이력서 글에서 날짜 뒤에 괄호로 적는 기간).
+        if (/^\(.*\)$/.test(part) && c.to) c.to = `${c.to} ${part}`;
+        else if (!c.type && EMPLOY.test(part)) c.type = part;
         else if (!c.role) c.role = part;
         else draft.leftover.push(part);
       }
@@ -291,6 +301,12 @@ function parseCareer(lines: string[], draft: Draft): void {
       else currentBlock().items.push(text);
       continue;
     }
+    if (numbered(line) && !nextIsBullet(i + 1)) {
+      // 아래에 `- ` 줄이 없는 번호 줄은 프로젝트 제목이 아니라 그냥 줄이다 (번호는 뗀다).
+      st.project = null;
+      currentBlock().items.push(stripNumber(line));
+      continue;
+    }
     if (numbered(line)) {
       let block = currentBlock();
       // 줄이 이미 있는 묶음 뒤의 번호 제목은 새 묶음의 프로젝트다.
@@ -307,6 +323,11 @@ function parseCareer(lines: string[], draft: Draft): void {
     // 제목 줄: 바로 아래 날짜 줄이 오면 회사 이름.
     if (nextIsMeta(i + 1)) {
       newCompany(clean(line));
+      continue;
+    }
+    // 표시가 없는 짧은 제목 줄은 업무 묶음 제목 (아래에 줄이나 번호 프로젝트가 온다). 긴 글은 둘 곳이 없어 남긴다.
+    if (clean(line).length <= 100) {
+      newBlock(clean(line));
       continue;
     }
     draft.leftover.push(clean(line));
@@ -335,6 +356,20 @@ function parseEducations(lines: string[], draft: Draft): void {
     if (!line || /^-{3,}$/.test(line)) continue;
     const parts = line.split(/\s+[·|]\s+/);
     const at = parts.findIndex((p) => SCHOOL.test(p));
+    // 학교 이름 줄 바로 아래의 날짜 줄(`2013.03 - 2017.08 / 졸업 / 전공`)은 그 학교의 칸을 채운다.
+    const last = draft.educations[draft.educations.length - 1];
+    const meta = at < 0 && last && !last.from ? metaOf(line) : null;
+    if (meta && last) {
+      last.from = meta.from;
+      last.to = meta.to;
+      const majors: string[] = [];
+      for (const part of meta.parts) {
+        if (!last.status && STATUS.test(part)) last.status = STATUS.exec(part)![0];
+        else majors.push(part);
+      }
+      last.major = majors.join(", ");
+      continue;
+    }
     if (at < 0) {
       draft.leftover.push(line);
       continue;

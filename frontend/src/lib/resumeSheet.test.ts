@@ -187,12 +187,75 @@ describe("bodyToResumeData", () => {
       "외부 데이터 적재 설계 (2022.01 - 2022.03)",
     ]);
     expect(career.blocks[0].projects[0].items).toEqual(["팀별로 다르던 기준 조사", "표준 기준 정립"]);
-    // 알아보지 못한 줄글("지표 표준화와 원천 모델링")도 버리지 않는다.
-    expect(data.intro).toContain("지표 표준화와 원천 모델링");
+    // 표시 없는 제목 줄("지표 표준화와 원천 모델링")은 업무 묶음 제목이다.
+    expect(career.blocks[0].title).toBe("지표 표준화와 원천 모델링");
     expect(data.skills).toEqual(["Python", "SQL", "Spark"]);
     expect(data.educations[0]).toMatchObject({
       school: "예시대학교", from: "2013.03", to: "2017.08", status: "졸업", major: "영어영문학과",
     });
+  });
+
+  it("converts a plain-text resume without markers into companies, titled blocks and schools (invented example)", () => {
+    const body = [
+      "홍길동",
+      "010-1234-5678 / gildong@example.com",
+      "",
+      "소개 문단입니다.",
+      "",
+      "",
+      "경력",
+      "",
+      "",
+      "예시주식회사",
+      "2021.10 - 재직중 / 정규직 / 데이터 엔지니어",
+      "",
+      "",
+      "지표 표준화",
+      "",
+      "1. 기준 정립 (2021.11 - 2021.12)",
+      "- 기준 조사",
+      "",
+      "2. 적재 설계 (2022.01 - 2022.03)",
+      "- 유일성 검증",
+      "",
+      "",
+      "플랫폼 전환 (2022.10 - 2023.08, 파트 담당)",
+      "",
+      "- 모듈 개발",
+      "- 소스 전환",
+      "",
+      "",
+      "예시상사 (자회사 소속)",
+      "2020.06 - 2021.09 (1년 4개월) / 정규직 / 데이터 엔지니어",
+      "",
+      "",
+      "추천 파이프라인 개발",
+      "",
+      "1. 태깅 서버 데이터 수집",
+      "2. 마트 로직 설계",
+      "",
+      "",
+      "학력",
+      "",
+      "",
+      "예시대학교",
+      "2013.03 - 2017.08 / 졸업 / 영어영문학과(주전공), 컴퓨터과학부(부전공)",
+    ].join("\n");
+
+    const data = bodyToResumeData(body);
+
+    expect(data.intro).toBe("소개 문단입니다.");
+    expect(data.careers.map((c) => c.company)).toEqual(["예시주식회사", "예시상사 (자회사 소속)"]);
+    const [first, second] = data.careers;
+    expect(first.blocks.map((b) => b.title)).toEqual(["지표 표준화", "플랫폼 전환 (2022.10 - 2023.08, 파트 담당)"]);
+    expect(first.blocks[0].projects.map((p) => p.title)).toEqual(["기준 정립 (2021.11 - 2021.12)", "적재 설계 (2022.01 - 2022.03)"]);
+    expect(first.blocks[1]).toMatchObject({ items: ["모듈 개발", "소스 전환"], projects: [] });
+    // 아래에 "- " 줄이 없는 번호 줄은 프로젝트가 아니라 그냥 줄이다.
+    expect(second).toMatchObject({ to: "2021.09 (1년 4개월)", type: "정규직", role: "데이터 엔지니어" });
+    expect(second.blocks[0]).toMatchObject({ title: "추천 파이프라인 개발", items: ["태깅 서버 데이터 수집", "마트 로직 설계"], projects: [] });
+    expect(data.educations).toEqual([
+      { school: "예시대학교", from: "2013.03", to: "2017.08", status: "졸업", major: "영어영문학과(주전공), 컴퓨터과학부(부전공)" },
+    ]);
   });
 
   it("splits a company's lines into titled blocks and the personal projects section", () => {
