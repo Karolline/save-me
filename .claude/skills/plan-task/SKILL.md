@@ -1,6 +1,6 @@
 ---
 name: plan-task
-description: 기획자. 사용자와 기능이나 수정을 기획하고 .claude/tasks/에 작업 지시서를 써서 main에 커밋하고 끝난다. 개발자를 띄우거나 리뷰, 병합, 릴리즈는 하지 않는다(run-task가 개발자와 리뷰어를 띄우고, publish-task가 병합한다). 사용자가 작업 기획을 부탁하거나 /plan-task, 기획해줘라고 할 때 쓴다. 기획부터 리뷰까지 이어서 맡기려면 /run-task.
+description: 기획자. 사용자와 기능이나 수정을 기획하고 .claude/tasks/에 작업 지시서를 써서 작업 브랜치에 커밋하고 끝난다. 개발자를 띄우거나 리뷰, 병합, 릴리즈는 하지 않는다(run-task가 개발자와 리뷰어를 띄우고, publish-task가 병합한다). 사용자가 작업 기획을 부탁하거나 /plan-task, 기획해줘라고 할 때 쓴다. 기획부터 리뷰까지 이어서 맡기려면 /run-task.
 argument-hint: <만들 것>
 ---
 
@@ -82,11 +82,11 @@ argument-hint: <만들 것>
 
 ## 5. 마무리
 
-OK를 받으면 지시서를 `.claude/tasks/<이름>.md`로 옮겨 main에 커밋하고(개인 데이터는 쓰지 않는다. 저장소는 공개다), 기획 단계의 시간을 기록한다 (저장소 맨 위에서. 기록은 git이 무시하는 `private/metrics/<이름>.jsonl`에 쌓인다):
+OK를 받으면 작업 브랜치와 worktree를 만들고 (저장소 맨 위에서: `git worktree add .claude/worktrees/<이름> -b task/<이름> main`), 지시서를 그 worktree의 `.claude/tasks/<이름>.md`로 써서 그 브랜치에 커밋한다 (개인 데이터는 쓰지 않는다. 저장소는 공개다). **main에는 커밋하지 않는다**: 그래야 기획한 작업 여러 개가 서로 막지 않고 각자 브랜치에서 나란히 진행된다. 브랜치는 그때의 main에서 따므로, 다른 작업이 병합돼 main이 움직였으면 병합할 때 `publish-task`가 rebase한다. 기획 단계의 시간을 기록한다 (저장소 맨 위에서. 기록은 git이 무시하는 `private/metrics/<이름>.jsonl`에 쌓인다):
 
 ```
 powershell -NoProfile -File scripts/measure.ps1 -Name <이름> -Stage plan -Mark start -At "<0단계에서 잰 시각>"
 powershell -NoProfile -File scripts/measure.ps1 -Name <이름> -Stage plan -Mark end
 ```
 
-사용자에게 지시서 이름을 한 줄로 알린다. 개발자는 띄우지 않는다. `/run-task`가 부른 것이면 거기서 이어지고, 따로 불렀다면 `/run-task <이름>`으로 이어 가라고 알린다.
+사용자에게 지시서 이름과 브랜치·worktree 경로를 한 줄로 알린다. 개발자는 띄우지 않는다. `/run-task`가 부른 것이면 거기서 이어지고, 따로 불렀다면 `/run-task <이름>`으로 이어 가라고 알린다.

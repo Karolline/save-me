@@ -10,8 +10,8 @@ argument-hint: <지시서 이름>
 
 ## 1. 찾기
 
-- 인자가 없으면 `.claude/tasks/`의 `*.md`(보고서 아닌 것)를 보여주고 고르게 한다.
-- 개발자 브랜치와 worktree: `git worktree list`에서 지시서 이름과 맞는 것을 찾는다. 보고서는 그 worktree의 `.claude/tasks/<이름>.report.md`다. 개발자 보고(`.report.md`)가 없으면 아직 도는 중이다. 그렇다고 알리고 끝낸다.
+- 인자가 없으면 `git worktree list`의 `task/*` 브랜치를 보여주고 고르게 한다 (지시서는 main이 아니라 각 작업 브랜치에 있다).
+- 개발자 브랜치와 worktree: `git worktree list`에서 `task/<이름>`을 찾는다. 보고서는 그 worktree의 `.claude/tasks/<이름>.report.md`다. 개발자 보고(`.report.md`)가 없으면 아직 도는 중이다. 그렇다고 알리고 끝낸다.
 - 보고서를 읽고 짧게 전한다: 한 일, 스스로 정한 것. 보고서가 질문을 담은 채 멈춘 것이면 그렇다고 알리고, `/run-task <이름>`으로 이어 가라고 하고 끝낸다.
 
 ## 2. 리뷰 보고 확인
