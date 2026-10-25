@@ -36,7 +36,7 @@ def create_app(
     docs = settings.app_env != "prod"
     app = FastAPI(
         title="SaveMe API",
-        version="0.7.4",
+        version="0.8.0",
         docs_url="/docs" if docs else None,
         redoc_url=None,
         openapi_url="/openapi.json" if docs else None,
