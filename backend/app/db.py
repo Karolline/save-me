@@ -654,6 +654,9 @@ class DocumentRow(Base):
     body: Mapped[str] = mapped_column(Text, default="", server_default="")
     # written(직접 작성) / imported(가져옴) / imported_edited(가져온 것을 고쳐 저장).
     source: Mapped[str] = mapped_column(String(20))
+    # 이력서(type=resume)의 칸 구조(ResumeData, camelCase JSON). NULL이면 아직 칸 구조가 없고
+    # body가 기준이다 (화면이 열 때 body를 칸으로 바꿔 보여 준다). 다른 서류는 늘 NULL.
+    data: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
 

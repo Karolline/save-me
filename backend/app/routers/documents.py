@@ -124,8 +124,12 @@ def create_document(
     stores: Stores = Depends(get_stores),
 ) -> Document:
     """서류 만들기: 작성 출처는 "직접 작성". 같은 종류가 이미 있으면 409."""
+    if data.data is not None and data.type != "resume":
+        raise HTTPException(422, "칸 구조(data)는 이력서에만 저장해요")
     try:
-        document = stores.documents.create_document(user.id, group_id, data.type, data.body)
+        document = stores.documents.create_document(
+            user.id, group_id, data.type, data.body, data=data.data
+        )
     except DuplicateDocumentError:
         raise HTTPException(status.HTTP_409_CONFLICT, "이 묶음에 같은 종류의 서류가 이미 있어요")
     if document is None:
@@ -154,11 +158,13 @@ def save_document(
     user: User = Depends(current_user),
     stores: Stores = Depends(get_stores),
 ) -> Document:
-    """글 저장 (자동 저장). 가져온 서류를 고치면 작성 출처가 "가져옴 · 내가 수정"이 된다.
+    """글(body) 또는 이력서 칸 구조(data) 저장 (자동 저장, 둘 다 보내면 422). 가져온 서류를 고치면 작성 출처가 "가져옴 · 내가 수정"이 된다.
     자소서는 글이 아니라 문항 목록이라 이 경로로 저장하지 않는다 (422, `/cover-letter`를 쓴다)."""
     if type == "coverletter":
         raise HTTPException(422, "자소서는 /cover-letter로 저장해요")
-    document = stores.documents.save_document(user.id, group_id, type, data.body)
+    if data.data is not None and type != "resume":
+        raise HTTPException(422, "칸 구조(data)는 이력서에만 저장해요")
+    document = stores.documents.save_document(user.id, group_id, type, data.body, data.data)
     if document is None:
         raise not_found("Document")
     return document

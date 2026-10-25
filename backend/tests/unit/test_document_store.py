@@ -59,3 +59,17 @@ def test_editing_an_imported_document_marks_it_edited_once(stores: Stores, user_
     edited = stores.documents.save_document(user_id, group.id, "resume", "# b")
     assert edited.source == "imported_edited" and edited.updated_at > unchanged.updated_at
     assert stores.documents.save_document(user_id, group.id, "resume", "# c").source == "imported_edited"
+
+
+def test_saving_data_marks_an_imported_resume_edited_and_keeps_body(stores: Stores, user_id: int, other_user_id: int):
+    from app.models import ResumeData
+
+    group = stores.documents.create_group(user_id, KEY)
+    stores.documents.create_document(user_id, group.id, "resume", "# 원본", source="imported")
+
+    assert stores.documents.save_document(other_user_id, group.id, "resume", data=ResumeData(name="x")) is None
+    saved = stores.documents.save_document(user_id, group.id, "resume", data=ResumeData(name="가"))
+
+    assert saved.source == "imported_edited"
+    assert saved.body == "# 원본" and saved.data.name == "가"
+    assert stores.documents.get_document(user_id, group.id, "resume").data.name == "가"

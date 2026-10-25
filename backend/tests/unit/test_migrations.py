@@ -275,6 +275,41 @@ def test_experience_groups_migration_keeps_experiences_and_sets_null(mig_url):
     engine.dispose()
 
 
+def test_documents_data_migration_keeps_rows_with_null_data(mig_url):
+    url = mig_url
+    # 칸 구조 칸(data)을 더하기 전의 서류 줄은 그대로 남고 data가 NULL이다. 내렸다 올려도 서류는 남는다.
+    config = alembic_config(url)
+    command.upgrade(config, "ca7d4f9d8e51")
+    engine = create_engine(normalize_url(url))
+    with engine.begin() as c:
+        c.execute(text("INSERT INTO users (id, nickname, status, created_at) VALUES (1, '나', 'active', '2026-10-01')"))
+        c.execute(
+            text(
+                "INSERT INTO document_groups (id, user_id, company, written_on, created_at, updated_at)"
+                " VALUES (1, 1, '회사', '2026-10-01', '2026-10-01', '2026-10-01')"
+            )
+        )
+        c.execute(
+            text(
+                "INSERT INTO documents (id, user_id, group_id, type, body, source, created_at, updated_at)"
+                " VALUES (1, 1, 1, 'resume', '# 이름', 'written', '2026-10-01', '2026-10-01')"
+            )
+        )
+
+    command.upgrade(config, "head")
+    with engine.begin() as c:
+        row = c.execute(text("SELECT body, data FROM documents WHERE id = 1")).one()
+        assert (row.body, row.data) == ("# 이름", None)
+        c.execute(text("UPDATE documents SET data = '{\"name\": \"가\"}' WHERE id = 1"))
+
+    command.downgrade(config, "ca7d4f9d8e51")
+    with engine.begin() as c:
+        assert c.execute(text("SELECT body FROM documents WHERE id = 1")).scalar() == "# 이름"
+    command.upgrade(config, "head")
+    assert differences_from_models(engine) == []
+    engine.dispose()
+
+
 def test_upgrade_reads_database_url(head_url, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", head_url)
 

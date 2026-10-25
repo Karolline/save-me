@@ -33,6 +33,7 @@ from app.models import (
     DocumentReview,
     DocumentReviewInput,
     DocumentSlot,
+    ResumeData,
     ReviewFix,
     ReviewPart,
     ReviewStuck,
@@ -91,6 +92,7 @@ def to_document(row: DocumentRow) -> Document:
         group_id=row.group_id,
         type=row.type,  # type: ignore[arg-type]
         body=row.body,
+        data=ResumeData.model_validate(row.data) if row.data is not None else None,
         source=row.source,  # type: ignore[arg-type]
         created_at=row.created_at,
         updated_at=row.updated_at,
@@ -257,7 +259,13 @@ class DocumentStore(BaseStore):
     # ── 서류 ──
 
     def create_document(
-        self, user_id: int, group_id: int, type: str, body: str, source: str = "written"
+        self,
+        user_id: int,
+        group_id: int,
+        type: str,
+        body: str,
+        source: str = "written",
+        data: ResumeData | None = None,
     ) -> Document | None:
         """묶음에 서류를 더한다. 묶음이 없거나 남의 것이면 None, 같은 종류가 있으면 DuplicateDocumentError."""
         now = self.clock()
@@ -273,6 +281,7 @@ class DocumentStore(BaseStore):
                 type=type,
                 # 자소서의 글은 문항 테이블에 있어서 본문은 늘 비어 있다.
                 body="" if type == "coverletter" else body,
+                data=data.model_dump(by_alias=True) if data is not None and type == "resume" else None,
                 source=source,
                 created_at=now,
                 updated_at=now,
@@ -286,15 +295,31 @@ class DocumentStore(BaseStore):
             row = self._document(db, user_id, group_id, type)
             return to_document(row) if row else None
 
-    def save_document(self, user_id: int, group_id: int, type: str, body: str) -> Document | None:
-        """글을 저장한다 (자동 저장). 글이 바뀌었고 가져온 서류면 "가져옴 · 내가 수정"이 된다."""
+    def save_document(
+        self,
+        user_id: int,
+        group_id: int,
+        type: str,
+        body: str | None = None,
+        data: ResumeData | None = None,
+    ) -> Document | None:
+        """글(body) 또는 이력서 칸 구조(data)를 저장한다 (자동 저장). 하나만 준다.
+        data를 저장해도 body는 그대로 둔다 (원본). 바뀌었고 가져온 서류면 "가져옴 · 내가 수정"이 된다."""
         now = self.clock()
         with self.session() as db, db.begin():
             row = self._document(db, user_id, group_id, type)
             if row is None:
                 return None
-            if body != row.body:
+            changed = False
+            if data is not None:
+                new = data.model_dump(by_alias=True)
+                if new != row.data:
+                    row.data = new
+                    changed = True
+            elif body is not None and body != row.body:
                 row.body = body
+                changed = True
+            if changed:
                 row.updated_at = now
                 if row.source == "imported":
                     row.source = "imported_edited"

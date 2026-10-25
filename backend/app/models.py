@@ -1078,10 +1078,70 @@ class DocumentGroup(DocumentGroupSummary):
     review: DocumentReview | None = None
 
 
-class DocumentBody(ApiModel):
-    """서류 글 저장. 글 전체를 마크다운 비슷한 글 하나로."""
+RESUME_DATA_MAX_BYTES = 100 * 1024  # 이력서 칸 구조 JSON 전체 크기 제한
 
-    body: str
+
+class ResumeProject(ApiModel):
+    title: str = ""
+    items: list[str] = Field(default_factory=list)
+
+
+class ResumeBlock(ApiModel):
+    """업무 묶음. 화면의 약속은 items와 projects 중 하나만 채우는 것이고, API는 둘 다 그대로 저장한다."""
+
+    title: str = ""
+    items: list[str] = Field(default_factory=list)
+    projects: list[ResumeProject] = Field(default_factory=list)
+
+
+class ResumeCareer(ApiModel):
+    company: str = ""
+    # JSON 이름은 from / to (파이썬 예약어라 필드는 from_).
+    from_: str = Field(default="", alias="from")
+    to: str = ""
+    type: str = ""
+    role: str = ""
+    blocks: list[ResumeBlock] = Field(default_factory=list)
+
+
+class ResumeEducation(ApiModel):
+    school: str = ""
+    from_: str = Field(default="", alias="from")
+    to: str = ""
+    status: str = ""
+    major: str = ""
+
+
+class ResumeData(ApiModel):
+    """이력서 서류의 칸 구조. 날짜도 "2021.10" 같은 글 그대로 (자유 입력)."""
+
+    name: str = ""
+    phone: str = ""
+    email: str = ""
+    intro: str = ""
+    careers: list[ResumeCareer] = Field(default_factory=list)
+    personal_projects: list[ResumeProject] = Field(default_factory=list)
+    educations: list[ResumeEducation] = Field(default_factory=list)
+    skills: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def _limit_size(self) -> "ResumeData":
+        if len(self.model_dump_json(by_alias=True).encode("utf-8")) > RESUME_DATA_MAX_BYTES:
+            raise ValueError("이력서가 너무 커요 (100KB 이하)")
+        return self
+
+
+class DocumentBody(ApiModel):
+    """서류 저장: 글(body) 또는 이력서 칸 구조(data) 중 하나만."""
+
+    body: str | None = None
+    data: ResumeData | None = None
+
+    @model_validator(mode="after")
+    def _exactly_one(self) -> "DocumentBody":
+        if (self.body is None) == (self.data is None):
+            raise ValueError("body와 data 중 하나만 보내요")
+        return self
 
 
 class CoverLetterItem(ApiModel):
@@ -1109,6 +1169,14 @@ class DocumentCreate(ApiModel):
 
     type: DocumentType
     body: str = ""
+    # 이력서는 칸 구조(빈 구조)로 만들 수 있다. body와 같이 보내면 422.
+    data: ResumeData | None = None
+
+    @model_validator(mode="after")
+    def _not_both(self) -> "DocumentCreate":
+        if self.data is not None and self.body:
+            raise ValueError("body와 data를 같이 보낼 수 없어요")
+        return self
 
 
 class Document(ApiModel):
@@ -1116,6 +1184,7 @@ class Document(ApiModel):
     group_id: int
     type: DocumentType
     body: str
+    data: ResumeData | None = None
     source: DocumentSource
     created_at: datetime
     updated_at: datetime
