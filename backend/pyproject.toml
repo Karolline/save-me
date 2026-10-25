@@ -1,6 +1,6 @@
 [project]
 name = "saveme-backend"
-version = "0.8.0"
+version = "0.8.1"
 requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.20.0",
