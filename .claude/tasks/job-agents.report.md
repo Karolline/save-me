@@ -37,3 +37,10 @@
 
 ### 질문
 - 없음.
+
+### 리뷰 수정
+- doc-reviewer 절대 규칙: 다른 세 에이전트와 같은 원문 5개 항목(조회 결과에 없는 경험·수치, 근거 경험(ID)과 "30% 개선", 예상 질문과 답변, 프레이밍 주의, 본인이 하지 않은 일, "다시 답한다면")을 넣고 역할에 맞춘 적용 문장은 그 아래에 남겼다. `ABSOLUTE_PHRASES`에 "다시 답한다면" 추가.
+- 서류 문장 예시: `writing-rules.md`와 `doc-writer.md`의 원본과 겹치던 예시를 가상 예시(주문 알림 발송 구조 개선, 2020년 3~5월, 캐시 갱신 문장)로 교체. Grep으로 원본 문장이 코드·에이전트·규칙 파일에 남지 않은 것을 확인(리뷰 보고서 인용만 남음).
+- `test_agent_files.py`: 이름만 "absolute_rules"이던 검사를 `test_rule_files_have_no_old_project_traces`로 나누고, 규칙 파일에 "절대 규칙" 제목과 "다시 답한다면"이 없다는 `test_rule_files_do_not_carry_absolute_rules`를 새로 더했다.
+- `agent_read.py`: `trend_source_text` 도우미 추가, url이 비면 `[이름]()` 대신 이름(과 날짜)만 낸다. 테스트 `test_trend_source_without_url_is_plain_name` 추가.
+- 테스트: `tests/unit/test_agent_files.py`, `test_agent_read.py` 50개 통과(PostgreSQL 임시 컨테이너). 전체 테스트는 돌리지 않았다, CI가 돈다. job-matching.md 루브릭은 그대로.
