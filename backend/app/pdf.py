@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 
 from app.auth import SESSION_COOKIE
 
-DOCUMENT_LABELS = {"resume": "이력서", "career": "경력기술서", "portfolio": "포트폴리오"}
+DOCUMENT_LABELS = {"resume": "이력서", "career": "경력기술서", "portfolio": "포트폴리오", "coverletter": "자소서"}
 
 # 인쇄용 화면의 쪽은 595x842 CSS 픽셀이다 (미리보기와 같다). 이 크기를 1.3333배 해서 종이로
 # 내면 595x842pt(A4)가 되고, 쪽 안의 글자 배치는 그대로다.

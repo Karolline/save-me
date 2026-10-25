@@ -905,8 +905,16 @@ class Resume(ApiModel):
 
 # ── 지원서류 ───────────────────────────────────────────────────────────
 
-DocumentType = Literal["resume", "career", "portfolio"]
-DOCUMENT_TYPES: tuple[str, ...] = ("resume", "career", "portfolio")
+DocumentType = Literal["resume", "career", "portfolio", "coverletter"]
+DOCUMENT_TYPES: tuple[str, ...] = ("resume", "career", "portfolio", "coverletter")
+# 글 한 덩어리로 된 서류 (본문 저장, 리뷰, 가져오기가 되는 것). 자소서는 문항 목록이라 따로 다룬다.
+TextDocumentType = Literal["resume", "career", "portfolio"]
+COVER_LETTER_MAX_ITEMS = 5
+
+
+def count_chars(text: str) -> int:
+    """자소서 글자 수 (공백 포함): 줄바꿈(CRLF)은 1자, 코드 포인트 수. 프런트엔드 `lib/coverLetter.ts`와 같은 규칙."""
+    return len(text.replace("\r\n", "\n"))
 # written(직접 작성), imported(가져옴), imported_edited(가져온 것을 고쳐 저장). AI 작성은 4단계.
 DocumentSource = Literal["written", "imported", "imported_edited"]
 # fix(보완 권장), ok(이대로 제출 가능), redo(다시 쓰기 권장).
@@ -943,6 +951,10 @@ class DocumentSlot(ApiModel):
     # 가장 새 리뷰에 이 서류의 덩어리가 있으면 그 판정과 [반영함] 안 한 지적 수. 없으면 None.
     verdict: ReviewVerdict | None = None
     remaining: int | None = None
+    # 자소서 칸에만: 문항 수, 답변 글자 수 합계(공백 포함), 글자 수 제한을 넘은 문항 수. 그 밖의 서류는 None.
+    item_count: int | None = None
+    total_chars: int | None = None
+    over_limit_count: int | None = None
 
 
 class DocumentGroupSummary(ApiModel):
@@ -960,7 +972,7 @@ class ReviewFixInput(ApiModel):
     headline: str
     details: list[str] = []
     # 찾을 말이 있으면 어느 서류에서 찾을지 (없으면 그 덩어리의 서류).
-    jump_type: DocumentType | None = None
+    jump_type: TextDocumentType | None = None
     jump_find: str = ""
 
     @field_validator("label", "headline")
@@ -983,9 +995,9 @@ class ReviewFixInput(ApiModel):
 
 
 class ReviewPartInput(ApiModel):
-    """리뷰의 서류별 덩어리. 서류 하나에 하나."""
+    """리뷰의 서류별 덩어리. 서류 하나에 하나. 자소서는 리뷰와 연결하지 않아 422."""
 
-    document_type: DocumentType
+    document_type: TextDocumentType
     verdict: ReviewVerdict
     intro: str = ""
     fixes: list[ReviewFixInput] = []
@@ -1069,6 +1081,26 @@ class DocumentBody(ApiModel):
     """서류 글 저장. 글 전체를 마크다운 비슷한 글 하나로."""
 
     body: str
+
+
+class CoverLetterItem(ApiModel):
+    """자소서 문항 하나: 문항 글, 글자 수 제한(공백 포함, 없으면 제한 없음), 답변."""
+
+    question: str = ""
+    char_limit: int | None = Field(default=None, ge=1)
+    answer: str = ""
+
+
+class CoverLetterInput(ApiModel):
+    """자소서 저장: 문항 목록 통째 (위치는 배열 순서). 최대 5개."""
+
+    items: list[CoverLetterItem] = Field(max_length=COVER_LETTER_MAX_ITEMS)
+
+
+class CoverLetter(ApiModel):
+    updated_at: datetime
+    source: DocumentSource
+    items: list[CoverLetterItem]
 
 
 class DocumentCreate(ApiModel):

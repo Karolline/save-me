@@ -8,11 +8,12 @@
 from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.db import (
+    CoverLetterItemRow,
     DocumentGroupRow,
     DocumentReviewItemRow,
     DocumentReviewPartRow,
@@ -22,6 +23,9 @@ from app.db import (
 )
 from app.models import (
     DOCUMENT_TYPES,
+    CoverLetter,
+    CoverLetterInput,
+    CoverLetterItem,
     Document,
     DocumentGroup,
     DocumentGroupInput,
@@ -32,6 +36,7 @@ from app.models import (
     ReviewFix,
     ReviewPart,
     ReviewStuck,
+    count_chars,
 )
 from app.stores.base import BaseStore
 
@@ -92,6 +97,17 @@ def to_document(row: DocumentRow) -> Document:
     )
 
 
+def to_cover_letter(row: DocumentRow) -> CoverLetter:
+    return CoverLetter(
+        updated_at=row.updated_at,
+        source=row.source,  # type: ignore[arg-type]
+        items=[
+            CoverLetterItem(question=i.question, char_limit=i.char_limit, answer=i.answer)
+            for i in row.items
+        ],
+    )
+
+
 def part_remaining(part: DocumentReviewPartRow) -> int:
     return sum(1 for item in part.items if not item.done)
 
@@ -136,6 +152,7 @@ def to_group(row: DocumentGroupRow, latest: DocumentReviewRow | None, job_title:
     slots = []
     for d in docs:
         part = parts.get(d.type)
+        cover = d.items if d.type == "coverletter" else None
         slots.append(
             DocumentSlot(
                 type=d.type,  # type: ignore[arg-type]
@@ -143,6 +160,13 @@ def to_group(row: DocumentGroupRow, latest: DocumentReviewRow | None, job_title:
                 updated_at=d.updated_at,
                 verdict=part.verdict if part else None,  # type: ignore[arg-type]
                 remaining=part_remaining(part) if part else None,
+                item_count=len(cover) if cover is not None else None,
+                total_chars=sum(count_chars(i.answer) for i in cover) if cover is not None else None,
+                over_limit_count=(
+                    sum(1 for i in cover if i.char_limit is not None and count_chars(i.answer) > i.char_limit)
+                    if cover is not None
+                    else None
+                ),
             )
         )
     return DocumentGroup(
@@ -247,7 +271,8 @@ class DocumentStore(BaseStore):
                 user_id=user_id,
                 group_id=group_id,
                 type=type,
-                body=body,
+                # 자소서의 글은 문항 테이블에 있어서 본문은 늘 비어 있다.
+                body="" if type == "coverletter" else body,
                 source=source,
                 created_at=now,
                 updated_at=now,
@@ -274,6 +299,37 @@ class DocumentStore(BaseStore):
                 if row.source == "imported":
                     row.source = "imported_edited"
             return to_document(row)
+
+    def get_cover_letter(self, user_id: int, group_id: int) -> CoverLetter | None:
+        with self.session() as db:
+            row = self._document(db, user_id, group_id, "coverletter")
+            return to_cover_letter(row) if row else None
+
+    def save_cover_letter(self, user_id: int, group_id: int, data: CoverLetterInput) -> CoverLetter | None:
+        """문항 목록을 통째로 바꾼다 (자동 저장, 위치는 배열 순서). 자소서가 없거나 남의 것이면 None."""
+        now = self.clock()
+        with self.session() as db, db.begin():
+            row = self._document(db, user_id, group_id, "coverletter")
+            if row is None:
+                return None
+            # 유니크(document_id, position) 때문에 지운 뒤에 넣는다.
+            db.execute(delete(CoverLetterItemRow).where(CoverLetterItemRow.document_id == row.id))
+            db.expire(row, ["items"])
+            db.add_all(
+                CoverLetterItemRow(
+                    user_id=user_id,
+                    document_id=row.id,
+                    position=position,
+                    question=item.question,
+                    char_limit=item.char_limit,
+                    answer=item.answer,
+                )
+                for position, item in enumerate(data.items)
+            )
+            row.updated_at = now
+            db.flush()
+            db.expire(row, ["items"])
+            return to_cover_letter(row)
 
     def delete_document(self, user_id: int, group_id: int, type: str) -> bool:
         """서류를 지운다. 리뷰에서 그 서류의 덩어리도 지우고, 덩어리가 남지 않은 리뷰는 지운다."""

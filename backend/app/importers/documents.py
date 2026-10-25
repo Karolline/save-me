@@ -32,7 +32,7 @@ from sqlalchemy import make_url
 from app.db import database_url
 from app.importers.confirm import execute
 from app.importers.jobs import DRY_RUN_NOTE, one_line
-from app.models import ApiModel, DocumentType
+from app.models import ApiModel, TextDocumentType
 from app.stores import ImportedDocument, ImportedGroup, Stores
 
 DOCUMENT_LABELS = {"resume": "이력서", "career": "경력기술서", "portfolio": "포트폴리오"}
@@ -43,7 +43,7 @@ ACTION_REASONS = {
 
 
 class ImportDocument(ApiModel):
-    type: DocumentType
+    type: TextDocumentType
     body: str
 
 

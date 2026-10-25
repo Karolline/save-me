@@ -649,13 +649,37 @@ class DocumentRow(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     group_id: Mapped[int] = mapped_column(ForeignKey("document_groups.id", ondelete="CASCADE"))
-    # resume / career / portfolio (검증은 models.py).
+    # resume / career / portfolio / coverletter (검증은 models.py).
     type: Mapped[str] = mapped_column(String(20))
     body: Mapped[str] = mapped_column(Text, default="", server_default="")
     # written(직접 작성) / imported(가져옴) / imported_edited(가져온 것을 고쳐 저장).
     source: Mapped[str] = mapped_column(String(20))
     created_at: Mapped[datetime] = mapped_column(UTCDateTime)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+    # 자소서(type=coverletter)의 문항들. 다른 서류는 비어 있다. 필요할 때만 읽는다.
+    items: Mapped[list["CoverLetterItemRow"]] = relationship(
+        order_by=lambda: CoverLetterItemRow.position,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
+
+class CoverLetterItemRow(Base):
+    """자소서 문항 하나 (서류 하나에 최대 5개, 위치는 0부터). 글자 수 제한이 NULL이면 제한 없음."""
+
+    __tablename__ = "cover_letter_items"
+    __table_args__ = (UniqueConstraint("document_id", "position"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    document_id: Mapped[int] = mapped_column(
+        ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+    position: Mapped[int] = mapped_column(Integer)
+    question: Mapped[str] = mapped_column(Text, default="", server_default="")
+    char_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    answer: Mapped[str] = mapped_column(Text, default="", server_default="")
 
 
 class DocumentReviewRow(Base):

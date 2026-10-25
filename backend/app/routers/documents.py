@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth import current_user, get_stores, require_csrf_header
 from app.models import (
+    CoverLetter,
+    CoverLetterInput,
     Document,
     DocumentBody,
     DocumentCreate,
@@ -152,7 +154,10 @@ def save_document(
     user: User = Depends(current_user),
     stores: Stores = Depends(get_stores),
 ) -> Document:
-    """글 저장 (자동 저장). 가져온 서류를 고치면 작성 출처가 "가져옴 · 내가 수정"이 된다."""
+    """글 저장 (자동 저장). 가져온 서류를 고치면 작성 출처가 "가져옴 · 내가 수정"이 된다.
+    자소서는 글이 아니라 문항 목록이라 이 경로로 저장하지 않는다 (422, `/cover-letter`를 쓴다)."""
+    if type == "coverletter":
+        raise HTTPException(422,"자소서는 /cover-letter로 저장해요")
     document = stores.documents.save_document(user.id, group_id, type, data.body)
     if document is None:
         raise not_found("Document")
@@ -168,6 +173,32 @@ def delete_document(
 ) -> None:
     if not stores.documents.delete_document(user.id, group_id, type):
         raise not_found("Document")
+
+
+@router.get("/{group_id}/cover-letter", response_model=CoverLetter, response_model_by_alias=True)
+def get_cover_letter(
+    group_id: int,
+    user: User = Depends(current_user),
+    stores: Stores = Depends(get_stores),
+) -> CoverLetter:
+    cover_letter = stores.documents.get_cover_letter(user.id, group_id)
+    if cover_letter is None:
+        raise not_found("Document")
+    return cover_letter
+
+
+@router.put("/{group_id}/cover-letter", response_model=CoverLetter, response_model_by_alias=True)
+def save_cover_letter(
+    group_id: int,
+    data: CoverLetterInput,
+    user: User = Depends(current_user),
+    stores: Stores = Depends(get_stores),
+) -> CoverLetter:
+    """자소서 저장 (자동 저장): 문항 목록을 통째로 바꾼다. 문항은 최대 5개, 글자 수 제한은 1 이상."""
+    cover_letter = stores.documents.save_cover_letter(user.id, group_id, data)
+    if cover_letter is None:
+        raise not_found("Document")
+    return cover_letter
 
 
 @router.post(
