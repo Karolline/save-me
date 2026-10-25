@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { PDF_ENABLED } from "@/lib/features";
+import { blankResume } from "@/lib/resumeSheet";
 import { isConflict, isNotFound, isUnauthorized } from "./errors";
 import { createHttpService } from "./httpService";
 import { createMockService, SAMPLE_APPLICATIONS } from "./mockService";
@@ -113,6 +114,49 @@ describe("mock service: documents", () => {
     expect((await service.saveDocument(group.id, "resume", "# 새 글")).source).toBe(written.source);
     await expect(service.saveDocument(group.id, "resume", "x").then(() => service.deleteDocument(group.id, "resume"))).resolves.toBeUndefined();
     await expect(service.saveDocument(group.id, "resume", "x")).rejects.toSatisfy(isNotFound);
+  });
+});
+
+describe("mock service: resume field structure (data)", () => {
+  it("creates a resume from empty data and saves data without touching the body", async () => {
+    const service = createMockService();
+    const group = await service.createDocumentGroup(GROUP);
+
+    const made = await service.createDocument(group.id, "resume", { data: blankResume() });
+    expect(made.body).toBe("");
+    expect(made.data).toEqual(blankResume());
+    const other = await service.createDocument(group.id, "career", "# 경력");
+    expect(other.data).toBeNull();
+
+    const next = { ...blankResume(), name: "홍길동" };
+    const saved = await service.saveDocument(group.id, "resume", { data: next });
+    expect(saved.data).toEqual(next);
+    expect(saved.body).toBe("");
+    // 글을 저장해도 칸 구조는 그대로다.
+    expect((await service.saveDocument(group.id, "resume", "글")).data).toEqual(next);
+  });
+
+  it("changes the time only when the data changes and marks an imported resume edited", async () => {
+    const service = createMockService({ documents: SAMPLE_DOCUMENTS });
+    const [group] = (await service.listDocumentGroups()).filter((g) => g.company === "한결로보틱스");
+    const before = (await service.getDocument(group.id, "resume"))!;
+    expect(before.data).toBeNull();
+
+    const first = await service.saveDocument(group.id, "resume", { data: blankResume() });
+    const same = await service.saveDocument(group.id, "resume", { data: blankResume() });
+
+    expect(first.updatedAt > before.updatedAt).toBe(true);
+    expect(same.updatedAt).toBe(first.updatedAt);
+    expect(first.body).toBe(before.body);
+  });
+
+  it("refuses data for other types", async () => {
+    const service = createMockService();
+    const group = await service.createDocumentGroup(GROUP);
+    await service.createDocument(group.id, "career", "# 경력");
+
+    await expect(service.saveDocument(group.id, "career", { data: blankResume() })).rejects.toMatchObject({ status: 422 });
+    await expect(service.createDocument(group.id, "portfolio", { data: blankResume() })).rejects.toMatchObject({ status: 422 });
   });
 });
 
@@ -263,6 +307,20 @@ describe("http service: documents", () => {
     expect(JSON.parse(String(fetch.mock.calls[6][1]?.body))).toEqual({ body: "# b" });
     expect(JSON.parse(String(fetch.mock.calls[8][1]?.body))).toEqual({ done: true });
     expect(fetch.mock.calls[2][1]?.headers).toMatchObject({ "X-Requested-With": "SaveMe" });
+  });
+
+  it("sends the field structure of a resume as data, not body", async () => {
+    const fetch = stub();
+    const service = createHttpService("/api", fetch);
+
+    await service.createDocument(3, "resume", { data: blankResume() });
+    await service.saveDocument(3, "resume", { data: { ...blankResume(), name: "가" } });
+
+    const created = JSON.parse(String(fetch.mock.calls[0][1]?.body));
+    expect(Object.keys(created).sort()).toEqual(["data", "type"]);
+    const savedBody = JSON.parse(String(fetch.mock.calls[1][1]?.body));
+    expect(Object.keys(savedBody)).toEqual(["data"]);
+    expect(savedBody.data.name).toBe("가");
   });
 
   it("treats 404 on a read as null, deletes with 204, and throws on other errors", async () => {
