@@ -25,3 +25,9 @@
 - 틀린 날짜 hint 글: `날짜를 2023-03-15나 2023-03 모양으로 적어 주세요.`
 - 순서 hint는 두 칸이 모두 올바른 날짜일 때만 보인다.
 - 컨테이너 `saveme-test-pg`(포트 55442)를 테스트용으로 띄워 두었다(--rm, 필요 없으면 `docker stop saveme-test-pg`).
+
+## 리뷰 뒤 수정
+- docs/testing.md: experienceCalendar·resumeSheet·components/resume·mockService 테스트 줄에 경력 날짜(일) 내용을 더했다.
+- test_migrations.py: `test_careers_has_day_migration_reads_existing_rows_as_month_only`를 진짜 업그레이드 경로로 바꿨다 (b3b3c7c40600까지 올리고 행 넣기, head로 올려 칸 4개 false와 store 읽기 "2023-03", downgrade 뒤에도 행 남음, 모델과 같음). PostgreSQL에서 test_migrations.py 11개 통과.
+- mock `newestFirst` 정렬은 지시대로 고치지 않았다.
+- 테스트용 컨테이너 saveme-test-pg는 멈췄다.

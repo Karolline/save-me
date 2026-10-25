@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.db import Base, make_engine, normalize_url
 from app.migrate import alembic_config, upgrade
+from app.stores.resume import ResumeStore
 
 
 def differences_from_models(engine: Engine) -> list:
@@ -234,11 +235,18 @@ def test_resume_migration_one_basics_row_per_user_and_cascades(engine):
             assert c.execute(text(f"SELECT COUNT(*) FROM {table}")).scalar() == 0
 
 
-def test_careers_has_day_migration_reads_existing_rows_as_month_only(engine):
-    # 경력 날짜의 일 유무 칸은 기본 false라 기존 행은 일이 비어 있는 것으로 읽힌다.
+def test_careers_has_day_migration_reads_existing_rows_as_month_only(mig_url):
+    url = mig_url
+    # 일 유무 칸을 더하기 전의 경력 줄은 올린 뒤 일 없는 YYYY-MM으로 읽히고, 내려도 줄은 남는다.
+    config = alembic_config(url)
+    command.upgrade(config, "b3b3c7c40600")
+    engine = create_engine(normalize_url(url))
     with engine.begin() as c:
         c.execute(text("INSERT INTO users (id, nickname, status, created_at) VALUES (1, '나', 'active', '2026-10-01')"))
         c.execute(text("INSERT INTO careers (user_id, position, company, started_on) VALUES (1, 0, '회사', '2023-03-01')"))
+
+    command.upgrade(config, "head")
+    with engine.begin() as c:
         row = c.execute(
             text(
                 "SELECT started_on_has_day, ended_on_has_day, leave_started_on_has_day, leave_ended_on_has_day"
@@ -246,6 +254,14 @@ def test_careers_has_day_migration_reads_existing_rows_as_month_only(engine):
             )
         ).one()
         assert tuple(row) == (False, False, False, False)
+    assert ResumeStore(engine).get(1).careers[0].started_on == "2023-03"
+
+    command.downgrade(config, "b3b3c7c40600")
+    with engine.begin() as c:
+        assert c.execute(text("SELECT company FROM careers")).scalar() == "회사"
+    command.upgrade(config, "head")
+    assert differences_from_models(engine) == []
+    engine.dispose()
 
 
 def test_experience_groups_migration_keeps_experiences_and_sets_null(mig_url):
