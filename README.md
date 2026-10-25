@@ -65,5 +65,5 @@ make run front               # http://localhost:5180
 
 - [`tech 기획안.md`](tech%20기획안.md): 기술 기획안 (맨 위 "남은 일 한눈에" 표가 할 일 목록)
 - [`docs/archive/tech 기획안-완료분.md`](docs/archive/tech%20기획안-완료분.md): 기획안에서 끝난 부분만 옮긴 기록
-- [`docs/archive/mockup/saveme-mvp.html`](docs/archive/mockup/saveme-mvp.html): 확정한 MVP 화면 목업
+- [`docs/archive/mockup/saveme-mvp.html`](docs/archive/mockup/saveme-mvp.html): 확정한 MVP 화면 목업 (배포본: https://karolline.github.io/save-me/, [`docs/mockup-pages.md`](docs/mockup-pages.md))
 - [`AGENTS.md`](AGENTS.md): 코드 구조와 규칙 (코딩 에이전트용)
