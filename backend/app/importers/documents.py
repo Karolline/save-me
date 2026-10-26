@@ -5,6 +5,8 @@ documents([{type, body}], type은 resume / career / portfolio)를 갖는다. bod
 전체(앱의 서식: `#` 제목, `##` 섹션, `###` 소제목, `- ` 목록, `1. ` 번호 목록, `---` 쪽 나눔,
 `> ` 보조줄, `| 표 |`, `**굵게**`, `[글자](주소)`)다. `jobCompany`와 같은 회사의 공고분석이
 정확히 하나면 새 묶음에 이어 주고, 없거나 여럿이면 잇지 않고 알려 준다.
+묶음에 `review`(앱의 리뷰 입력과 같은 모양: reviewer, parts[{documentType, verdict, intro, fixes,
+stuck, good}])를 줄 수 있다. 묶음에 리뷰가 아직 없을 때만 넣고, 이미 있으면 건너뛴다.
 
 이미 있는 (회사, 작성날짜) 묶음은 그대로 두고 없는 서류만 더하고, 이미 있는 서류는 건너뛴다
 (고친 글을 덮어쓰지 않으므로 두 번 돌려도 달라지지 않는다). `--replace`는 가져온 그대로인
@@ -32,8 +34,8 @@ from sqlalchemy import make_url
 from app.db import database_url
 from app.importers.confirm import execute
 from app.importers.jobs import DRY_RUN_NOTE, one_line
-from app.models import ApiModel, TextDocumentType
-from app.stores import ImportedDocument, ImportedGroup, Stores
+from app.models import ApiModel, DocumentReviewInput, TextDocumentType
+from app.stores import ImportedDocument, ImportedGroup, ReviewDocumentMissingError, Stores
 
 DOCUMENT_LABELS = {"resume": "이력서", "career": "경력기술서", "portfolio": "포트폴리오"}
 ACTION_REASONS = {
@@ -53,6 +55,8 @@ class ImportItem(ApiModel):
     # 같은 회사의 공고분석이 정확히 하나면 새 묶음에 잇는다.
     job_company: str = ""
     documents: list[ImportDocument] = []
+    # 선택: 서류 리뷰 (앱의 리뷰 입력과 같은 모양). 묶음에 리뷰가 아직 없을 때만 넣는다.
+    review: DocumentReviewInput | None = None
 
     @field_validator("company")
     @classmethod
@@ -77,6 +81,9 @@ class ImportResult:
     skipped: list[tuple[str, str]] = field(default_factory=list)
     # 공고분석을 잇지 못한 새 묶음 ("회사", 까닭).
     unlinked: list[tuple[str, str]] = field(default_factory=list)
+    reviews_added: int = 0
+    # 리뷰를 넣지 않은 묶음 ("회사 · 날짜", 까닭).
+    reviews_skipped: list[tuple[str, str]] = field(default_factory=list)
 
     def lines(self, target: str, dry_run: bool = False) -> list[str]:
         """사람이 읽는 요약: 첫 줄, 건너뛴 서류와 잇지 못한 묶음마다 한 줄, 시험이면 끝에 한 줄."""
@@ -87,6 +94,9 @@ class ImportResult:
         ]
         out += [f"건너뜀: {label} ({reason})" for label, reason in self.skipped]
         out += [f"공고분석을 잇지 못함: {label} ({reason})" for label, reason in self.unlinked]
+        if self.reviews_added or self.reviews_skipped:
+            out.append(f"리뷰 추가 {self.reviews_added}, 건너뜀 {len(self.reviews_skipped)}")
+        out += [f"리뷰 건너뜀: {label} ({reason})" for label, reason in self.reviews_skipped]
         if dry_run:
             out.append(DRY_RUN_NOTE)
         return out
@@ -115,6 +125,11 @@ def import_documents(
         types = [d.type for d in item.documents]
         if len(types) != len(set(types)):
             raise ImportFileError(f"한 묶음에 같은 종류의 서류가 둘 있어요: {label(item)}")
+        if item.review is not None:
+            existing = stores.documents.find_group(user_id, item.company, item.written_on)
+            have = set(types) | {s.type for s in existing.documents} if existing else set(types)
+            if any(p.document_type not in have for p in item.review.parts):
+                raise ImportFileError(f"리뷰에 묶음에 없는 서류의 덩어리가 있어요: {label(item)}")
     if duplicates:
         raise ImportFileError("같은 회사와 작성날짜가 파일에 두 번 있어요: " + ", ".join(duplicates))
 
@@ -153,7 +168,25 @@ def import_documents(
                 result.replaced += 1
             else:
                 result.skipped.append((f"{label(item)} · {DOCUMENT_LABELS[doc.type]}", ACTION_REASONS[action]))
+    for item in items:
+        if item.review is not None:
+            add_review(stores, user_id, item, result)
     return result
+
+
+def add_review(stores: Stores, user_id: int, item: ImportItem, result: ImportResult) -> None:
+    """묶음에 리뷰가 아직 없을 때만 넣는다 (두 번 돌려도 리뷰가 늘지 않는다)."""
+    group = stores.documents.find_group(user_id, item.company, item.written_on)
+    if group is None:
+        return
+    if group.review is not None:
+        result.reviews_skipped.append((label(item), "이미 리뷰가 있음"))
+        return
+    try:
+        stores.documents.save_review(user_id, group.id, item.review)
+    except ReviewDocumentMissingError as error:
+        raise ImportFileError(f"리뷰에 묶음에 없는 서류의 덩어리가 있어요: {label(item)}") from error
+    result.reviews_added += 1
 
 
 def run(stores: Stores, items: list[ImportItem], replace: bool) -> ImportResult:

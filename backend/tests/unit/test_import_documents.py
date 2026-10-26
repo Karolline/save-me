@@ -169,6 +169,55 @@ def test_the_summary_lines():
     ]
 
 
+REVIEW = {
+    "reviewer": "서류검토자",
+    "parts": [
+        {
+            "documentType": "resume",
+            "verdict": "fix",
+            "intro": "한 줄 소개",
+            "fixes": [{"label": "소개", "headline": "추상적인 문장", "details": ["이유"], "jumpFind": "김지원"}],
+            "stuck": ["막히는 곳"],
+            "good": ["좋은 점"],
+        }
+    ],
+}
+
+
+def with_review(review: dict) -> dict:
+    return {"groups": [{**FILE["groups"][0], "review": review}]}
+
+
+def test_review_is_added_once_with_the_documents(stores: Stores, user_id: int, tmp_path):
+    items = load(write(tmp_path, with_review(REVIEW)))
+
+    result = import_documents(stores, user_id, items)
+    assert (result.reviews_added, result.reviews_skipped) == (1, [])
+    group = stores.documents.get_group(user_id, stores.documents.list_groups(user_id)[0].id)
+    assert group.review.reviewer == "서류검토자"
+    part = group.review.parts[0]
+    assert (part.document_type, part.verdict, part.intro, part.good) == ("resume", "fix", "한 줄 소개", ["좋은 점"])
+    assert [s.text for s in part.stuck] == ["막히는 곳"] and part.fixes[0].jump_find == "김지원"
+
+    again = import_documents(stores, user_id, items)
+    assert (again.reviews_added, len(again.reviews_skipped)) == (0, 1)
+    assert "이미 리뷰가 있음" in again.lines("saveme_dev")[-1]
+    group = stores.documents.get_group(user_id, group.id)
+    assert group.remaining == 2
+
+
+def test_review_for_a_missing_document_writes_nothing(stores: Stores, user_id: int, tmp_path):
+    review = {"parts": [{**REVIEW["parts"][0], "documentType": "portfolio"}]}
+    with pytest.raises(ImportFileError, match="묶음에 없는 서류"):
+        import_documents(stores, user_id, load(write(tmp_path, with_review(review))))
+
+
+def test_a_file_without_review_is_unchanged_by_the_review_feature(stores: Stores, user_id: int, tmp_path):
+    result = import_documents(stores, user_id, load(write(tmp_path)))
+    assert result.reviews_added == 0 and result.reviews_skipped == []
+    assert not any("리뷰" in line for line in result.lines("saveme_dev"))
+
+
 @pytest.mark.parametrize(
     "content, message",
     [
