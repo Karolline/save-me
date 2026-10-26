@@ -1,4 +1,4 @@
-"""에이전트용 조회 명령: 사용자의 경험·이력·인성답변·면접후기·공고분석을 마크다운으로 보여 준다.
+"""에이전트용 조회 명령: 사용자의 경험·이력·인성답변·면접후기·공고분석·지원서류를 마크다운으로 보여 준다.
 
 조회 전용이다. DB에 쓰지 않는다 (사용자가 없으면 만들지도 않고, 마이그레이션도 하지 않고,
 끝에 트랜잭션을 되돌린다). 대상은 로컬 사용자(`dev_user`)뿐이고 user_id를 인자로 받지 않는다.
@@ -21,6 +21,8 @@
     uv run python -m app.agent_read reviews [--include-reference]
     uv run python -m app.agent_read jobs
     uv run python -m app.agent_read job ID [--reader]
+    uv run python -m app.agent_read documents
+    uv run python -m app.agent_read document ID [resume|career|portfolio|coverletter]
 
 조회할 DB: 환경 변수 `AGENT_READ_DATABASE_URL`이 있으면 그것, 없으면 `DATABASE_URL`,
 그것도 없으면 `saveme_dev`. 출력 맨 위 줄에 읽은 DB 이름을 보인다.
@@ -58,6 +60,8 @@ USAGE = """\
   reviews [--include-reference]            면접 후기 (내 답, 다시 답한다면, 메모)
   jobs                                     기존 공고분석 목록
   job ID [--reader]                        공고분석 한 건 전체 (--reader: 공고 원문과 회사 동향만, 면접관 시점)
+  documents                                지원서류 묶음 목록 (회사, 작성날짜, 있는 서류)
+  document ID [TYPE]                       묶음 한 건의 서류 글 (TYPE: resume, career, portfolio, coverletter. 없으면 전부)
 
 --include-reference: 근거가 아닌 참고 자료(예상 질문과 답변, 후기의 AI 첨언 등)도 보여 줘요.
                      "근거 아님" 표시가 붙고, 서류의 근거로 쓰면 안 돼요.
@@ -94,6 +98,10 @@ def build_parser() -> argparse.ArgumentParser:
     job = add("job")
     job.add_argument("id", type=int)
     job.add_argument("--reader", action="store_true")
+    add("documents")
+    document = add("document")
+    document.add_argument("id", type=int)
+    document.add_argument("type", nargs="?", choices=["resume", "career", "portfolio", "coverletter"])
     return parser
 
 
@@ -624,6 +632,99 @@ def render_job(job: Job, reader: bool) -> str:
     return "\n".join(out) + "\n"
 
 
+# ── 지원서류 ──
+
+DOCUMENT_TYPE_LABELS = {"resume": "이력서", "career": "경력기술서", "portfolio": "포트폴리오", "coverletter": "자기소개서"}
+DOCUMENT_SOURCE_LABELS = {"written": "직접 작성", "imported": "가져옴", "imported_edited": "가져온 것을 고쳐 저장"}
+DOCUMENT_TYPE_ORDER = ("resume", "career", "portfolio", "coverletter")
+
+
+def render_documents(stores: Stores, user_id: int) -> str:
+    """지원서류 묶음 목록: id, 회사, 작성날짜, 어떤 서류가 있는지, 이은 공고분석."""
+    out = ["# 지원서류 목록", ""]
+    groups = stores.documents.list_groups(user_id)
+    if not groups:
+        out.append("지원서류 묶음이 없어요.")
+    for summary in groups:
+        group = stores.documents.get_group(user_id, summary.id)
+        slots = {s.type: s for s in group.documents} if group else {}
+        kinds = [
+            f"{DOCUMENT_TYPE_LABELS[t]}({DOCUMENT_SOURCE_LABELS[slots[t].source]})"
+            for t in DOCUMENT_TYPE_ORDER
+            if t in slots
+        ]
+        job = f", 공고분석 id {summary.job_analysis_id}" if summary.job_analysis_id else ""
+        out.append(
+            f"- [id {summary.id}] {summary.company} - 작성날짜 {summary.written_on} - "
+            f"서류: {', '.join(kinds) or '없음'}{job}"
+        )
+    return "\n".join(out) + "\n"
+
+
+def render_resume_data(data) -> list[str]:
+    """이력서 칸 구조를 읽기 쉬운 글로. 칸에 적힌 글 그대로, 날짜도 적힌 대로."""
+    out = [data.name, " / ".join(v for v in (data.phone, data.email) if v)]
+    if data.intro.strip():
+        out += ["", "## 소개", "", text_block(data.intro)]
+    if data.careers:
+        out += ["", "## 경력"]
+    for c in data.careers:
+        dates = f"{c.from_} - {c.to}".strip(" -")
+        head = " | ".join(v for v in (c.company, dates, c.type, c.role) if v)
+        out += ["", f"### {head}"]
+        for b in c.blocks:
+            out += ["", f"**{b.title}**" if b.title else ""]
+            out += [f"- {i}" for i in b.items]
+            for p in b.projects:
+                out.append(f"- {p.title}" if p.title else "-")
+                out += [f"  - {i}" for i in p.items]
+    if data.personal_projects:
+        out += ["", "## 개인 프로젝트"]
+    for p in data.personal_projects:
+        out += ["", f"### {p.title}"] + [f"- {i}" for i in p.items]
+    if data.educations:
+        out += ["", "## 학력", ""]
+    for e in data.educations:
+        dates = f"{e.from_} - {e.to}".strip(" -")
+        out.append("- " + " | ".join(v for v in (e.school, dates, e.status, e.major) if v))
+    if data.skills:
+        out += ["", "## 스킬", "", ", ".join(data.skills)]
+    return [line for i, line in enumerate(out) if line != "" or (i and out[i - 1] != "")]
+
+
+def render_document(stores: Stores, user_id: int, group_id: int, doc_type: str | None) -> tuple[str, int]:
+    """묶음 하나의 서류 글. 이력서는 칸 구조(최종본)가 있으면 그것을, 없으면 body를 보인다."""
+    group = stores.documents.get_group(user_id, group_id)
+    if group is None:
+        return f"지원서류 묶음 id {group_id}은(는) 없어요. `documents`로 목록을 보세요.\n", 1
+    present = [s for s in group.documents if doc_type is None or s.type == doc_type]
+    if doc_type is not None and not present:
+        return f"묶음 id {group_id}에 {DOCUMENT_TYPE_LABELS[doc_type]}가 없어요.\n", 1
+    out = [f"# {group.company} 지원서류 (묶음 id {group.id}, 작성날짜 {group.written_on})", ""]
+    if group.job_analysis_id:
+        out.append(f"- 공고분석: id {group.job_analysis_id}" + (f" ({group.job_title})" if group.job_title else ""))
+    for slot in sorted(present, key=lambda s: DOCUMENT_TYPE_ORDER.index(s.type)):
+        out += ["", f"# {DOCUMENT_TYPE_LABELS[slot.type]}", ""]
+        out.append(f"- 출처: {DOCUMENT_SOURCE_LABELS[slot.source]}, 고친 날: {slot.updated_at:%Y-%m-%d %H:%M} (UTC)")
+        out.append("")
+        if slot.type == "coverletter":
+            letter = stores.documents.get_cover_letter(user_id, group_id)
+            for n, i in enumerate(letter.items if letter else [], 1):
+                limit = f" (글자 수 제한 {i.char_limit}자)" if i.char_limit else ""
+                out += [f"## 문항 {n}{limit}: {i.question}", "", text_block(i.answer) or "(비어 있음)", ""]
+            continue
+        doc = stores.documents.get_document(user_id, group_id, slot.type)
+        if doc is None:
+            continue
+        if doc.data is not None:
+            out += render_resume_data(doc.data)
+        else:
+            out.append(text_block(doc.body) or "(비어 있음)")
+    while out and out[-1] == "":
+        out.pop()
+    return "\n".join(out) + "\n", 0
+
+
 # ── 실행 ──
 
 
@@ -648,6 +749,10 @@ def run(args: argparse.Namespace, stores: Stores, user_id: int) -> tuple[str, in
         return render_job(job, args.reader), 0
     if args.command == "reviews":
         return render_reviews(stores, user_id, reference), 0
+    if args.command == "documents":
+        return render_documents(stores, user_id), 0
+    if args.command == "document":
+        return render_document(stores, user_id, args.id, args.type)
     return render_jobs(stores, user_id), 0
 
 

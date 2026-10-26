@@ -19,8 +19,16 @@ from app.models import (
     Answer,
     AppealPoint,
     Career,
+    CoverLetterInput,
+    CoverLetterItem,
     CultureItem,
+    DocumentGroupInput,
     ExcludedItem,
+    ResumeBlock,
+    ResumeCareer,
+    ResumeData,
+    ResumeEducation,
+    ResumeProject,
     ExpectedQuestion,
     HighlightItem,
     JobCondition,
@@ -593,6 +601,120 @@ def test_job_does_not_change_the_database(db_file, monkeypatch, capsys):
     before = snapshot(engine)
     run(monkeypatch, capsys, url, "job", str(job.id))
     run(monkeypatch, capsys, url, "job", str(job.id), "--reader")
+    assert snapshot(engine) == before
+
+
+# ── 지원서류 ──
+
+
+def make_documents(stores: Stores, user_id: int, company: str = "오늘의집"):
+    group = stores.documents.create_group(
+        user_id, DocumentGroupInput(company=company, written_on=date(2026, 10, 26))
+    )
+    stores.documents.create_document(user_id, group.id, "career", "경력기술서 본문ZZ", source="imported")
+    stores.documents.create_document(
+        user_id,
+        group.id,
+        "resume",
+        "이력서 원본은 안 보여야 함ZZ",
+        data=ResumeData(
+            name="김혜진",
+            phone="010-0000-0000",
+            email="a@example.com",
+            intro="소개 문단ZZ",
+            careers=[
+                ResumeCareer(
+                    company="SSG",
+                    from_="2021.10",
+                    to="재직중",
+                    type="정규직",
+                    role="데이터 엔지니어",
+                    blocks=[
+                        ResumeBlock(title="지표", projects=[ResumeProject(title="UV 표준", items=["식별자 통일"])]),
+                        ResumeBlock(title="품질", items=["알럿 구축"]),
+                    ],
+                )
+            ],
+            personal_projects=[ResumeProject(title="dbt", items=["단독 수행"])],
+            educations=[ResumeEducation(school="서울시립대", from_="2013.03", to="2017.08", status="졸업")],
+            skills=["Spark", "SQL"],
+        ),
+    )
+    stores.documents.create_document(user_id, group.id, "coverletter", "")
+    stores.documents.save_cover_letter(
+        user_id,
+        group.id,
+        CoverLetterInput(items=[CoverLetterItem(question="지원동기ZZ", char_limit=500, answer="답변ZZ")]),
+    )
+    return group
+
+
+def test_documents_lists_groups_with_their_types(db_file, monkeypatch, capsys):
+    url, _, stores = db_file
+    user_id = stores.users.dev_user().id
+    group = make_documents(stores, user_id)
+    out = run(monkeypatch, capsys, url, "documents")
+    assert f"[id {group.id}] 오늘의집 - 작성날짜 2026-10-26" in out
+    assert "이력서(직접 작성), 경력기술서(가져옴), 자기소개서(직접 작성)" in out
+
+
+def test_document_shows_resume_fields_not_the_original_body(db_file, monkeypatch, capsys):
+    url, _, stores = db_file
+    group = make_documents(stores, stores.users.dev_user().id)
+    out = run(monkeypatch, capsys, url, "document", str(group.id), "resume")
+    assert "소개 문단ZZ" in out and "SSG | 2021.10 - 재직중 | 정규직 | 데이터 엔지니어" in out
+    assert "- UV 표준" in out and "  - 식별자 통일" in out and "- 알럿 구축" in out
+    assert "서울시립대 | 2013.03 - 2017.08 | 졸업" in out and "Spark, SQL" in out
+    assert "원본은 안 보여야 함ZZ" not in out and "경력기술서 본문ZZ" not in out
+
+
+def test_document_without_type_shows_every_document(db_file, monkeypatch, capsys):
+    url, _, stores = db_file
+    group = make_documents(stores, stores.users.dev_user().id)
+    out = run(monkeypatch, capsys, url, "document", str(group.id))
+    assert "경력기술서 본문ZZ" in out and "소개 문단ZZ" in out
+    assert "문항 1 (글자 수 제한 500자): 지원동기ZZ" in out and "답변ZZ" in out
+
+
+def test_document_uses_body_when_the_resume_has_no_fields(db_file, monkeypatch, capsys):
+    url, _, stores = db_file
+    user_id = stores.users.dev_user().id
+    group = stores.documents.create_group(
+        user_id, DocumentGroupInput(company="토스", written_on=date(2026, 10, 25))
+    )
+    stores.documents.create_document(user_id, group.id, "resume", "글로 쓴 이력서ZZ")
+    assert "글로 쓴 이력서ZZ" in run(monkeypatch, capsys, url, "document", str(group.id), "resume")
+
+
+def test_document_missing_group_or_type_fails(db_file, monkeypatch, capsys):
+    url, _, stores = db_file
+    user_id = stores.users.dev_user().id
+    group = stores.documents.create_group(
+        user_id, DocumentGroupInput(company="토스", written_on=date(2026, 10, 25))
+    )
+    code, err = fail(monkeypatch, capsys, url, "document", "9999")
+    assert code == 1 and "없어요" in err
+    code, err = fail(monkeypatch, capsys, url, "document", str(group.id), "portfolio")
+    assert code == 1 and "포트폴리오가 없어요" in err
+    code, _ = fail(monkeypatch, capsys, url, "document", str(group.id), "cv")
+    assert code == 2
+
+
+def test_other_users_documents_are_not_found(db_file, other_user_id, monkeypatch, capsys):
+    url, _, stores = db_file
+    stores.users.dev_user()
+    theirs = make_documents(stores, other_user_id, OTHER_MARK + "회사")
+    code, err = fail(monkeypatch, capsys, url, "document", str(theirs.id))
+    assert code == 1 and OTHER_MARK not in err
+    assert OTHER_MARK not in run(monkeypatch, capsys, url, "documents")
+
+
+def test_documents_do_not_change_the_database(db_file, monkeypatch, capsys):
+    url, engine, stores = db_file
+    group = make_documents(stores, stores.users.dev_user().id)
+    before = snapshot(engine)
+    run(monkeypatch, capsys, url, "documents")
+    run(monkeypatch, capsys, url, "document", str(group.id))
     assert snapshot(engine) == before
 
 
