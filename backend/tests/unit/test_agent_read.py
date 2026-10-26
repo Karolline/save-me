@@ -630,7 +630,7 @@ def make_documents(stores: Stores, user_id: int, company: str = "오늘의집"):
                     type="정규직",
                     role="데이터 엔지니어",
                     blocks=[
-                        ResumeBlock(title="지표", projects=[ResumeProject(title="UV 표준", items=["식별자 통일"])]),
+                        ResumeBlock(title="지표", projects=[ResumeProject(title="UV 표준", items=["- 식별자 통일"])]),
                         ResumeBlock(title="품질", items=["알럿 구축"]),
                     ],
                 )

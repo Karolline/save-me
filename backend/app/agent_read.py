@@ -661,6 +661,14 @@ def render_documents(stores: Stores, user_id: int) -> str:
     return "\n".join(out) + "\n"
 
 
+def resume_bullet(value: str, indent: str = "") -> str:
+    """칸에 적힌 글을 목록 줄로. 글 앞에 이미 "-"와 공백(줄바꿈 없는 공백 포함)이 있으면 겹치지 않게 뗀다."""
+    text = value.strip()
+    if text.startswith("-") and text[1:2].isspace():
+        text = text[1:].strip()
+    return f"{indent}- {text}"
+
+
 def render_resume_data(data) -> list[str]:
     """이력서 칸 구조를 읽기 쉬운 글로. 칸에 적힌 글 그대로, 날짜도 적힌 대로."""
     out = [data.name, " / ".join(v for v in (data.phone, data.email) if v)]
@@ -670,18 +678,18 @@ def render_resume_data(data) -> list[str]:
         out += ["", "## 경력"]
     for c in data.careers:
         dates = f"{c.from_} - {c.to}".strip(" -")
-        head = " | ".join(v for v in (c.company, dates, c.type, c.role) if v)
+        head = " | ".join(v.strip() for v in (c.company, dates, c.type, c.role) if v.strip())
         out += ["", f"### {head}"]
         for b in c.blocks:
-            out += ["", f"**{b.title}**" if b.title else ""]
-            out += [f"- {i}" for i in b.items]
+            out += ["", f"**{b.title.strip()}**" if b.title.strip() else ""]
+            out += [resume_bullet(i) for i in b.items]
             for p in b.projects:
-                out.append(f"- {p.title}" if p.title else "-")
-                out += [f"  - {i}" for i in p.items]
+                out.append(resume_bullet(p.title) if p.title.strip() else "-")
+                out += [resume_bullet(i, "  ") for i in p.items]
     if data.personal_projects:
         out += ["", "## 개인 프로젝트"]
     for p in data.personal_projects:
-        out += ["", f"### {p.title}"] + [f"- {i}" for i in p.items]
+        out += ["", f"### {p.title.strip()}"] + [resume_bullet(i) for i in p.items]
     if data.educations:
         out += ["", "## 학력", ""]
     for e in data.educations:
