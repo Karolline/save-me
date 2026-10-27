@@ -41,7 +41,7 @@ uv run python -m app.agent_read job <ID>
 
 ## 시작 전에 읽을 것
 
-1. `docs/agent-rules/writing-rules.md`: 형식 규칙(마크다운 금지, 날짜 형식 등)과 파일 배치.
+1. `docs/agent-rules/writing-rules.md`: 형식 규칙(자소서 마크다운 금지·경력기술서 마크다운 양식, 날짜 형식 등)과 파일 배치.
 2. 아래 "문체 기준"의 샘플: `private/style-samples/`의 파일 중 문항 성격이 가장 비슷한 것 1건 이상.
 3. `job <ID>`: 부각할 경험 순위와 문항별 배치, 회사 동향의 어필 포인트.
 4. 사용할 경험의 `experience <ID>` 전체. 근거는 상황/과제/행동/결과 본문에서만 가져온다.
@@ -60,7 +60,7 @@ uv run python -m app.agent_read job <ID>
 
 ## 할 일
 
-- 본문을 `private/drafts/<회사>/<회사>-문항N-주제.md`에 쓴다. 제출 텍스트만 쓰고 마크다운은 쓰지 않는다 (`docs/agent-rules/writing-rules.md`). `private/drafts/<회사>/` 폴더가 없으면 만든다.
+- 본문을 `private/drafts/<회사>/<회사>-문항N-주제.md`에 쓴다. 제출 텍스트만 쓴다. 자소서는 마크다운을 쓰지 않고, 경력기술서는 규칙의 마크다운 양식(`# 경력기술서`, `## 1. 제목`, `>` 기간·주요 역할)을 따른다 (`docs/agent-rules/writing-rules.md`). `private/drafts/<회사>/` 폴더가 없으면 만든다.
 - `private/drafts/<회사>/<회사>-작성메모.md`에 다음을 남긴다. 위험검증자가 근거 매핑표를 출발점으로 쓴다.
   - 맨 위 `## 지원서 항목`: 메인 세션이 넘긴 문항 원문·글자 수(또는 분량·형식)
   - 근거 매핑표
