@@ -842,6 +842,8 @@ textarea.ed::selection { background: #FFE58A; }
 @media print {
   /* 이력서 인쇄: 서류 한 장만 나온다 (편집 도구·자리 표시 글은 인쇄용 사본에 없다). 용지 여백은 위 @page resume. */
   .print-only .rs-page { page: resume; margin: 0; box-shadow: none; width: 210mm; min-height: auto; padding: 0 17mm; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  .print-only .rs-block, .print-only .rs-proj, .print-only .rs-co-head, .print-only .rs-edu { break-inside: avoid; }
+  /* 묶음(.rs-block)은 길 수 있어서 통째로 붙들지 않는다: 통째로 붙들면 안 들어갈 때 쪽 아래가 크게 빈다. 프로젝트 단위로만 끊기지 않게 한다. */
+  .print-only .rs-proj, .print-only .rs-co-head, .print-only .rs-edu { break-inside: avoid; }
+  .print-only .rs-block h3 { break-after: avoid; }
   .print-only .rs-sec { break-after: avoid; }
 }
