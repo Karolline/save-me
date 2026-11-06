@@ -41,3 +41,6 @@ Thumbs.db
 # Personal data for import scripts and local backups: never commit
 private/
 *.dump
+
+# Personal notes (*.local.md): never commit
+*.local.md
