@@ -224,6 +224,7 @@ describe("mockService reviews", () => {
 describe("mockService job analyses", () => {
   const withJobs = () => createMockService({ applications: SAMPLE_APPLICATIONS, jobs: SAMPLE_JOBS });
   const input = (changes: Partial<JobInput> = {}): JobInput => ({ ...emptyJobFields("가"), applicationId: null, ...changes });
+  const status = (error: unknown) => (error as { status?: number }).status;
 
   it("lists most recently analyzed first, with filter counts over everything", async () => {
     const service = withJobs();
@@ -272,6 +273,48 @@ describe("mockService job analyses", () => {
     expect([marked.analyzedAt, marked.updatedAt]).toEqual([before.analyzedAt, before.updatedAt]);
     expect((await service.getJob(2))!.verified).toBe(true);
     expect((await service.setJobVerified(999, true).catch((e) => e)).status).toBe(404);
+  });
+
+  it("saves 회사 기본 with trimmed questions, dropping blank lines, without touching 사람 확인", async () => {
+    const service = withJobs();
+    const before = (await service.getJob(2))!;
+    expect([before.companyNote, before.companyQna]).toEqual(["", []]);
+
+    const saved = await service.setJobCompanyBasics(2, {
+      companyNote: "  조사한 글\n둘째 줄  ",
+      companyQna: [
+        { question: "  사업은?  ", answer: " 결제\n " },
+        { question: "  ", answer: "  " },
+        { question: "투자는?", answer: "" },
+      ],
+    });
+    expect(saved.companyNote).toBe("  조사한 글\n둘째 줄  ");
+    expect(saved.companyQna).toEqual([
+      { question: "사업은?", answer: " 결제\n " },
+      { question: "투자는?", answer: "" },
+    ]);
+    expect([saved.verified, saved.analyzedAt, saved.updatedAt]).toEqual([before.verified, before.analyzedAt, before.updatedAt]);
+    expect((await service.getJob(2))!.companyQna).toHaveLength(2);
+
+    const blank = await service.setJobCompanyBasics(2, { companyNote: "   ", companyQna: [] });
+    expect([blank.companyNote, blank.companyQna]).toEqual(["", []]);
+  });
+
+  it("rejects an answer without a question and a missing analysis in 회사 기본", async () => {
+    const service = withJobs();
+    const bad = await service
+      .setJobCompanyBasics(2, { companyNote: "", companyQna: [{ question: " ", answer: "답만" }] })
+      .catch((e) => e);
+    expect(status(bad)).toBe(422);
+    expect(status(await service.setJobCompanyBasics(999, { companyNote: "", companyQna: [] }).catch((e) => e))).toBe(404);
+  });
+
+  it("keeps 회사 기본 when the analysis is edited and saved", async () => {
+    const service = withJobs();
+    await service.setJobCompanyBasics(2, { companyNote: "남는 글", companyQna: [{ question: "Q", answer: "A" }] });
+    const edited = await service.updateJob(2, input({ company: "마루증권", conclusion: "바뀜" }));
+    expect(edited.conclusion).toBe("바뀜");
+    expect([edited.companyNote, edited.companyQna]).toEqual(["남는 글", [{ question: "Q", answer: "A" }]]);
   });
 
   it("links an application, forces applied, and shows it on the application", async () => {

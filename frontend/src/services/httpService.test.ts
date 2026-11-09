@@ -117,6 +117,7 @@ describe("httpService", () => {
     await service.updateJob(3, { company: "가" } as never);
     await service.createJob({ company: "나" } as never);
     await service.setJobVerified(3, true);
+    await service.setJobCompanyBasics(3, { companyNote: "글", companyQna: [{ question: "Q", answer: "" }] });
 
     expect(fetch.mock.calls.map(([url, init]) => [url, init?.method ?? "GET"])).toEqual([
       ["/api/jobs", "GET"],
@@ -124,8 +125,13 @@ describe("httpService", () => {
       ["/api/jobs/3", "PUT"],
       ["/api/jobs", "POST"],
       ["/api/jobs/3/verified", "PUT"],
+      ["/api/jobs/3/company-basics", "PUT"],
     ]);
     expect(JSON.parse(String(fetch.mock.calls[4][1]?.body))).toEqual({ verified: true });
+    expect(JSON.parse(String(fetch.mock.calls[5][1]?.body))).toEqual({
+      companyNote: "글",
+      companyQna: [{ question: "Q", answer: "" }],
+    });
     expect(fetch.mock.calls[2][1]?.headers).toMatchObject({ "X-Requested-With": "SaveMe" });
     expect(await createHttpService("/api", stubFetch(404, { detail: "nope" })).getJob(9)).toBeNull();
     const deleting = stubFetch(204);

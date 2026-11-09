@@ -1,5 +1,5 @@
 import { RouterProvider } from "@tanstack/react-router";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { router } from "./router";
@@ -74,6 +74,21 @@ describe("job analysis routes", () => {
     await user.click(await screen.findByRole("button", { name: /^지원 안 함\s*\d/ }));
     await waitFor(() => expect(router.state.location.search).toEqual({ status: "skipped" }));
     expect(await screen.findByText("늘봄카드")).toBeInTheDocument();
+  });
+
+  it("keeps the 회사 기본 tab in the address and lists the tabs in order", { timeout: 15_000 }, async () => {
+    const user = userEvent.setup();
+    await open("/jobs/2");
+    expect((await screen.findAllByRole("tab")).map((t) => t.textContent)).toEqual(["공고 분석", "회사 기본", "회사 동향"]);
+    await user.click(screen.getByRole("tab", { name: "회사 기본" }));
+    await waitFor(() => expect(router.state.location.search).toEqual({ tab: "basics" }));
+    expect(await screen.findByText(/아직 회사 기본을 적지 않았어요/)).toBeInTheDocument();
+
+    // 새로 고쳐도 그 탭이 열린다.
+    cleanup();
+    await open("/jobs/2?tab=basics");
+    expect(await screen.findByRole("tab", { name: "회사 기본" })).toHaveAttribute("aria-selected", "true");
+    expect(router.state.location.search).toEqual({ tab: "basics" });
   });
 
   it("keeps the 회사 동향 tab in the address with the other search params", { timeout: 15_000 }, async () => {

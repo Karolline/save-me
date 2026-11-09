@@ -380,8 +380,23 @@ export interface JobSummary {
   applicationId: number | null;
 }
 
+/** 회사 기본의 궁금한 점 하나. 답은 비어 있을 수 있다. */
+export interface CompanyQna {
+  question: string;
+  answer: string;
+}
+
+/** [회사 기본] 탭 저장 (분석 편집과 따로 저장한다). */
+export interface CompanyBasicsInput {
+  companyNote: string;
+  companyQna: CompanyQna[];
+}
+
 export interface Job extends JobFields {
   id: number;
+  /** 회사 기본: 조사한 글과 궁금한 점. 분석 편집·가져오기가 지우지 않는다. */
+  companyNote: string;
+  companyQna: CompanyQna[];
   /** 분석일: 저장할 때마다 서울 기준 오늘. */
   analyzedAt: string;
   /** 사람 확인: 가져온 분석은 false, 화면에서 만들거나 고쳐 저장하거나 [읽고 확인했어요]를 누르면 true. */
@@ -855,6 +870,8 @@ export interface SaveMeService {
   updateJob(id: number, input: JobInput): Promise<Job>;
   /** 사람 확인 표시 ([읽고 확인했어요]). 분석일과 updatedAt은 바뀌지 않는다. */
   setJobVerified(id: number, verified: boolean): Promise<Job>;
+  /** [회사 기본] 탭 저장: 질문이 공백인 줄은 (답도 공백이면) 버리고 답만 있으면 422. 사람 확인은 그대로. */
+  setJobCompanyBasics(id: number, input: CompanyBasicsInput): Promise<Job>;
   /** 연결된 지원 건은 남고 연결만 풀린다. */
   deleteJob(id: number): Promise<void>;
 

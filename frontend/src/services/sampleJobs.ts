@@ -1,4 +1,4 @@
-import type { JobFields, Requirement, RequirementCategory, RequirementLevel } from "./types";
+import type { CompanyQna, JobFields, Requirement, RequirementCategory, RequirementLevel } from "./types";
 
 /**
  * 목업(JOB_SEED)의 지어낸 공고분석. 회사와 경험은 모두 지어낸 것이다.
@@ -9,6 +9,9 @@ export interface JobSeed {
   /** 연결할 지원 건 (회사, 서류 제출일). */
   application: [company: string, appliedAt: string] | null;
   job: Partial<JobFields> & { company: string };
+  /** 회사 기본 (없으면 비어 있다). */
+  companyNote?: string;
+  companyQna?: CompanyQna[];
 }
 
 const R = (
@@ -27,6 +30,13 @@ export const SAMPLE_JOBS: JobSeed[] = [
   {
     analyzedAt: "2026-10-11",
     application: null,
+    companyNote:
+      "물류 로봇을 만드는 비상장사. 로봇 본체와 관제 소프트웨어를 함께 판다.\n창업 8년차, 직원은 200명 남짓, 데이터플랫폼팀은 올해 새로 생겼다.",
+    companyQna: [
+      { question: "관제 센터는 몇 곳이고 어디에 있나요?", answer: "시흥 시범 센터에서 시작해 올해 평택에 새로 열었다." },
+      { question: "데이터플랫폼팀의 첫 과제는 무엇인가요?", answer: "" },
+      { question: "투자는 어디서 받았나요?", answer: "시리즈 B까지 받았다고 한다.\n정확한 금액은 더 찾아봐야 한다." },
+    ],
     job: {
       company: "한결로보틱스",
       team: "로봇플랫폼실 · 데이터플랫폼팀",

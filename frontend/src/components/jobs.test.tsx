@@ -262,6 +262,7 @@ describe("JobViewScreen tabs", () => {
     const tabs = await screen.findByRole("tablist", { name: "분석 보기" });
     expect(within(tabs).getAllByRole("tab").map((t) => [t.textContent, t.getAttribute("aria-selected")])).toEqual([
       ["공고 분석", "true"],
+      ["회사 기본", "false"],
       ["회사 동향", "false"],
     ]);
     expect(screen.getByRole("region", { name: "기술 핏 요약" })).toBeInTheDocument();
@@ -409,6 +410,96 @@ describe("JobViewScreen tabs", () => {
     expect(empty.textContent).toBe("아직 회사 동향이 없어요.[편집]의 \"회사 동향\" 섹션에서 적을 수 있어요.");
     expect(screen.queryByRole("navigation", { name: "회사 동향 섹션" })).not.toBeInTheDocument();
     expect(screen.queryByText(/비어 있는 섹션/)).not.toBeInTheDocument();
+  });
+});
+
+describe("JobViewScreen 회사 기본 tab", () => {
+  it("shows the empty text and [적기] when nothing is written", async () => {
+    setup(<JobViewScreen id={2} {...viewProps} tab="basics" />);
+
+    const empty = await screen.findByText(/아직 회사 기본을 적지 않았어요/);
+    expect(empty).toHaveClass("tr-empty");
+    expect(empty.textContent).toContain("회사에 대해 조사한 내용과 궁금한 점을 적어 두세요.");
+    expect(screen.getByRole("button", { name: "적기" })).toBeInTheDocument();
+    // 머리와 미확인 바는 다른 탭과 같이 보이고 섹션 칩은 없다.
+    expect(screen.getByRole("heading", { level: 1 })).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "이 분석의 섹션" })).not.toBeInTheDocument();
+  });
+
+  it("writes, saves and shows the note and the questions with answer counts", async () => {
+    const { user, service } = setup(<JobViewScreen id={2} {...viewProps} tab="basics" />);
+    await user.click(await screen.findByRole("button", { name: "적기" }));
+
+    const note = screen.getByLabelText(/^조사한 내용/);
+    expect(note.tagName).toBe("TEXTAREA");
+    await user.click(note);
+    await user.paste("회사 구조는 이렇다\n둘째 줄");
+    await user.click(screen.getByRole("button", { name: "+ 질문 추가" }));
+    expect(screen.getByLabelText("질문 1")).toHaveFocus();
+    await user.type(screen.getByLabelText("질문 1"), "  사업은?  ");
+    await user.type(screen.getByLabelText("답 1"), "결제");
+    await user.click(screen.getByRole("button", { name: "+ 질문 추가" }));
+    await user.type(screen.getByLabelText("질문 2"), "투자는?");
+    // 빈 줄은 저장할 때 버려진다.
+    await user.click(screen.getByRole("button", { name: "+ 질문 추가" }));
+    await user.click(screen.getByRole("button", { name: "저장" }));
+
+    expect(await screen.findByText("회사 기본을 저장했어요")).toBeInTheDocument();
+    expect(screen.getByText(/회사 구조는 이렇다/)).toHaveClass("pre");
+    const asks = screen.getByRole("region", { name: "궁금한 점" });
+    expect(asks.textContent).toContain("답 1 / 전체 2");
+    expect(within(screen.getByRole("region", { name: "질문 1" })).getByText("Q1")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "질문 1" }).textContent).toContain("사업은?");
+    expect(screen.getByRole("region", { name: "질문 1" }).textContent).toContain("결제");
+    expect(screen.getByRole("region", { name: "질문 2" }).textContent).toContain("아직 답을 못 찾았어요");
+    expect(screen.queryByRole("region", { name: "질문 3" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "편집" })[1]).toBeInTheDocument();
+    const saved = (await service.getJob(2))!;
+    expect(saved.companyQna).toEqual([
+      { question: "사업은?", answer: "결제" },
+      { question: "투자는?", answer: "" },
+    ]);
+    expect(saved.verified).toBe(false);
+  });
+
+  it("blocks a line with an answer but no question", async () => {
+    const { user, service } = setup(<JobViewScreen id={2} {...viewProps} tab="basics" />);
+    await user.click(await screen.findByRole("button", { name: "적기" }));
+    await user.click(screen.getByRole("button", { name: "+ 질문 추가" }));
+    await user.type(screen.getByLabelText("답 1"), "답만 있다");
+    await user.click(screen.getByRole("button", { name: "저장" }));
+
+    expect(await screen.findByText("질문을 적어 주세요")).toBeInTheDocument();
+    expect(screen.getByLabelText("질문 1")).toHaveFocus();
+    expect((await service.getJob(2))!.companyQna).toEqual([]);
+  });
+
+  it("shows the saved text and drops changes on [취소]", async () => {
+    const { user } = setup(<JobViewScreen id={1} {...viewProps} tab="basics" />);
+    expect(await screen.findByText(/물류 로봇을 만드는 비상장사/)).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "궁금한 점" }).textContent).toContain("답 2 / 전체 3");
+    expect(screen.getAllByText("아직 답을 못 찾았어요")).toHaveLength(1);
+
+    await user.click(screen.getAllByRole("button", { name: "편집" })[1]);
+    await user.type(screen.getByLabelText("질문 1"), " 바꿈");
+    await user.click(screen.getByRole("button", { name: "질문 2 삭제" }));
+    await user.click(screen.getByRole("button", { name: "취소" }));
+
+    expect(screen.getByRole("region", { name: "궁금한 점" }).textContent).toContain("전체 3");
+    expect(screen.queryByText(/바꿈/)).not.toBeInTheDocument();
+    expect(screen.queryByText("회사 기본을 저장했어요")).not.toBeInTheDocument();
+  });
+
+  it("keeps the form and toasts when saving fails", async () => {
+    const { user, service } = setup(<JobViewScreen id={2} {...viewProps} tab="basics" />);
+    vi.spyOn(service, "setJobCompanyBasics").mockRejectedValue(new Error("boom"));
+    await user.click(await screen.findByRole("button", { name: "적기" }));
+    await user.type(screen.getByLabelText(/^조사한 내용/), "글");
+    await user.click(screen.getByRole("button", { name: "저장" }));
+
+    expect(await screen.findByText("저장하지 못했어요. 다시 시도해 주세요.")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^조사한 내용/)).toHaveValue("글");
+    expect(screen.getByRole("button", { name: "저장" })).toBeEnabled();
   });
 });
 

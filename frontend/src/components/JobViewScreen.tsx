@@ -13,14 +13,16 @@ import { experienceForTag } from "@/lib/experiences";
 import { RESULTS, useService, type ExperienceLinkKey, type Job, type LevelCounts, type RequirementLevel } from "@/services";
 import { ConfirmDialog, useEscape, useToast } from "./feedback";
 import { icons } from "./icons";
+import { JobCompanyBasicsTab } from "./JobCompanyBasicsTab";
 import { JobTrendsTab } from "./JobTrendsTab";
 import { useSessionErrors } from "./session";
 import { NotFoundScreen } from "./SettingsScreen";
 
-/** 상세의 탭: 공고 분석(기본), 회사 동향. 주소의 `tab=trends`로 고른다. */
-export type JobTab = "analysis" | "trends";
+/** 상세의 탭: 공고 분석(기본), 회사 기본, 회사 동향. 주소의 `tab=basics`, `tab=trends`로 고른다. */
+export type JobTab = "analysis" | "basics" | "trends";
 const TABS: { id: JobTab; label: string }[] = [
   { id: "analysis", label: "공고 분석" },
+  { id: "basics", label: "회사 기본" },
   { id: "trends", label: "회사 동향" },
 ];
 
@@ -524,7 +526,13 @@ export function JobViewScreen({
           </button>
         ))}
       </div>
-      {tab === "trends" ? (
+      {tab === "basics" ? (
+        <JobCompanyBasicsTab
+          job={job}
+          // 저장 답은 회사 기본만 바뀐 분석이라 확인됨 등은 그대로 둔다.
+          onSaved={(saved) => setJob((j) => j && { ...j, companyNote: saved.companyNote, companyQna: saved.companyQna })}
+        />
+      ) : tab === "trends" ? (
         <JobTrendsTab job={job} evidence={(text, key) => ev(text, key)} />
       ) : (
         <>

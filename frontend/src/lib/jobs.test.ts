@@ -29,6 +29,8 @@ function job(changes: Partial<Job> = {}): Job {
   return {
     ...emptyJobFields("한결로보틱스"),
     id: 3,
+    companyNote: "",
+    companyQna: [],
     analyzedAt: "2026-10-11",
     verified: false,
     applicationId: null,

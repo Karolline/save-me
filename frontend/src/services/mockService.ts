@@ -34,6 +34,8 @@ import {
   type FavoriteQuestion,
   type Job,
   type JobFields,
+  type CompanyBasicsInput,
+  type CompanyQna,
   type JobInput,
   type JobList,
   type JobStatusFilter,
@@ -375,6 +377,8 @@ const seoulDay = (iso: string) => new Date(Date.parse(iso) + 9 * 3600_000).toISO
 
 interface StoredJob extends JobFields {
   id: number;
+  companyNote: string;
+  companyQna: CompanyQna[];
   applicationId: number | null;
   analyzedAt: string;
   verified: boolean;
@@ -764,7 +768,7 @@ export function createMockService(options: MockOptions = {}): MockService {
   /** 검증하고 연결 규칙을 지켜 저장할 분석을 만든다 (백엔드와 같은 오류). */
   function fillJob(
     input: JobInput,
-    base: Pick<StoredJob, "id" | "createdAt" | "verified">,
+    base: Pick<StoredJob, "id" | "createdAt" | "verified"> & Partial<Pick<StoredJob, "companyNote" | "companyQna">>,
     analyzedAt: string,
   ): StoredJob {
     const clean = validateJob(input);
@@ -776,7 +780,10 @@ export function createMockService(options: MockOptions = {}): MockService {
     }
     return {
       ...structuredClone(fields),
+      // 회사 기본은 분석 편집·가져오기로 바뀌지 않는다: 호출하는 쪽이 있던 것을 넘긴다.
       ...base,
+      companyNote: base.companyNote ?? "",
+      companyQna: structuredClone(base.companyQna ?? []),
       // 지원 기록과 연결되면 지원 여부는 늘 "지원함".
       status: applicationId !== null ? "applied" : fields.status,
       applicationId,
@@ -938,7 +945,7 @@ export function createMockService(options: MockOptions = {}): MockService {
     reviews.set(id, fill(input, { id, createdAt: now() }, verified ?? true));
   }
 
-  for (const { analyzedAt, application, job } of options.jobs ?? []) {
+  for (const { analyzedAt, application, job, companyNote, companyQna } of options.jobs ?? []) {
     let applicationId: number | null = null;
     if (application) {
       const app = [...rows.values()].find((a) => a.company === application[0] && a.appliedAt === application[1]);
@@ -949,7 +956,11 @@ export function createMockService(options: MockOptions = {}): MockService {
     // 샘플은 가져온 분석이라 사람 확인 N.
     jobs.set(
       id,
-      fillJob({ ...emptyJobFields(), ...job, applicationId }, { id, createdAt: now(), verified: false }, analyzedAt),
+      fillJob(
+        { ...emptyJobFields(), ...job, applicationId },
+        { id, createdAt: now(), verified: false, companyNote, companyQna },
+        analyzedAt,
+      ),
     );
   }
 
@@ -1310,7 +1321,11 @@ export function createMockService(options: MockOptions = {}): MockService {
       call(() => {
         const existing = jobs.get(id);
         if (!existing) throw notFound("Job analysis");
-        const updated = fillJob(input, { id, createdAt: existing.createdAt, verified: true }, seoulDay(now()));
+        const updated = fillJob(
+          input,
+          { id, createdAt: existing.createdAt, verified: true, companyNote: existing.companyNote, companyQna: existing.companyQna },
+          seoulDay(now()),
+        );
         jobs.set(id, updated);
         return jobOf(updated);
       }),
@@ -1321,6 +1336,26 @@ export function createMockService(options: MockOptions = {}): MockService {
         if (!j) throw notFound("Job analysis");
         // 분석일과 updatedAt은 그대로 둔다.
         j.verified = verified;
+        return jobOf(j);
+      }),
+
+    setJobCompanyBasics: (id: number, input: CompanyBasicsInput) =>
+      call(() => {
+        const j = jobs.get(id);
+        if (!j) throw notFound("Job analysis");
+        const qna: CompanyQna[] = [];
+        for (const q of input.companyQna) {
+          const question = q.question.trim();
+          if (!question) {
+            // 질문이 없는데 답만 있으면 거절, 둘 다 공백이면 버린다.
+            if (q.answer.trim()) throw new ApiError(422, "Request failed (422): invalid company basics");
+            continue;
+          }
+          qna.push({ question, answer: q.answer });
+        }
+        // 분석일, updatedAt, 사람 확인은 그대로 둔다.
+        j.companyNote = input.companyNote.trim() ? input.companyNote : "";
+        j.companyQna = qna;
         return jobOf(j);
       }),
 

@@ -23,6 +23,7 @@ import type {
   ExperienceView,
   FavoriteQuestion,
   Job,
+  CompanyBasicsInput,
   JobInput,
   JobList,
   JobStatusFilter,
@@ -213,6 +214,10 @@ export function createHttpService(
 
     async setJobVerified(id: number, verified: boolean) {
       return json<Job>(await request(`${jobPath(id)}/verified`, send("PUT", { verified })));
+    },
+
+    async setJobCompanyBasics(id: number, input: CompanyBasicsInput) {
+      return json<Job>(await request(`${jobPath(id)}/company-basics`, send("PUT", input)));
     },
 
     async deleteJob(id: number) {

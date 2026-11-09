@@ -383,11 +383,11 @@ const jobsRoute = createRoute({
   },
 });
 
-/** 분석을 어디서 열었는지 (`from=detail`: 지원 상세)와 고른 탭 (`tab=trends`: 회사 동향, 없으면 공고 분석). */
-type JobSearch = { from?: "detail"; tab?: "trends" };
+/** 분석을 어디서 열었는지 (`from=detail`: 지원 상세)와 고른 탭 (`tab=basics`: 회사 기본, `tab=trends`: 회사 동향, 없으면 공고 분석). */
+type JobSearch = { from?: "detail"; tab?: "basics" | "trends" };
 const parseJobSearch = (search: Record<string, unknown>): JobSearch => ({
   ...(search.from === "detail" ? { from: "detail" as const } : {}),
-  ...(search.tab === "trends" ? { tab: "trends" as const } : {}),
+  ...(search.tab === "trends" || search.tab === "basics" ? { tab: search.tab } : {}),
 });
 
 /** 분석에서 돌아갈 곳: 지원 상세에서 왔고 연결된 지원 건이 있으면 그 상세, 아니면 목록. */
@@ -443,13 +443,13 @@ const jobRoute = createRoute({
       <JobViewScreen
         key={jobId}
         id={toId(jobId)}
-        tab={tab === "trends" ? "trends" : "analysis"}
+        tab={tab ?? "analysis"}
         onTabChange={(next) =>
           navigate({
             to: "/jobs/$jobId",
             params: { jobId },
             // 다른 search(from 등)는 그대로 두고 tab만 바꾼다.
-            search: { ...search, tab: next === "trends" ? "trends" : undefined },
+            search: { ...search, tab: next === "analysis" ? undefined : next },
             replace: true,
           })
         }
