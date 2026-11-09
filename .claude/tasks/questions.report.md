@@ -30,3 +30,9 @@
 - 보기에서 지우기 단추는 [고치기] 옆에 바로 두었다(후기의 "…" 메뉴 없이, 지시서의 [고치기] [지우기]).
 - `tech 기획안.md` 남은 일 표의 빈출질문 줄을 "만듦"으로 고쳤다.
 - 가져오기·모바일·PDF는 만들지 않았다. 버전은 올리지 않았다.
+
+
+## 리뷰 지적 반영
+- docs/testing.md: test_migrations.py 줄의 빈출질문 설명을 설명 셀에 이어 써서 3열로 맞춤.
+- backend/app/db.py: FrequentQuestionRow를 make_engine 앞(다른 Row 클래스 뒤)으로 옮김. 동작 변화 없음.
+- PostgreSQL에서 test_migrations, test_question_store, test_questions_api 22개 통과. 전체 테스트는 돌리지 않았다, CI가 돈다.

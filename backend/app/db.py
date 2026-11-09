@@ -780,6 +780,27 @@ def normalize_url(url: str) -> str:
     return url
 
 
+class FrequentQuestionRow(Base):
+    """빈출질문 (이슈 #15): 자주 나오는 면접 질문의 유형과 답하는 방법을 사용자가 손으로 적는다.
+
+    `position`은 사용자가 정한 순서(0부터). AI 에이전트가 `agent_read questions`로 읽는다.
+    """
+
+    __tablename__ = "frequent_questions"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer)
+    # 질문 유형 (목록의 제목, 예: 지원동기).
+    kind: Mapped[str] = mapped_column(Text)
+    example: Mapped[str] = mapped_column(Text, default="", server_default="")
+    how_to: Mapped[str] = mapped_column(Text, default="", server_default="")
+    good_example: Mapped[str] = mapped_column(Text, default="", server_default="")
+    avoid: Mapped[str] = mapped_column(Text, default="", server_default="")
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
+
+
 def _enable_sqlite_foreign_keys(dbapi_connection, _record) -> None:
     # SQLite는 외래 키를 켜지 않으면 ON DELETE CASCADE를 무시한다.
     cursor = dbapi_connection.cursor()
@@ -804,24 +825,3 @@ def make_engine(url: str | None = None) -> Engine:
     if url.startswith("sqlite"):
         event.listen(engine, "connect", _enable_sqlite_foreign_keys)
     return engine
-
-
-class FrequentQuestionRow(Base):
-    """빈출질문 (이슈 #15): 자주 나오는 면접 질문의 유형과 답하는 방법을 사용자가 손으로 적는다.
-
-    `position`은 사용자가 정한 순서(0부터). AI 에이전트가 `agent_read questions`로 읽는다.
-    """
-
-    __tablename__ = "frequent_questions"
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    position: Mapped[int] = mapped_column(Integer)
-    # 질문 유형 (목록의 제목, 예: 지원동기).
-    kind: Mapped[str] = mapped_column(Text)
-    example: Mapped[str] = mapped_column(Text, default="", server_default="")
-    how_to: Mapped[str] = mapped_column(Text, default="", server_default="")
-    good_example: Mapped[str] = mapped_column(Text, default="", server_default="")
-    avoid: Mapped[str] = mapped_column(Text, default="", server_default="")
-    created_at: Mapped[datetime] = mapped_column(UTCDateTime)
-    updated_at: Mapped[datetime] = mapped_column(UTCDateTime)
