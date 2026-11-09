@@ -22,11 +22,17 @@ import { NotFoundScreen } from "./SettingsScreen";
 type SaveState = "saved" | "dirty" | "saving" | "failed";
 
 /** 아무것도 안 적은 문항 (빈 자소서의 처음 카드). */
-const isBlank = (item: CoverLetterItem) => item.question === "" && item.answer === "" && item.charLimit === null;
+const isBlank = (item: CoverLetterItem) =>
+  item.question === "" && item.answer === "" && item.appeal === "" && item.charLimit === null;
+
+/** 조회(view)가 먼저고 [편집]을 눌러야 고칠 수 있다 (이슈 #29). 경로의 search `mode`로 정한다. */
+export type CoverLetterMode = "view" | "edit";
 
 /**
- * 자소서 편집 (이슈 #22, `.claude/tasks/cover-letter.mockup.html`): 위에 서류 전환 탭 · 합계 · 저장 표시,
- * 왼쪽에 문항 목록(클릭하면 그 카드로), 오른쪽에 문항마다 카드 하나 (문항 글 · 글자 수 제한 · 답변 · 글자 수).
+ * 자소서 조회·편집 (이슈 #22, #29): 위에 서류 전환 탭 · 합계 · 저장 표시,
+ * 왼쪽에 문항 목록(클릭하면 그 카드로), 오른쪽에 문항마다 카드 하나 (문항 글 · 글자 수 제한 · 어필포인트 · 답변 · 글자 수).
+ * 조회가 먼저 보이고 [편집]으로 편집, [완료]로 저장 후 조회로 돌아온다. 문항이 하나도 없는 자소서는 처음부터 편집이다.
+ * 어필포인트는 사용자의 메모라서 글자 수·합계에 세지 않는다.
  * 저장은 서류 편집기와 같은 방식(입력을 멈추면 자동, 화면을 떠날 때 마지막으로, 차례 보내기)이고
  * 단위는 문항 목록 통째다. 모든 문항이 비어 있으면 빈 목록을 저장한다 (빈 문항이 DB에 남지 않는다).
  */
@@ -36,8 +42,12 @@ export function CoverLetterScreen({
   onOpenDocument,
   onDeleted,
   onHome,
+  mode = "view",
+  onModeChange,
 }: {
   groupId: number;
+  mode?: CoverLetterMode;
+  onModeChange?: (mode: CoverLetterMode) => void;
   onBack: () => void;
   onOpenDocument: (type: DocumentType) => void;
   /** 자소서를 지웠다 (묶음으로). */
@@ -58,6 +68,8 @@ export function CoverLetterScreen({
   // 아직 저장하지 못한 문항 목록: 화면을 떠날 때 마지막으로 한 번 더 저장한다.
   const pending = useRef<CoverLetterItem[] | null>(null);
   const focusAfter = useRef<number | null>(null);
+  // 열 때 문항이 하나도 없었다: 조회할 것이 없어 편집으로 연다 (한 번만).
+  const [openedEmpty, setOpenedEmpty] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -71,6 +83,7 @@ export function CoverLetterScreen({
         }
         // 문항이 하나도 없으면 빈 카드 하나를 먼저 보여 준다.
         setItems(letter.items.length ? letter.items : [emptyItem()]);
+        setOpenedEmpty(letter.items.length === 0);
         setSavedAt(seoulDay(letter.updatedAt));
       })
       .catch((error) => {
@@ -127,6 +140,12 @@ export function CoverLetterScreen({
     [service, groupId],
   );
 
+  useEffect(() => {
+    if (!openedEmpty) return;
+    setOpenedEmpty(false);
+    if (mode === "view") onModeChange?.("edit");
+  }, [openedEmpty, mode, onModeChange]);
+
   // 새 문항을 더하면 그 문항 글 칸으로 간다.
   useEffect(() => {
     if (focusAfter.current !== null) {
@@ -139,6 +158,15 @@ export function CoverLetterScreen({
   async function leave(go: () => void) {
     if (await flush()) go();
     else toast("저장하지 못해서 이동하지 않았어요. 다시 시도해 주세요.");
+  }
+
+  /** [완료]: 저장 안 된 것을 먼저 저장하고 조회로. 문항이 모두 비었으면 조회할 것이 없어 편집에 남는다. */
+  async function finish(list: CoverLetterItem[]) {
+    if (!(await flush())) {
+      toast("저장하지 못해서 이동하지 않았어요. 다시 시도해 주세요.");
+      return;
+    }
+    if (!list.every(isBlank)) onModeChange?.("view");
   }
 
   async function removeCoverLetter() {
@@ -172,6 +200,7 @@ export function CoverLetterScreen({
     );
   }
 
+  const editing = mode === "edit" || openedEmpty;
   const types = group.documents.map((d) => d.type);
   const total = totalChars(items);
   const full = items.length >= COVER_LETTER_MAX_ITEMS;
@@ -182,7 +211,7 @@ export function CoverLetterScreen({
   const jumpTo = (index: number) => {
     const card = document.getElementById(`cl-card-${index}`);
     card?.scrollIntoView?.({ behavior: "smooth", block: "start" });
-    document.getElementById(`cl-q-${index}`)?.focus({ preventScroll: true });
+    if (editing) document.getElementById(`cl-q-${index}`)?.focus({ preventScroll: true });
   };
   const removeItem = (index: number) => {
     // 마지막 하나를 지우면 빈 카드 하나가 남는다.
@@ -213,14 +242,25 @@ export function CoverLetterScreen({
           <span className="hint" aria-label="합계">
             합계 <span className="mono">{formatCount(total)}</span>자 · {items.length}/{COVER_LETTER_MAX_ITEMS}문항
           </span>
-          {saveState === "failed" ? (
+          {editing && saveState === "failed" ? (
             <button type="button" className="link hint fail" onClick={() => void flush()}>
               저장 안 됨 · 다시 시도
             </button>
           ) : (
-            <span className="hint" role="status" aria-label="저장 상태">
-              {statusText}
-            </span>
+            editing && (
+              <span className="hint" role="status" aria-label="저장 상태">
+                {statusText}
+              </span>
+            )
+          )}
+          {editing ? (
+            <button type="button" className="btn btn-primary" onClick={() => void finish(items)}>
+              완료
+            </button>
+          ) : (
+            <button type="button" className="btn btn-primary" onClick={() => onModeChange?.("edit")}>
+              편집
+            </button>
           )}
           <button type="button" className="btn btn-text danger" onClick={() => setConfirmDelete(true)}>
             자소서 지우기
@@ -253,90 +293,154 @@ export function CoverLetterScreen({
 
         <div>
           <div className="cl-qs">
-            {items.map((item, i) => {
-              const count = countChars(item.answer);
-              const state = limitState(count, item.charLimit);
-              const left = remainingChars(count, item.charLimit);
-              return (
-                <section key={i} id={`cl-card-${i}`} className="card" aria-label={`문항 ${i + 1}`}>
-                  <div className="cl-q-h">
-                    <span className="cl-q-no">문항 {i + 1}</span>
-                    <button
-                      type="button"
-                      className="icon-btn cl-q-del"
-                      aria-label={`문항 ${i + 1} 지우기`}
-                      onClick={() => setRemoving(i)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  <label className="cl-f" htmlFor={`cl-q-${i}`}>
-                    문항
-                  </label>
-                  <textarea
-                    id={`cl-q-${i}`}
-                    className="textarea cl-q"
-                    placeholder="지원서의 문항을 그대로 붙여 넣으세요"
-                    value={item.question}
-                    onChange={(e) => setItem(i, { question: e.target.value })}
-                  />
-                  <label className="cl-f" htmlFor={`cl-l-${i}`}>
-                    글자 수 제한 (공백 포함)
-                  </label>
-                  <div className="cl-limit">
-                    <input
-                      id={`cl-l-${i}`}
-                      type="number"
-                      min={1}
-                      step={1}
-                      className="input"
-                      placeholder="없음"
-                      value={item.charLimit ?? ""}
-                      onChange={(e) => setItem(i, { charLimit: parseLimit(e.target.value) })}
-                    />
-                    <span className="hint">자 · 비우면 제한 없음</span>
-                  </div>
-                  <label className="cl-f" htmlFor={`cl-a-${i}`}>
-                    답변
-                  </label>
-                  <textarea
-                    id={`cl-a-${i}`}
-                    className="textarea cl-a"
-                    placeholder="답변을 쓰세요"
-                    value={item.answer}
-                    onChange={(e) => setItem(i, { answer: e.target.value })}
-                  />
-                  <div className={`cl-counter ${state}`} aria-label={`문항 ${i + 1} 글자 수`}>
-                    <span className="cl-main mono">
-                      {formatCount(count)}
-                      {item.charLimit !== null && ` / ${formatCount(item.charLimit)}`}자
-                    </span>
-                    <span>공백 제외 {formatCount(countCharsNoSpace(item.answer))}자</span>
-                    {left !== null && (
-                      <span className="cl-msg">{left < 0 ? `${formatCount(-left)}자 초과` : `${formatCount(left)}자 남음`}</span>
+            {!editing &&
+              items.map((item, i) => {
+                const count = countChars(item.answer);
+                const state = limitState(count, item.charLimit);
+                const left = remainingChars(count, item.charLimit);
+                return (
+                  <section key={i} id={`cl-card-${i}`} className="card" aria-label={`문항 ${i + 1}`}>
+                    <div className="cl-q-h">
+                      <span className="cl-q-no">문항 {i + 1}</span>
+                    </div>
+                    <p className={`cl-read cl-read-q${item.question ? "" : " empty"}`}>
+                      {item.question || "문항을 적지 않았어요"}
+                    </p>
+                    {item.appeal.trim() !== "" && (
+                      <div className="cl-appeal" aria-label={`문항 ${i + 1} 어필포인트`}>
+                        <div className="cl-f">어필포인트</div>
+                        <p className="cl-read">{item.appeal}</p>
+                      </div>
                     )}
-                  </div>
-                  <div className={`cl-meter ${state}`} aria-hidden="true">
-                    <i style={{ width: `${meterPercent(count, item.charLimit)}%` }} />
-                  </div>
-                </section>
-              );
-            })}
+                    <div className="cl-f">답변</div>
+                    <p className={`cl-read${item.answer ? "" : " empty"}`}>
+                      {item.answer || "아직 답변을 쓰지 않았어요"}
+                    </p>
+                    <div className={`cl-counter ${state}`} aria-label={`문항 ${i + 1} 글자 수`}>
+                      <span className="cl-main mono">
+                        {formatCount(count)}
+                        {item.charLimit !== null && ` / ${formatCount(item.charLimit)}`}자
+                      </span>
+                      <span>공백 제외 {formatCount(countCharsNoSpace(item.answer))}자</span>
+                      {left !== null && (
+                        <span className="cl-msg">
+                          {left < 0 ? `${formatCount(-left)}자 초과` : `${formatCount(left)}자 남음`}
+                        </span>
+                      )}
+                    </div>
+                    <div className={`cl-meter ${state}`} aria-hidden="true">
+                      <i
+                        style={{
+                          width: `${meterPercent(count, item.charLimit)}%`,
+                        }}
+                      />
+                    </div>
+                  </section>
+                );
+              })}
+            {editing &&
+              items.map((item, i) => {
+                const count = countChars(item.answer);
+                const state = limitState(count, item.charLimit);
+                const left = remainingChars(count, item.charLimit);
+                return (
+                  <section key={i} id={`cl-card-${i}`} className="card" aria-label={`문항 ${i + 1}`}>
+                    <div className="cl-q-h">
+                      <span className="cl-q-no">문항 {i + 1}</span>
+                      <button
+                        type="button"
+                        className="icon-btn cl-q-del"
+                        aria-label={`문항 ${i + 1} 지우기`}
+                        onClick={() => setRemoving(i)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <label className="cl-f" htmlFor={`cl-q-${i}`}>
+                      문항
+                    </label>
+                    <textarea
+                      id={`cl-q-${i}`}
+                      className="textarea cl-q"
+                      placeholder="지원서의 문항을 그대로 붙여 넣으세요"
+                      value={item.question}
+                      onChange={(e) => setItem(i, { question: e.target.value })}
+                    />
+                    <label className="cl-f" htmlFor={`cl-l-${i}`}>
+                      글자 수 제한 (공백 포함)
+                    </label>
+                    <div className="cl-limit">
+                      <input
+                        id={`cl-l-${i}`}
+                        type="number"
+                        min={1}
+                        step={1}
+                        className="input"
+                        placeholder="없음"
+                        value={item.charLimit ?? ""}
+                        onChange={(e) => setItem(i, { charLimit: parseLimit(e.target.value) })}
+                      />
+                      <span className="hint">자 · 비우면 제한 없음</span>
+                    </div>
+                    <label className="cl-f" htmlFor={`cl-p-${i}`}>
+                      어필포인트
+                    </label>
+                    <textarea
+                      id={`cl-p-${i}`}
+                      className="textarea cl-p"
+                      placeholder="이 문항에서 무엇을 어필하고 어떻게 쓸지 메모하세요"
+                      value={item.appeal}
+                      onChange={(e) => setItem(i, { appeal: e.target.value })}
+                    />
+                    <label className="cl-f" htmlFor={`cl-a-${i}`}>
+                      답변
+                    </label>
+                    <textarea
+                      id={`cl-a-${i}`}
+                      className="textarea cl-a"
+                      placeholder="답변을 쓰세요"
+                      value={item.answer}
+                      onChange={(e) => setItem(i, { answer: e.target.value })}
+                    />
+                    <div className={`cl-counter ${state}`} aria-label={`문항 ${i + 1} 글자 수`}>
+                      <span className="cl-main mono">
+                        {formatCount(count)}
+                        {item.charLimit !== null && ` / ${formatCount(item.charLimit)}`}자
+                      </span>
+                      <span>공백 제외 {formatCount(countCharsNoSpace(item.answer))}자</span>
+                      {left !== null && (
+                        <span className="cl-msg">
+                          {left < 0 ? `${formatCount(-left)}자 초과` : `${formatCount(left)}자 남음`}
+                        </span>
+                      )}
+                    </div>
+                    <div className={`cl-meter ${state}`} aria-hidden="true">
+                      <i
+                        style={{
+                          width: `${meterPercent(count, item.charLimit)}%`,
+                        }}
+                      />
+                    </div>
+                  </section>
+                );
+              })}
           </div>
-          <div className="cl-add">
-            <button
-              type="button"
-              className="btn"
-              disabled={full}
-              onClick={() => {
-                focusAfter.current = items.length;
-                change([...items, emptyItem()]);
-              }}
-            >
-              + 문항 추가
-            </button>
-            {full && <span className="hint">문항은 최대 {COVER_LETTER_MAX_ITEMS}개까지예요.</span>}
-          </div>
+          {editing && (
+            <div className="cl-add">
+              <button
+                type="button"
+                className="btn"
+                disabled={full}
+                onClick={() => {
+                  focusAfter.current = items.length;
+                  change([...items, emptyItem()]);
+                }}
+              >
+                + 문항 추가
+              </button>
+              {full && <span className="hint">문항은 최대 {COVER_LETTER_MAX_ITEMS}개까지예요.</span>}
+            </div>
+          )}
         </div>
       </div>
 

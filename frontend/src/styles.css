@@ -674,6 +674,11 @@ td.mono { white-space: nowrap; }
 .cl-f { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 4px; font-weight: 500; }
 .cl-q { min-height: 64px; }
 .cl-a { min-height: 220px; }
+.cl-p { min-height: 72px; background: var(--bg); }
+.cl-read { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.7; }
+.cl-read.empty { color: var(--muted); }
+.cl-read-q { font-weight: 600; }
+.cl-appeal { background: var(--bg); border-radius: 8px; padding: 2px 12px 10px; margin-top: 10px; }
 .cl-limit { display: flex; align-items: center; gap: 8px; }
 .cl-limit .input { width: 110px; }
 .cl-counter { display: flex; align-items: baseline; gap: 12px; margin-top: 6px; font-size: 13px; color: var(--muted); }

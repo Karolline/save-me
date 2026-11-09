@@ -74,4 +74,4 @@ export function parseLimit(text: string): number | null {
 /** 숫자에 천 단위 쉼표. */
 export const formatCount = (n: number): string => n.toLocaleString("ko-KR");
 
-export const emptyItem = (): CoverLetterItem => ({ question: "", charLimit: null, answer: "" });
+export const emptyItem = (): CoverLetterItem => ({ question: "", charLimit: null, answer: "", appeal: "" });

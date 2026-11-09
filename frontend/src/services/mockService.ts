@@ -1582,7 +1582,7 @@ export function createMockService(options: MockOptions = {}): MockService {
         }
         const g = documentGroup(groupId);
         const d = savedDocument(groupId, "coverletter");
-        g.coverItems = items.map((i) => ({ question: i.question, charLimit: i.charLimit, answer: i.answer }));
+        g.coverItems = items.map((i) => ({ question: i.question, charLimit: i.charLimit, answer: i.answer, appeal: i.appeal ?? "" }));
         d.updatedAt = now();
         return coverLetterOf(g, d);
       }),

@@ -1,9 +1,10 @@
+import { useState } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ServiceContext, type CoverLetterItem } from "@/services";
 import { createMockService, MOCK_USER, type MockService } from "@/services/mockService";
-import { CoverLetterScreen } from "./CoverLetterScreen";
+import { CoverLetterScreen, type CoverLetterMode } from "./CoverLetterScreen";
 import { AUTOSAVE_MS } from "./DocumentScreen";
 import { DocumentGroupScreen } from "./DocumentGroupScreen";
 import { ToastProvider } from "./feedback";
@@ -12,26 +13,65 @@ import { SessionContext } from "./session";
 vi.setConfig({ testTimeout: 30_000 });
 afterEach(() => vi.restoreAllMocks());
 
-const item = (question = "", answer = "", charLimit: number | null = null): CoverLetterItem => ({ question, charLimit, answer });
+const item = (question = "", answer = "", charLimit: number | null = null): CoverLetterItem => ({
+  question,
+  charLimit,
+  answer,
+  appeal: "",
+});
 
 /** 이력서와 자소서가 있는 묶음 하나 (id 1). */
 async function makeService(items: CoverLetterItem[] = []) {
   const service = createMockService();
-  const group = await service.createDocumentGroup({ company: "가나다상사", writtenOn: "2026-10-14", jobAnalysisId: null });
+  const group = await service.createDocumentGroup({
+    company: "가나다상사",
+    writtenOn: "2026-10-14",
+    jobAnalysisId: null,
+  });
   await service.createDocument(group.id, "resume", "# 이력서");
   await service.createDocument(group.id, "coverletter", "");
   if (items.length) await service.saveCoverLetter(group.id, items);
   return { service, group };
 }
 
-function open(service: MockService, groupId: number, props: Partial<React.ComponentProps<typeof CoverLetterScreen>> = {}) {
+/** 경로의 search 대신 화면 안 상태로 모드를 들고 있는 껍데기 (기본은 편집: 옛 테스트는 편집 화면을 본다). */
+function Harness({
+  initial,
+  onMode,
+  ...props
+}: React.ComponentProps<typeof CoverLetterScreen> & {
+  initial: CoverLetterMode;
+  onMode?: (m: CoverLetterMode) => void;
+}) {
+  const [mode, setMode] = useState<CoverLetterMode>(initial);
+  return (
+    <CoverLetterScreen
+      {...props}
+      mode={mode}
+      onModeChange={(next) => {
+        onMode?.(next);
+        setMode(next);
+      }}
+    />
+  );
+}
+
+function open(
+  service: MockService,
+  groupId: number,
+  props: Partial<React.ComponentProps<typeof CoverLetterScreen>> & {
+    initial?: CoverLetterMode;
+    onMode?: (m: CoverLetterMode) => void;
+  } = {},
+) {
+  const { initial = "edit", ...rest } = props;
   const handlers = { onBack: vi.fn(), onOpenDocument: vi.fn(), onDeleted: vi.fn(), onHome: vi.fn() };
   const user = userEvent.setup();
   render(
     <ServiceContext.Provider value={service}>
       <ToastProvider>
         <SessionContext.Provider value={{ user: MOCK_USER, expire: vi.fn() }}>
-          <CoverLetterScreen groupId={groupId} {...handlers} {...props} />
+          <Harness groupId={groupId} initial={initial} {...handlers} {...rest} />
         </SessionContext.Provider>
       </ToastProvider>
     </ServiceContext.Provider>,
@@ -72,7 +112,9 @@ describe("CoverLetterScreen", () => {
   it("updates the counts as you type: with spaces, without, remaining, then yellow near the limit and red over it", async () => {
     const { service, group } = await makeService([item("q", "", 10)]);
     const { user } = open(service, group.id);
-    const answer = await within(await screen.findByRole("region", { name: "문항 1" })).findByPlaceholderText("답변을 쓰세요");
+    const answer = await within(await screen.findByRole("region", { name: "문항 1" })).findByPlaceholderText(
+      "답변을 쓰세요",
+    );
     const counter = () => screen.getByLabelText("문항 1 글자 수");
 
     await user.type(answer, "가 나");
@@ -191,7 +233,9 @@ describe("CoverLetterScreen", () => {
     await waitFor(() => expect(save).toHaveBeenCalledTimes(1), { timeout: AUTOSAVE_MS + 3000 });
 
     expect(save).toHaveBeenCalledWith(group.id, [item("문항")]);
-    await waitFor(() => expect(screen.getByRole("status", { name: "저장 상태" })).toHaveTextContent(/자동 저장됨 · \d{4}-\d{2}-\d{2}/));
+    await waitFor(() =>
+      expect(screen.getByRole("status", { name: "저장 상태" })).toHaveTextContent(/자동 저장됨 · \d{4}-\d{2}-\d{2}/),
+    );
     expect((await service.getCoverLetter(group.id))!.items).toEqual([item("문항")]);
   });
 
@@ -248,10 +292,159 @@ describe("CoverLetterScreen", () => {
     await screen.findByRole("region", { name: "문항 1" });
     const tabs = screen.getByRole("group", { name: "서류" });
 
-    expect(within(tabs).getAllByRole("button").map((b) => b.textContent)).toEqual(["이력서", "자소서"]);
+    expect(
+      within(tabs)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["이력서", "자소서"]);
     expect(within(tabs).getByRole("button", { name: "자소서" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByText(/PDF/)).not.toBeInTheDocument();
     expect(screen.queryByText(/리뷰/)).not.toBeInTheDocument();
+  });
+
+  describe("view and edit", () => {
+    const withAppeal = (question: string, answer: string, appeal: string, charLimit: number | null = null) => ({
+      ...item(question, answer, charLimit),
+      appeal,
+    });
+    const QUESTION = "지원서의 문항을 그대로 붙여 넣으세요";
+    const APPEAL = "이 문항에서 무엇을 어필하고 어떻게 쓸지 메모하세요";
+    const answerBox = async () =>
+      within(await screen.findByRole("region", { name: "문항 1" })).findByPlaceholderText("답변을 쓰세요");
+
+    it("opens a cover letter with questions in view mode: no inputs, an [편집] button, no save status", async () => {
+      const { service, group } = await makeService([withAppeal("지원 동기", "가나다\n라마", "", 10)]);
+      open(service, group.id, { initial: "view" });
+
+      const first = await screen.findByRole("region", { name: "문항 1" });
+      expect(within(first).getByText("지원 동기")).toBeInTheDocument();
+      expect(within(first).getByText(/가나다/)).toBeInTheDocument();
+      expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "편집" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "완료" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("status", { name: "저장 상태" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "자소서 지우기" })).toBeInTheDocument();
+      // 글자 수 줄은 편집 화면과 같다.
+      expect(screen.getByLabelText("문항 1 글자 수")).toHaveTextContent("6 / 10자");
+    });
+
+    it("shows the appeal area only when there is a memo, and hints for blank question and answer", async () => {
+      const { service, group } = await makeService([
+        withAppeal("문항 하나", "", "성과 먼저"),
+        withAppeal("", "답", ""),
+      ]);
+      open(service, group.id, { initial: "view" });
+
+      await screen.findByRole("region", { name: "문항 1" });
+      expect(within(card(1)).getByText("어필포인트")).toBeInTheDocument();
+      expect(within(card(1)).getByText("성과 먼저")).toBeInTheDocument();
+      expect(within(card(1)).getByText("아직 답변을 쓰지 않았어요")).toBeInTheDocument();
+      expect(within(card(2)).queryByText("어필포인트")).not.toBeInTheDocument();
+      expect(within(card(2)).getByText("문항을 적지 않았어요")).toBeInTheDocument();
+    });
+
+    it("[편집] switches to the edit screen with a [완료] button", async () => {
+      const { service, group } = await makeService([item("q", "a")]);
+      const { user } = open(service, group.id, { initial: "view" });
+
+      await user.click(await screen.findByRole("button", { name: "편집" }));
+
+      expect(within(card(1)).getByPlaceholderText(QUESTION)).toHaveValue("q");
+      expect(screen.getByRole("button", { name: "완료" })).toBeInTheDocument();
+      expect(screen.getByRole("status", { name: "저장 상태" })).toBeInTheDocument();
+    });
+
+    it("[완료] saves what is pending, then goes back to view", async () => {
+      const { service, group } = await makeService([item("q", "a")]);
+      const { user } = open(service, group.id, { initial: "edit" });
+      await user.type(await answerBox(), "bc");
+
+      await user.click(screen.getByRole("button", { name: "완료" }));
+
+      expect(await screen.findByRole("button", { name: "편집" })).toBeInTheDocument();
+      expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+      expect((await service.getCoverLetter(group.id))!.items).toEqual([item("q", "abc")]);
+    });
+
+    it("[완료] stays in edit and says so when the save fails", async () => {
+      const { service, group } = await makeService([item("q")]);
+      const { user } = open(service, group.id, { initial: "edit" });
+      await user.type(await answerBox(), "x");
+      vi.spyOn(service, "saveCoverLetter").mockRejectedValue(new Error("down"));
+
+      await user.click(screen.getByRole("button", { name: "완료" }));
+
+      expect(await screen.findByText("저장하지 못해서 이동하지 않았어요. 다시 시도해 주세요.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "완료" })).toBeInTheDocument();
+    });
+
+    it("opens an empty cover letter in edit, and stays in edit when [완료] leaves every question blank", async () => {
+      const { service, group } = await makeService();
+      const onMode = vi.fn();
+      const { user } = open(service, group.id, { initial: "view", onMode });
+
+      expect(await screen.findByRole("button", { name: "완료" })).toBeInTheDocument();
+      expect(onMode).toHaveBeenCalledWith("edit");
+      expect(within(card(1)).getByPlaceholderText(QUESTION)).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "완료" }));
+      await waitFor(() => expect(screen.getByRole("status", { name: "저장 상태" })).toHaveTextContent(/자동 저장됨/));
+      expect(screen.getByRole("button", { name: "완료" })).toBeInTheDocument();
+      expect(onMode).toHaveBeenCalledTimes(1);
+    });
+
+    it("clicking a sidebar item in view scrolls to its card", async () => {
+      const { service, group } = await makeService([item("첫째", "a"), item("둘째", "b")]);
+      const { user } = open(service, group.id, { initial: "view" });
+      const scroll = vi.fn();
+      Element.prototype.scrollIntoView = scroll;
+      await screen.findByRole("region", { name: "문항 2" });
+
+      await user.click(screen.getByRole("button", { name: /2\. 둘째/ }));
+
+      expect(scroll).toHaveBeenCalled();
+      expect(scroll.mock.contexts.at(-1)).toBe(document.getElementById("cl-card-1"));
+    });
+
+    it("puts the appeal field between the limit and the answer, and saves it", async () => {
+      const { service, group } = await makeService([item("q")]);
+      const save = vi.spyOn(service, "saveCoverLetter");
+      const { user } = open(service, group.id);
+      await screen.findByRole("region", { name: "문항 1" });
+
+      const kinds = within(card(1))
+        .getAllByRole("textbox")
+        .map((b) => ["cl-q", "cl-p", "cl-a"].find((c) => b.classList.contains(c)));
+      expect(kinds).toEqual(["cl-q", "cl-p", "cl-a"]);
+      const appeal = within(card(1)).getByPlaceholderText(APPEAL);
+      expect(appeal).toHaveAccessibleName("어필포인트");
+
+      await user.type(appeal, "수치로");
+      await waitFor(() => expect(save).toHaveBeenCalled(), { timeout: AUTOSAVE_MS + 3000 });
+      expect(save).toHaveBeenLastCalledWith(group.id, [{ ...item("q"), appeal: "수치로" }]);
+    });
+
+    it("does not count the appeal in the counts or the total", async () => {
+      const { service, group } = await makeService([withAppeal("q", "가나", "아주 긴 어필포인트 메모입니다", 10)]);
+      open(service, group.id);
+      await screen.findByRole("region", { name: "문항 1" });
+
+      expect(screen.getByLabelText("문항 1 글자 수")).toHaveTextContent("2 / 10자");
+      expect(screen.getByLabelText("합계")).toHaveTextContent("합계 2자");
+    });
+
+    it("saves a question that has only an appeal (it is not blank)", async () => {
+      const { service, group } = await makeService();
+      const save = vi.spyOn(service, "saveCoverLetter");
+      const { user } = open(service, group.id);
+      await user.type(
+        await within(await screen.findByRole("region", { name: "문항 1" })).findByPlaceholderText(APPEAL),
+        "메모만",
+      );
+
+      await waitFor(() => expect(save).toHaveBeenCalled(), { timeout: AUTOSAVE_MS + 3000 });
+      expect(save).toHaveBeenLastCalledWith(group.id, [{ ...item(), appeal: "메모만" }]);
+    });
   });
 
   it("deletes the cover letter after a confirmation", async () => {
@@ -260,7 +453,9 @@ describe("CoverLetterScreen", () => {
     await screen.findByRole("region", { name: "문항 1" });
 
     await user.click(screen.getByRole("button", { name: "자소서 지우기" }));
-    await user.click(within(screen.getByRole("alertdialog", { name: "자소서를 지울까요?" })).getByRole("button", { name: "지우기" }));
+    await user.click(
+      within(screen.getByRole("alertdialog", { name: "자소서를 지울까요?" })).getByRole("button", { name: "지우기" }),
+    );
 
     await waitFor(() => expect(handlers.onDeleted).toHaveBeenCalled());
     expect(await service.getCoverLetter(group.id)).toBeNull();
@@ -278,7 +473,13 @@ describe("CoverLetterScreen", () => {
 describe("DocumentGroupScreen: cover letter slot", () => {
   async function openGroup(items: CoverLetterItem[]) {
     const { service, group } = await makeService(items);
-    const handlers = { onBack: vi.fn(), onOpenDocument: vi.fn(), onOpenJob: vi.fn(), onDeleted: vi.fn(), onHome: vi.fn() };
+    const handlers = {
+      onBack: vi.fn(),
+      onOpenDocument: vi.fn(),
+      onOpenJob: vi.fn(),
+      onDeleted: vi.fn(),
+      onHome: vi.fn(),
+    };
     const user = userEvent.setup();
     render(
       <ServiceContext.Provider value={service}>
@@ -315,7 +516,11 @@ describe("DocumentGroupScreen: cover letter slot", () => {
 
   it("offers [만들기] for a missing cover letter and opens it", async () => {
     const service = createMockService();
-    const group = await service.createDocumentGroup({ company: "가나다상사", writtenOn: "2026-10-14", jobAnalysisId: null });
+    const group = await service.createDocumentGroup({
+      company: "가나다상사",
+      writtenOn: "2026-10-14",
+      jobAnalysisId: null,
+    });
     const onOpenDocument = vi.fn();
     const user = userEvent.setup();
     render(
@@ -347,6 +552,10 @@ describe("DocumentGroupScreen: cover letter slot", () => {
     await user.click(screen.getByRole("button", { name: "리뷰 적기" }));
 
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getAllByRole("option").map((o) => o.textContent)).not.toContain("자소서");
+    expect(
+      within(dialog)
+        .getAllByRole("option")
+        .map((o) => o.textContent),
+    ).not.toContain("자소서");
   });
 });

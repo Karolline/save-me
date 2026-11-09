@@ -5,7 +5,12 @@ import { createMockService } from "./mockService";
 import type { CoverLetterItem, DocumentReviewInput } from "./types";
 
 const GROUP = { company: "가나다상사", writtenOn: "2026-10-14", jobAnalysisId: null };
-const item = (question = "", answer = "", charLimit: number | null = null): CoverLetterItem => ({ question, charLimit, answer });
+const item = (question = "", answer = "", charLimit: number | null = null): CoverLetterItem => ({
+  question,
+  charLimit,
+  answer,
+  appeal: "",
+});
 
 async function setup() {
   const service = createMockService();
@@ -33,7 +38,32 @@ describe("mock service: cover letter", () => {
     expect(await service.getCoverLetter(group.id)).toBeNull();
     expect(await service.getCoverLetter(999)).toBeNull();
     await expect(service.saveCoverLetter(group.id, [])).rejects.toSatisfy(isNotFound);
-    await expect(service.saveCoverLetter(999, Array.from({ length: 6 }, () => item()))).rejects.toMatchObject({ status: 422 });
+    await expect(
+      service.saveCoverLetter(
+        999,
+        Array.from({ length: 6 }, () => item()),
+      ),
+    ).rejects.toMatchObject({ status: 422 });
+  });
+
+  it("keeps the appeal memo, and treats a missing appeal from an old client as empty", async () => {
+    const { service, group } = await setup();
+    await service.createDocument(group.id, "coverletter", "");
+
+    const saved = await service.saveCoverLetter(group.id, [{ ...item("가", "답"), appeal: "수치를 앞에" }]);
+    expect(saved.items[0].appeal).toBe("수치를 앞에");
+    expect((await service.getCoverLetter(group.id))!.items[0].appeal).toBe("수치를 앞에");
+
+    const old = { question: "나", charLimit: null, answer: "" } as unknown as CoverLetterItem;
+    expect((await service.saveCoverLetter(group.id, [old])).items[0].appeal).toBe("");
+  });
+
+  it("does not count the appeal in the slot totals", async () => {
+    const { service, group } = await setup();
+    await service.createDocument(group.id, "coverletter", "");
+    await service.saveCoverLetter(group.id, [{ ...item("가", "답"), appeal: "아주 긴 어필 메모" }]);
+    const slot = (await service.getDocumentGroup(group.id))!.documents.find((d) => d.type === "coverletter")!;
+    expect(slot.totalChars).toBe(1);
   });
 
   it("saves the whole list and reads it back in order, with a null limit kept", async () => {
@@ -54,11 +84,19 @@ describe("mock service: cover letter", () => {
     const { service, group } = await setup();
     await service.createDocument(group.id, "coverletter", "");
 
-    await expect(service.saveCoverLetter(group.id, Array.from({ length: 6 }, () => item()))).rejects.toMatchObject({ status: 422 });
+    await expect(
+      service.saveCoverLetter(
+        group.id,
+        Array.from({ length: 6 }, () => item()),
+      ),
+    ).rejects.toMatchObject({ status: 422 });
     await expect(service.saveCoverLetter(group.id, [item("", "", 0)])).rejects.toMatchObject({ status: 422 });
     await expect(service.saveCoverLetter(group.id, [item("", "", 100001)])).rejects.toMatchObject({ status: 422 });
     await expect(service.saveCoverLetter(group.id, [item("", "", -1)])).rejects.toMatchObject({ status: 422 });
-    await service.saveCoverLetter(group.id, Array.from({ length: 5 }, () => item()));
+    await service.saveCoverLetter(
+      group.id,
+      Array.from({ length: 5 }, () => item()),
+    );
   });
 
   it("refuses saving a body for it (422)", async () => {
@@ -77,7 +115,11 @@ describe("mock service: cover letter", () => {
     expect(slots[1]).toMatchObject({ itemCount: 0, totalChars: 0, overLimitCount: 0 });
     expect(slots[0]).toMatchObject({ itemCount: null, totalChars: null, overLimitCount: null });
 
-    await service.saveCoverLetter(group.id, [item("a", "가나다😀\r\n", 4), item("b", "x".repeat(10)), item("c", "abc", 3)]);
+    await service.saveCoverLetter(group.id, [
+      item("a", "가나다😀\r\n", 4),
+      item("b", "x".repeat(10)),
+      item("c", "abc", 3),
+    ]);
     slots = (await service.getDocumentGroup(group.id))!.documents;
     expect(slots[1]).toMatchObject({ itemCount: 3, totalChars: 18, overLimitCount: 1 });
   });
@@ -112,7 +154,9 @@ describe("mock service: cover letter", () => {
     await expect(
       service.saveDocumentReview(
         group.id,
-        review({ fixes: [{ label: "a", headline: "b", details: [], jumpType: "coverletter" as never, jumpFind: "x" }] }),
+        review({
+          fixes: [{ label: "a", headline: "b", details: [], jumpType: "coverletter" as never, jumpFind: "x" }],
+        }),
       ),
     ).rejects.toMatchObject({ status: 422 });
   });
@@ -120,15 +164,16 @@ describe("mock service: cover letter", () => {
 
 describe("http service: cover letter", () => {
   function stub(status = 200, body: unknown = {}) {
-    return vi.fn(async (_url: string | URL | Request, _init?: RequestInit) =>
-      new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }),
+    return vi.fn(
+      async (_url: string | URL | Request, _init?: RequestInit) =>
+        new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } }),
     );
   }
 
   it("calls GET and PUT /document-groups/:id/cover-letter with the items", async () => {
     const fetch = stub(200, { updatedAt: "2026-10-25T00:00:00Z", source: "written", items: [] });
     const service = createHttpService("/api", fetch);
-    const items = [item("가", "나", 10)];
+    const items = [{ ...item("가", "나", 10), appeal: "메모" }];
 
     await service.getCoverLetter(3);
     await service.saveCoverLetter(3, items);
@@ -143,6 +188,8 @@ describe("http service: cover letter", () => {
 
   it("treats 404 on a read as null and throws on a refused save", async () => {
     expect(await createHttpService("/api", stub(404, { detail: "no" })).getCoverLetter(1)).toBeNull();
-    await expect(createHttpService("/api", stub(422, { detail: "bad" })).saveCoverLetter(1, [])).rejects.toMatchObject({ status: 422 });
+    await expect(createHttpService("/api", stub(422, { detail: "bad" })).saveCoverLetter(1, [])).rejects.toMatchObject({
+      status: 422,
+    });
   });
 });

@@ -676,11 +676,13 @@ const asDocumentType = (value: string): DocumentType | null =>
 const documentRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/documents/$groupId/$type",
-  validateSearch: (search: Record<string, unknown>): { find?: string } =>
-    typeof search.find === "string" && search.find ? { find: search.find } : {},
+  validateSearch: (search: Record<string, unknown>): { find?: string; mode?: "edit" } => ({
+    ...(typeof search.find === "string" && search.find ? { find: search.find } : {}),
+    ...(search.mode === "edit" ? { mode: "edit" as const } : {}),
+  }),
   component: function DocumentPage() {
     const { groupId, type } = documentRoute.useParams();
-    const { find } = documentRoute.useSearch();
+    const { find, mode } = documentRoute.useSearch();
     const navigate = useNavigate();
     const documentType = asDocumentType(type);
     if (!documentType) return <NotFoundScreen onHome={() => navigate({ to: "/applications" })} />;
@@ -690,6 +692,15 @@ const documentRoute = createRoute({
         <CoverLetterScreen
           key={`${groupId}/${type}`}
           groupId={toId(groupId)}
+          mode={mode === "edit" ? "edit" : "view"}
+          onModeChange={(next) =>
+            navigate({
+              to: "/documents/$groupId/$type",
+              params: { groupId, type },
+              search: next === "edit" ? { mode: "edit" } : {},
+              replace: true,
+            })
+          }
           onBack={() => navigate({ to: "/documents/$groupId", params: { groupId } })}
           onOpenDocument={(next) => navigate({ to: "/documents/$groupId/$type", params: { groupId, type: next }, search: {} })}
           onDeleted={() => navigate({ to: "/documents/$groupId", params: { groupId } })}

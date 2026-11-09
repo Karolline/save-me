@@ -815,6 +815,8 @@ export interface CoverLetterItem {
   question: string;
   charLimit: number | null;
   answer: string;
+  /** 어필포인트: 이 문항에서 무엇을 어필하고 어떻게 쓸지 메모. 글자 수·합계에 세지 않는다. */
+  appeal: string;
 }
 
 /** 자소서: 문항 목록 통째 (위치는 배열 순서). */
