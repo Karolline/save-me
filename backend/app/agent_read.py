@@ -1,4 +1,4 @@
-"""에이전트용 조회 명령: 사용자의 경험·이력·인성답변·면접후기·공고분석·지원서류를 마크다운으로 보여 준다.
+"""에이전트용 조회 명령: 사용자의 경험·이력·인성답변·면접후기·빈출질문·공고분석·지원서류를 마크다운으로 보여 준다.
 
 조회 전용이다. DB에 쓰지 않는다 (사용자가 없으면 만들지도 않고, 마이그레이션도 하지 않고,
 끝에 트랜잭션을 되돌린다). 대상은 로컬 사용자(`dev_user`)뿐이고 user_id를 인자로 받지 않는다.
@@ -21,6 +21,7 @@
     uv run python -m app.agent_read reviews [--include-reference]
     uv run python -m app.agent_read jobs
     uv run python -m app.agent_read job ID [--reader]
+    uv run python -m app.agent_read questions
     uv run python -m app.agent_read documents
     uv run python -m app.agent_read document ID [resume|career|portfolio|coverletter]
 
@@ -60,6 +61,7 @@ USAGE = """\
   reviews [--include-reference]            면접 후기 (내 답, 다시 답한다면, 메모)
   jobs                                     기존 공고분석 목록
   job ID [--reader]                        공고분석 한 건 전체 (--reader: 공고 원문과 회사 동향만, 면접관 시점)
+  questions                                빈출질문 (유형, 질문 예시, 답하는 방법, 좋은 답 예시, 피할 것. 사용자가 정한 순서)
   documents                                지원서류 묶음 목록 (회사, 작성날짜, 있는 서류)
   document ID [TYPE]                       묶음 한 건의 서류 글 (TYPE: resume, career, portfolio, coverletter. 없으면 전부)
 
@@ -98,6 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
     job = add("job")
     job.add_argument("id", type=int)
     job.add_argument("--reader", action="store_true")
+    add("questions")
     add("documents")
     document = add("document")
     document.add_argument("id", type=int)
@@ -353,6 +356,29 @@ def render_personality(stores: Stores, user_id: int) -> str:
         out.append("")
     if out[-1] == "":
         out.pop()
+    return "\n".join(out) + "\n"
+
+
+# ── 빈출질문 ──
+
+
+def render_questions(stores: Stores, user_id: int) -> str:
+    questions = stores.questions.list(user_id)
+    out = ["# 빈출질문", ""]
+    if not questions:
+        out.append("적어 둔 빈출질문이 없어요.")
+        return "\n".join(out) + "\n"
+    out.append("사용자가 직접 적은 자주 나오는 면접 질문 유형과 답하는 방법이에요 (사용자가 정한 순서).")
+    for i, q in enumerate(questions, 1):
+        out += ["", f"## {i}. {q.kind} (id {q.id})", ""]
+        block = [
+            field("질문 예시", q.example),
+            field("답하는 방법", q.how_to),
+            field("좋은 답 예시", q.good_example),
+            field("피할 것", q.avoid),
+        ]
+        lines = [x for x in block if x]
+        out += lines or ["- (유형만 적혀 있음)"]
     return "\n".join(out) + "\n"
 
 
@@ -771,6 +797,8 @@ def run(args: argparse.Namespace, stores: Stores, user_id: int) -> tuple[str, in
         if job is None:
             return f"공고분석 id {args.id}은(는) 없어요. `jobs`로 목록을 보세요.\n", 1
         return render_job(job, args.reader), 0
+    if args.command == "questions":
+        return render_questions(stores, user_id), 0
     if args.command == "reviews":
         return render_reviews(stores, user_id, reference), 0
     if args.command == "documents":

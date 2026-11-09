@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import Settings, settings_from_env
 from app.frontend import mount_frontend
-from app.routers import applications, auth, documents, experience_groups, experiences, jobs, resume, reviews
+from app.routers import applications, auth, documents, experience_groups, experiences, jobs, questions, resume, reviews
 from app.stores import Stores
 
 API_PREFIX = "/api"
@@ -64,6 +64,7 @@ def create_app(
     app.include_router(experience_groups.router, prefix=API_PREFIX)
     app.include_router(resume.router, prefix=API_PREFIX)
     app.include_router(documents.router, prefix=API_PREFIX)
+    app.include_router(questions.router, prefix=API_PREFIX)
     if settings.pdf_enabled:  # 지금은 꺼 둔다 (docs/pdf.md)
         from app.routers import documents_pdf
 

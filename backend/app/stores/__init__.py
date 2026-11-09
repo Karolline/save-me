@@ -34,6 +34,7 @@ from app.stores.jobs import (
     SharedApplicationError,
 )
 from app.stores.resume import CARDS, Card, ListCard, ResumeImportAction, ResumeStore
+from app.stores.questions import QuestionStore
 from app.stores.reviews import ReviewStore
 from app.stores.users import DEV_IDENTITY, UserStore
 
@@ -61,6 +62,7 @@ __all__ = [
     "RelatedExperienceNotFoundError",
     "ResumeImportAction",
     "ResumeStore",
+    "QuestionStore",
     "ReviewDocumentMissingError",
     "ReviewNotFoundError",
     "ReviewStore",
@@ -82,6 +84,7 @@ class Stores:
     experiences: ExperienceStore
     resume: ResumeStore
     documents: DocumentStore
+    questions: QuestionStore
 
     @classmethod
     def create(cls, engine: Engine | Connection | None = None, clock: Clock = utc_now) -> "Stores":
@@ -94,4 +97,5 @@ class Stores:
             experiences=ExperienceStore(engine, clock),
             resume=ResumeStore(engine, clock),
             documents=DocumentStore(engine, clock),
+            questions=QuestionStore(engine, clock),
         )

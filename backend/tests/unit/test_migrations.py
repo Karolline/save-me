@@ -348,3 +348,31 @@ def test_upgrade_reads_database_url(head_url, monkeypatch):
     engine = make_engine(head_url)
     assert differences_from_models(engine) == []
     engine.dispose()
+
+
+def test_frequent_questions_migration_cascades_with_user(mig_url):
+    # 빈출질문 테이블은 그 앞 버전에서 올리면 생기고, 사용자를 지우면 같이 지워지고, 내리면 사라진다.
+    config = alembic_config(mig_url)
+    command.upgrade(config, "95daf954dc12")
+    engine = create_engine(normalize_url(mig_url))
+    assert "frequent_questions" not in table_names(engine)
+
+    command.upgrade(config, "head")
+    with engine.begin() as c:
+        c.execute(text("INSERT INTO users (id, nickname, status, created_at) VALUES (1, '나', 'active', '2026-10-01')"))
+        c.execute(
+            text(
+                "INSERT INTO frequent_questions (user_id, position, kind, created_at, updated_at)"
+                " VALUES (1, 0, '지원동기', '2026-10-01', '2026-10-01')"
+            )
+        )
+        row = c.execute(text("SELECT example, how_to, good_example, avoid FROM frequent_questions")).one()
+        assert tuple(row) == ("", "", "", "")
+        c.execute(text("DELETE FROM users WHERE id = 1"))
+        assert c.execute(text("SELECT COUNT(*) FROM frequent_questions")).scalar() == 0
+
+    command.downgrade(config, "95daf954dc12")
+    assert "frequent_questions" not in table_names(engine)
+    command.upgrade(config, "head")
+    assert differences_from_models(engine) == []
+    engine.dispose()

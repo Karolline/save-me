@@ -30,6 +30,7 @@ from app.models import (
     ResumeEducation,
     ResumeProject,
     ExpectedQuestion,
+    FrequentQuestionInput,
     HighlightItem,
     JobCondition,
     Requirement,
@@ -287,18 +288,42 @@ def test_reviews_with_reference_marks_ai_and_unconfirmed_columns(seeded, monkeyp
     assert "읽기가 많아서요" in out
 
 
+# ── 빈출질문 ──
+
+
+def test_questions_lists_every_field_in_the_users_order(seeded, monkeypatch, capsys):
+    url, _, stores, user_id, _ = seeded
+    assert "적어 둔 빈출질문이 없어요" in run(monkeypatch, capsys, url, "questions")
+
+    a = stores.questions.create(
+        user_id,
+        FrequentQuestionInput(kind="지원동기", example="왜 지원했나요?", how_to="회사 이야기로\n시작", good_example="좋은 답", avoid="막연한 칭찬"),
+    )
+    b = stores.questions.create(user_id, FrequentQuestionInput(kind="강점"))
+    stores.questions.reorder(user_id, [b.id, a.id])
+
+    out = run(monkeypatch, capsys, url, "questions")
+    assert out.index("## 1. 강점") < out.index("## 2. 지원동기")
+    assert "- 질문 예시: 왜 지원했나요?" in out
+    assert "- 답하는 방법:\n  회사 이야기로\n  시작" in out
+    assert "- 좋은 답 예시: 좋은 답" in out and "- 피할 것: 막연한 칭찬" in out
+    assert "(유형만 적혀 있음)" in out
+
+
 # ── 사용자 분리 ──
 
 
 def test_other_users_data_never_shows_up(seeded, other_user_id, monkeypatch, capsys):
     url, _, stores, _, data = seeded
     theirs = seed(stores, other_user_id, OTHER_MARK)
+    stores.questions.create(other_user_id, FrequentQuestionInput(kind=OTHER_MARK, how_to=OTHER_MARK))
 
     for argv in (
         ("experience-index", "--include-reference"),
         ("experience", str(data["first"].id), "--include-reference"),
         ("profile",),
         ("personality",),
+        ("questions",),
         ("reviews", "--include-reference"),
         ("jobs",),
     ):
@@ -319,6 +344,7 @@ def test_commands_do_not_change_the_database(seeded, monkeypatch, capsys):
         ("experience", "1"),
         ("profile",),
         ("personality",),
+        ("questions",),
         ("reviews", "--include-reference"),
         ("jobs",),
     ):

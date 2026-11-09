@@ -1251,3 +1251,37 @@ class Document(ApiModel):
 
 class ReviewDone(ApiModel):
     done: bool
+
+
+# ── 빈출질문 (이슈 #15) ─────────────────────────────────────────────────
+
+
+class FrequentQuestionInput(ApiModel):
+    """빈출질문 저장. 질문 유형만 필수."""
+
+    kind: str
+    example: str = ""
+    how_to: str = ""
+    good_example: str = ""
+    avoid: str = ""
+
+    @field_validator("kind")
+    @classmethod
+    def kind_required(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("kind is required")
+        return value
+
+
+class FrequentQuestion(FrequentQuestionInput):
+    id: int
+    position: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class FrequentQuestionOrder(ApiModel):
+    """새 순서: 이 사용자의 빈출질문 id를 전부, 원하는 순서로."""
+
+    ids: list[int]
