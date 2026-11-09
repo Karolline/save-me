@@ -23,6 +23,9 @@ import { JobEditScreen } from "@/components/JobEditScreen";
 import { JobsScreen } from "@/components/JobsScreen";
 import { JobViewScreen } from "@/components/JobViewScreen";
 import { ResumeScreen } from "@/components/ResumeScreen";
+import { QuestionEditScreen } from "@/components/QuestionEditScreen";
+import { QuestionsScreen } from "@/components/QuestionsScreen";
+import { QuestionViewScreen } from "@/components/QuestionViewScreen";
 import { ReviewEditScreen } from "@/components/ReviewEditScreen";
 import { ReviewsScreen } from "@/components/ReviewsScreen";
 import { ReviewViewScreen } from "@/components/ReviewViewScreen";
@@ -354,6 +357,74 @@ const editReviewRoute = createRoute({
         reviewId={toId(reviewId)}
         onSaved={(saved) => toView(String(saved))}
         onCancel={() => toView(reviewId)}
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
+// ── 빈출질문 (이슈 #15) ──
+
+const questionsRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/questions",
+  component: function QuestionsPage() {
+    const navigate = useNavigate();
+    return (
+      <QuestionsScreen
+        onOpen={(id) => navigate({ to: "/questions/$id", params: { id: String(id) } })}
+        onAdd={() => navigate({ to: "/questions/new" })}
+      />
+    );
+  },
+});
+
+const newQuestionRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/questions/new",
+  component: function NewQuestionPage() {
+    const navigate = useNavigate();
+    return (
+      <QuestionEditScreen
+        onSaved={(id) => navigate({ to: "/questions/$id", params: { id: String(id) } })}
+        onCancel={() => navigate({ to: "/questions" })}
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
+const questionRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/questions/$id",
+  component: function QuestionPage() {
+    const { id } = questionRoute.useParams();
+    const navigate = useNavigate();
+    return (
+      <QuestionViewScreen
+        key={id}
+        id={toId(id)}
+        onBack={() => navigate({ to: "/questions" })}
+        onEdit={() => navigate({ to: "/questions/$id/edit", params: { id } })}
+        onDeleted={() => navigate({ to: "/questions" })}
+        onHome={() => navigate({ to: "/applications" })}
+      />
+    );
+  },
+});
+
+const editQuestionRoute = createRoute({
+  getParentRoute: () => appRoute,
+  path: "/questions/$id/edit",
+  component: function EditQuestionPage() {
+    const { id } = editQuestionRoute.useParams();
+    const navigate = useNavigate();
+    return (
+      <QuestionEditScreen
+        key={id}
+        questionId={toId(id)}
+        onSaved={(saved) => navigate({ to: "/questions/$id", params: { id: String(saved) } })}
+        onCancel={() => navigate({ to: "/questions/$id", params: { id } })}
         onHome={() => navigate({ to: "/applications" })}
       />
     );
@@ -784,6 +855,10 @@ const routeTree = rootRoute.addChildren([
     newReviewRoute,
     reviewRoute,
     editReviewRoute,
+    questionsRoute,
+    newQuestionRoute,
+    questionRoute,
+    editQuestionRoute,
     jobsRoute,
     newJobRoute,
     jobRoute,

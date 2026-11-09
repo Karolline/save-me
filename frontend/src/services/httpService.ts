@@ -31,6 +31,8 @@ import type {
   Question,
   Resume,
   ResumeBasics,
+  FrequentQuestion,
+  FrequentQuestionInput,
   Review,
   ReviewInput,
   ReviewList,
@@ -101,6 +103,7 @@ export function createHttpService(
 
   const appPath = (id: number) => `/applications/${encodeURIComponent(String(id))}`;
   const reviewPath = (id: number) => `/reviews/${encodeURIComponent(String(id))}`;
+  const questionPath = (id: number) => `/questions/${encodeURIComponent(String(id))}`;
   const jobPath = (id: number) => `/jobs/${encodeURIComponent(String(id))}`;
   const experiencePath = (id: number) => `/experiences/${encodeURIComponent(String(id))}`;
   const groupPath = (id: number) => `/experience-groups/${encodeURIComponent(String(id))}`;
@@ -191,6 +194,32 @@ export function createHttpService(
 
     async deleteReview(id: number) {
       await empty(await request(reviewPath(id), send("DELETE")));
+    },
+
+    async listQuestions() {
+      return json<FrequentQuestion[]>(await request("/questions"));
+    },
+
+    async getQuestion(id: number) {
+      const response = await request(questionPath(id));
+      if (response.status === 404) return null;
+      return json<FrequentQuestion>(response);
+    },
+
+    async createQuestion(input: FrequentQuestionInput) {
+      return json<FrequentQuestion>(await request("/questions", send("POST", input)));
+    },
+
+    async updateQuestion(id: number, input: FrequentQuestionInput) {
+      return json<FrequentQuestion>(await request(questionPath(id), send("PUT", input)));
+    },
+
+    async deleteQuestion(id: number) {
+      await empty(await request(questionPath(id), send("DELETE")));
+    },
+
+    async reorderQuestions(ids: number[]) {
+      return json<FrequentQuestion[]>(await request("/questions/order", send("PUT", { ids })));
     },
 
     async listJobs(status: JobStatusFilter = "all") {

@@ -108,6 +108,34 @@ describe("httpService", () => {
     expect(await createHttpService("/api", stubFetch(404, { detail: "Review not found" })).getReview(9)).toBeNull();
   });
 
+  it("calls the frequent question endpoints, with the new order as JSON", async () => {
+    const fetch = stubFetch(200, []);
+    const service = createHttpService("/api", fetch);
+    const input = { kind: "지원동기", example: "", howTo: "", goodExample: "", avoid: "" };
+
+    await service.listQuestions();
+    await service.getQuestion(3);
+    await service.createQuestion(input);
+    await service.updateQuestion(3, input);
+    await service.reorderQuestions([2, 1]);
+
+    expect(fetch.mock.calls.map(([url, init]) => `${init?.method ?? "GET"} ${url}`)).toEqual([
+      "GET /api/questions",
+      "GET /api/questions/3",
+      "POST /api/questions",
+      "PUT /api/questions/3",
+      "PUT /api/questions/order",
+    ]);
+    expect(JSON.parse(String(fetch.mock.calls[2][1]?.body))).toEqual(input);
+    expect(JSON.parse(String(fetch.mock.calls[4][1]?.body))).toEqual({ ids: [2, 1] });
+    expect(fetch.mock.calls[4][1]?.headers).toMatchObject({ "X-Requested-With": "SaveMe" });
+
+    const gone = stubFetch(204);
+    await createHttpService("/api", gone).deleteQuestion(3);
+    expect(`${gone.mock.calls[0][1]?.method} ${gone.mock.calls[0][0]}`).toBe("DELETE /api/questions/3");
+    expect(await createHttpService("/api", stubFetch(404, { detail: "Question not found" })).getQuestion(9)).toBeNull();
+  });
+
   it("calls the job analysis endpoints", async () => {
     const fetch = stubFetch(200, { items: [], counts: {} });
     const service = createHttpService("/api", fetch);

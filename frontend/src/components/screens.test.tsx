@@ -306,7 +306,7 @@ describe("ApplicationDetailPanel", () => {
 });
 
 describe("Shell", () => {
-  it("lists every menu in order, with the unbuilt ones marked 준비 중", async () => {
+  it("lists every menu in order, all of them on", async () => {
     const onNavigate = vi.fn();
     const { user } = setup(
       <Shell pathname="/applications/3" user={MOCK_USER} onNavigate={onNavigate} onLogout={() => {}}>
@@ -318,12 +318,12 @@ describe("Shell", () => {
     const names = within(nav)
       .getAllByRole("button")
       .map((b) => b.textContent);
-    expect(names).toEqual(["지원현황", "공고분석", "지원서류", "면접후기", "빈출질문준비 중", "경험", "이력"]);
+    expect(names).toEqual(["지원현황", "공고분석", "지원서류", "면접후기", "빈출질문", "경험", "이력"]);
     expect(within(nav).getByText("내 재료")).toBeInTheDocument();
     expect(within(nav).getByRole("button", { name: "지원현황" })).toHaveAttribute("aria-current", "page");
 
-    await user.click(within(nav).getByRole("button", { name: /빈출질문/ }));
-    expect(onNavigate).not.toHaveBeenCalled();
+    await user.click(within(nav).getByRole("button", { name: "빈출질문" }));
+    expect(onNavigate).toHaveBeenCalledWith("/questions");
     await user.click(within(nav).getByRole("button", { name: "지원서류" }));
     expect(onNavigate).toHaveBeenCalledWith("/documents");
     await user.click(within(nav).getByRole("button", { name: "공고분석" }));

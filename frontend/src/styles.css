@@ -865,3 +865,16 @@ textarea.ed::selection { background: #FFE58A; }
 .cb-err { margin: 0; color: var(--fail); font-size: 13px; }
 .cb-a { margin: 0; line-height: 1.6; }
 .cb-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* 빈출질문 (이슈 #15): 면접 후기와 같은 카드·머리말을 쓰고 목록 카드와 보기 칸만 더한다. */
+.fqlist { display: flex; flex-direction: column; gap: 12px; }
+.fq { display: flex; align-items: center; gap: 12px; padding: 4px 8px 4px 0; }
+.fq-open { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; text-align: left; border: 0; background: none; padding: 14px 18px; border-radius: 8px; }
+.fq-open:hover b { color: var(--accent); }
+.fq-ex, .fq-how { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fq-move { display: flex; gap: 4px; }
+.fq-sec { padding: 16px 20px; }
+.fq-sec h2 { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+.fq-sec p { margin: 0; }
+.fq-body { white-space: pre-wrap; line-height: 1.7; }
+.fq-form { display: flex; flex-direction: column; gap: 16px; padding: 20px 24px; }

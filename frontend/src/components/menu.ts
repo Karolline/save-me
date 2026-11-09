@@ -17,7 +17,7 @@ export const MENU: MenuItem[] = [
   { name: "공고분석", path: "/jobs", icon: "search", on: true, group: "flow" },
   { name: "지원서류", path: "/documents", icon: "file", on: true, group: "flow" },
   { name: "면접후기", path: "/reviews", icon: "chat", on: true, group: "flow" },
-  { name: "빈출질문", path: "/questions", icon: "question", on: false, group: "flow" },
+  { name: "빈출질문", path: "/questions", icon: "question", on: true, group: "flow" },
   { name: "경험", path: "/experiences", icon: "star", on: true, group: "base" },
   { name: "이력", path: "/resume", icon: "user", on: true, group: "base" },
 ];

@@ -221,6 +221,47 @@ describe("mockService reviews", () => {
 
 // 샘플 지원 건 id: 4 파랑모빌리티, 7 라온소프트, 8 바른정보, 9 초록식품, 1 한빛증권 상반기.
 // 샘플 분석 id (SAMPLE_JOBS 순서): 1 한결로보틱스, 2 바른정보(지원 8), 3 초록식품(지원 9), 9 소담커머스(미평가 있음).
+describe("mockService frequent questions", () => {
+  const input = (kind: string) => ({ kind, example: "예시", howTo: "방법", goodExample: "", avoid: "" });
+
+  it("appends in order, edits, reorders, and keeps positions compact after a delete", async () => {
+    const service = createMockService();
+    const a = await service.createQuestion(input(" 지원동기 "));
+    const b = await service.createQuestion(input("강점"));
+    const c = await service.createQuestion(input("실패 경험"));
+    expect(a.kind).toBe("지원동기");
+    expect([a, b, c].map((q) => q.position)).toEqual([0, 1, 2]);
+
+    const edited = await service.updateQuestion(a.id, { ...input("지원 동기"), avoid: "막연한 칭찬" });
+    expect(edited).toMatchObject({ id: a.id, kind: "지원 동기", avoid: "막연한 칭찬", position: 0 });
+
+    const reordered = await service.reorderQuestions([c.id, a.id, b.id]);
+    expect(reordered.map((q) => q.kind)).toEqual(["실패 경험", "지원 동기", "강점"]);
+    expect((await service.listQuestions()).map((q) => q.position)).toEqual([0, 1, 2]);
+
+    await service.deleteQuestion(c.id);
+    expect((await service.listQuestions()).map((q) => [q.kind, q.position])).toEqual([
+      ["지원 동기", 0],
+      ["강점", 1],
+    ]);
+    expect(await service.getQuestion(c.id)).toBeNull();
+  });
+
+  it("rejects an empty kind with 422 and bad ids or a partial order with 404", async () => {
+    const service = createMockService();
+    const a = await service.createQuestion(input("지원동기"));
+    await service.createQuestion(input("강점"));
+
+    expect(((await service.createQuestion(input("  ")).catch((e) => e)) as { status: number }).status).toBe(422);
+    expect(((await service.updateQuestion(a.id, input("")).catch((e) => e)) as { status: number }).status).toBe(422);
+    expect(isNotFound(await service.updateQuestion(99, input("가")).catch((e) => e))).toBe(true);
+    expect(isNotFound(await service.deleteQuestion(99).catch((e) => e))).toBe(true);
+    expect(isNotFound(await service.reorderQuestions([a.id]).catch((e) => e))).toBe(true);
+    expect(isNotFound(await service.reorderQuestions([a.id, 99]).catch((e) => e))).toBe(true);
+    expect((await service.listQuestions()).map((q) => q.kind)).toEqual(["지원동기", "강점"]);
+  });
+});
+
 describe("mockService job analyses", () => {
   const withJobs = () => createMockService({ applications: SAMPLE_APPLICATIONS, jobs: SAMPLE_JOBS });
   const input = (changes: Partial<JobInput> = {}): JobInput => ({ ...emptyJobFields("가"), applicationId: null, ...changes });

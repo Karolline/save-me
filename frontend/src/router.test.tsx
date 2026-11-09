@@ -47,6 +47,31 @@ describe("review routes", () => {
   });
 });
 
+describe("frequent question routes", () => {
+  it("writes a question, views it, edits it and deletes it through the addresses", { timeout: 15_000 }, async () => {
+    const user = userEvent.setup();
+    await open("/questions");
+    expect(await screen.findByText("아직 적어 둔 빈출질문이 없습니다.")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "+ 새 빈출질문" }));
+    await user.type(await screen.findByLabelText(/^질문 유형/), "지원동기");
+    await user.click(screen.getByRole("button", { name: "저장" }));
+    expect(await screen.findByRole("heading", { name: "지원동기" })).toBeInTheDocument();
+    const id = await defaultService.listQuestions().then((list) => list[0].id);
+    expect(router.state.location.pathname).toBe(`/questions/${id}`);
+
+    await user.click(screen.getByRole("button", { name: "고치기" }));
+    expect(await screen.findByRole("heading", { name: "빈출질문 고치기" })).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(`/questions/${id}/edit`);
+    await user.click(screen.getByRole("button", { name: "취소" }));
+
+    await user.click(await screen.findByRole("button", { name: "지우기" }));
+    await user.click(within(screen.getByRole("alertdialog")).getByRole("button", { name: "지우기" }));
+    expect(await screen.findByText("아직 적어 둔 빈출질문이 없습니다.")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe("/questions");
+  });
+});
+
 describe("job analysis routes", () => {
   it("goes from the detail panel's [분석] to the analysis and back", { timeout: 15_000 }, async () => {
     const user = userEvent.setup();

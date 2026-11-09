@@ -129,6 +129,28 @@ export interface QuestionInput {
   answers: Answer[];
 }
 
+/** 빈출질문 저장 (이슈 #15). 질문 유형만 필수. */
+export interface FrequentQuestionInput {
+  /** 질문 유형 (예: 지원동기). 비면 422. */
+  kind: string;
+  /** 질문 예시. */
+  example: string;
+  /** 답하는 방법. */
+  howTo: string;
+  /** 좋은 답 예시. */
+  goodExample: string;
+  /** 피할 것. */
+  avoid: string;
+}
+
+export interface FrequentQuestion extends FrequentQuestionInput {
+  id: number;
+  /** 사용자가 정한 순서 (0부터). */
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ReviewInput {
   applicationId: number;
   /** 면접 차수 이름. 비어 있으면 안 된다. */
@@ -863,6 +885,17 @@ export interface SaveMeService {
   /** 사람 확인 표시 ([읽고 확인했어요]). 후기의 updatedAt은 바뀌지 않는다. */
   setReviewVerified(id: number, verified: boolean): Promise<Review>;
   deleteReview(id: number): Promise<void>;
+
+  /** 빈출질문 (이슈 #15): 사용자가 정한 순서대로. */
+  listQuestions(): Promise<FrequentQuestion[]>;
+  /** 없거나 남의 것이면 null. */
+  getQuestion(id: number): Promise<FrequentQuestion | null>;
+  /** 새것은 맨 뒤에. 유형이 비면 422인 ApiError. */
+  createQuestion(input: FrequentQuestionInput): Promise<FrequentQuestion>;
+  updateQuestion(id: number, input: FrequentQuestionInput): Promise<FrequentQuestion>;
+  deleteQuestion(id: number): Promise<void>;
+  /** 새 순서. `ids`는 내 빈출질문 전부여야 한다 (아니면 404인 ApiError). */
+  reorderQuestions(ids: number[]): Promise<FrequentQuestion[]>;
 
   listJobs(status?: JobStatusFilter): Promise<JobList>;
   /** 없거나 남의 분석이면 null. */

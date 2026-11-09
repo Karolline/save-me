@@ -47,6 +47,8 @@ import {
   type Result,
   type Resume,
   type ResumeBasics,
+  type FrequentQuestion,
+  type FrequentQuestionInput,
   type Review,
   type ReviewGroup,
   type ReviewInput,
@@ -234,6 +236,12 @@ function validateReview(input: ReviewInput): ReviewInput {
     throw new ApiError(422, "Request failed (422): invalid review");
   }
   return clean;
+}
+
+function validateQuestion(input: FrequentQuestionInput): FrequentQuestionInput {
+  const kind = input.kind.trim();
+  if (!kind) throw new ApiError(422, "Request failed (422): invalid question");
+  return { ...input, kind };
 }
 
 const notFound = (what: string) => new ApiError(404, `Request failed (404): ${what} not found`);
@@ -643,6 +651,8 @@ export function createMockService(options: MockOptions = {}): MockService {
   const now = () => new Date((tick += 60_000)).toISOString();
   const rows = new Map<number, Application>();
   const reviews = new Map<number, StoredReview>();
+  const questions: FrequentQuestion[] = [];
+  let nextQuestionRowId = 1;
   const jobs = new Map<number, StoredJob>();
   let nextJobId = 1;
   const experiences = new Map<number, StoredExperience>();
@@ -1290,6 +1300,62 @@ export function createMockService(options: MockOptions = {}): MockService {
       call(() => {
         if (!reviews.delete(id)) throw notFound("Review");
         unlinkReviews([id]);
+      }),
+
+    listQuestions: () => call(() => questions.map((q) => ({ ...q }))),
+
+    getQuestion: (id: number) =>
+      call(() => {
+        const q = questions.find((x) => x.id === id);
+        return q ? { ...q } : null;
+      }),
+
+    createQuestion: (input: FrequentQuestionInput) =>
+      call(() => {
+        const clean = validateQuestion(input);
+        const at = now();
+        const created: FrequentQuestion = {
+          ...clean,
+          id: nextQuestionRowId++,
+          position: questions.length,
+          createdAt: at,
+          updatedAt: at,
+        };
+        questions.push(created);
+        return { ...created };
+      }),
+
+    updateQuestion: (id: number, input: FrequentQuestionInput) =>
+      call(() => {
+        const clean = validateQuestion(input);
+        const index = questions.findIndex((x) => x.id === id);
+        if (index < 0) throw notFound("Question");
+        questions[index] = { ...questions[index], ...clean, updatedAt: now() };
+        return { ...questions[index] };
+      }),
+
+    deleteQuestion: (id: number) =>
+      call(() => {
+        const index = questions.findIndex((x) => x.id === id);
+        if (index < 0) throw notFound("Question");
+        questions.splice(index, 1);
+        questions.forEach((q, position) => (q.position = position));
+      }),
+
+    reorderQuestions: (ids: number[]) =>
+      call(() => {
+        const known = new Set(questions.map((q) => q.id));
+        if (ids.length !== known.size || new Set(ids).size !== ids.length || ids.some((id) => !known.has(id))) {
+          throw notFound("Question");
+        }
+        const byId = new Map(questions.map((q) => [q.id, q]));
+        questions.length = 0;
+        ids.forEach((id, position) => {
+          const q = byId.get(id)!;
+          q.position = position;
+          questions.push(q);
+        });
+        return questions.map((q) => ({ ...q }));
       }),
 
     listJobs: (status: JobStatusFilter = "all") =>

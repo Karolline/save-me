@@ -37,6 +37,7 @@ uv run python -m app.agent_read personality
 uv run python -m app.agent_read experience-index
 uv run python -m app.agent_read experience <ID>
 uv run python -m app.agent_read job <ID>
+uv run python -m app.agent_read questions
 ```
 
 ## 시작 전에 읽을 것
@@ -45,7 +46,7 @@ uv run python -m app.agent_read job <ID>
 2. 아래 "문체 기준"의 샘플: `private/style-samples/`의 파일 중 문항 성격이 가장 비슷한 것 1건 이상.
 3. `job <ID>`: 부각할 경험 순위와 문항별 배치, 회사 동향의 어필 포인트.
 4. 사용할 경험의 `experience <ID>` 전체. 근거는 상황/과제/행동/결과 본문에서만 가져온다.
-5. 문항이 빈출문항(지원동기, 직무 적합 이유 등)이면 `docs/agent-rules/frequent-questions.md`: 그 공식(A)의 구조로 쓴다. 사용자가 정한 팁이라 아래 "구성 틀"보다 우선한다. 공식의 요소별 재료를 근거 매핑표에 요소 이름(ㅇㅇ, ㅁㅁ…)과 함께 적고, 재료가 없는 요소는 지어내지 말고 작성메모에 남긴다.
+5. 문항이 빈출문항(지원동기, 직무 적합 이유 등)이면 `docs/agent-rules/frequent-questions.md`: 그 공식(A)의 구조로 쓴다. 사용자가 정한 팁이라 아래 "구성 틀"보다 우선한다. 사용자가 `questions`(빈출질문)에 그 질문 유형을 적어 두었으면 그 "답하는 방법"·"좋은 답 예시"·"피할 것"도 따른다. 공식의 요소별 재료를 근거 매핑표에 요소 이름(ㅇㅇ, ㅁㅁ…)과 함께 적고, 재료가 없는 요소는 지어내지 말고 작성메모에 남긴다.
 
 ## 입력 확인: 먼저 지원서 항목을 확인한다
 
