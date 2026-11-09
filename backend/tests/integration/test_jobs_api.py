@@ -323,3 +323,72 @@ def test_another_users_skip_reason_is_404(client: TestClient, other_client: Test
     assert other_client.get(f"/api/jobs/{mine['id']}").status_code == 404
     assert other_client.put(f"/api/jobs/{mine['id']}", json=body(skipReason="x")).status_code == 404
     assert client.get(f"/api/jobs/{mine['id']}").json()["skipReason"] == "비밀 사유"
+
+
+# ── 회사 기본 ([회사 기본] 탭) ──
+
+
+def basics_body(**changes) -> dict:
+    return {
+        "companyNote": "  조사한 글\n둘째 줄  ",
+        "companyQna": [
+            {"question": "  어떤 사업을 하나요?  ", "answer": " 결제 사업\n둘째 줄 "},
+            {"question": "투자는?", "answer": ""},
+            {"question": "  ", "answer": "  "},
+        ],
+        **changes,
+    }
+
+
+def test_company_basics_default_is_empty(client: TestClient):
+    created = create(client)
+    assert created["companyNote"] == "" and created["companyQna"] == []
+
+
+def test_company_basics_save_and_get(client: TestClient):
+    job = create(client)
+    saved = client.put(f"/api/jobs/{job['id']}/company-basics", json=basics_body())
+    assert saved.status_code == 200
+    expected = [
+        {"question": "어떤 사업을 하나요?", "answer": " 결제 사업\n둘째 줄 "},
+        {"question": "투자는?", "answer": ""},
+    ]
+    # 질문만 다듬고 답과 조사 글은 그대로, 공백뿐인 줄은 버린다.
+    assert saved.json()["companyNote"] == "  조사한 글\n둘째 줄  "
+    assert saved.json()["companyQna"] == expected
+    got = client.get(f"/api/jobs/{job['id']}").json()
+    assert got["companyNote"] == "  조사한 글\n둘째 줄  " and got["companyQna"] == expected
+    cleared = client.put(f"/api/jobs/{job['id']}/company-basics", json={"companyNote": "  ", "companyQna": []})
+    assert cleared.json()["companyNote"] == "" and cleared.json()["companyQna"] == []
+
+
+def test_company_basics_question_blank_with_answer_is_422(client: TestClient):
+    job = create(client)
+    bad = basics_body(companyQna=[{"question": " ", "answer": "답만"}])
+    assert client.put(f"/api/jobs/{job['id']}/company-basics", json=bad).status_code == 422
+
+
+def test_company_basics_keeps_verified_and_survives_edit(client: TestClient):
+    job = create(client)
+    client.put(f"/api/jobs/{job['id']}/verified", json={"verified": False})
+    saved = client.put(f"/api/jobs/{job['id']}/company-basics", json=basics_body()).json()
+    assert saved["verified"] is False
+    # 분석 편집 저장은 회사 기본을 지우지 않는다.
+    edited = client.put(f"/api/jobs/{job['id']}", json=body(conclusion="바뀐 결론")).json()
+    assert edited["conclusion"] == "바뀐 결론"
+    assert edited["companyNote"] == saved["companyNote"] and edited["companyQna"] == saved["companyQna"]
+
+
+def test_company_basics_other_users_and_missing_are_404(client: TestClient, other_client: TestClient):
+    mine = create(client)
+    client.put(f"/api/jobs/{mine['id']}/company-basics", json=basics_body())
+    assert other_client.put(f"/api/jobs/{mine['id']}/company-basics", json=basics_body()).status_code == 404
+    assert client.put("/api/jobs/99999/company-basics", json=basics_body()).status_code == 404
+    assert client.get(f"/api/jobs/{mine['id']}").json()["companyNote"] == "  조사한 글\n둘째 줄  "
+
+
+def test_company_basics_needs_login_and_csrf_header(client: TestClient, anon_client: TestClient):
+    job = create(client)
+    assert anon_client.put(f"/api/jobs/{job['id']}/company-basics", json=basics_body()).status_code == 401
+    res = client.put(f"/api/jobs/{job['id']}/company-basics", json=basics_body(), headers={"X-Requested-With": ""})
+    assert res.status_code == 403

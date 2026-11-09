@@ -140,6 +140,24 @@ def test_replace_keeps_the_skip_reason_written_in_the_app(stores: Stores, user_i
     assert again.skip_reason == "연봉이 낮음"
 
 
+def test_replace_keeps_the_company_basics_written_in_the_app(stores: Stores, user_id: int, baron, tmp_path):
+    from app.models import CompanyBasicsInput, CompanyQna
+
+    import_jobs(stores, user_id, load(write(tmp_path)))
+    job = jobs_by_company(stores, user_id)["마루증권"]
+    stores.jobs.set_company_basics(
+        user_id, job.id, CompanyBasicsInput(company_note="조사", company_qna=[CompanyQna(question="Q", answer="A")])
+    )
+
+    result = import_jobs(stores, user_id, load(write(tmp_path, changed())), replace_verified=True)
+
+    assert result.replaced == 2
+    again = jobs_by_company(stores, user_id)["마루증권"]
+    assert again.fit == "하"
+    assert again.company_note == "조사"
+    assert [(q.question, q.answer) for q in again.company_qna] == [("Q", "A")]
+
+
 def test_replace_skips_a_verified_analysis_and_writes_the_rest(stores: Stores, user_id: int, baron, tmp_path):
     import_jobs(stores, user_id, load(write(tmp_path)))
     first = jobs_by_company(stores, user_id)["바른정보"]

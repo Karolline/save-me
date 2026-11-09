@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.db import ApplicationRow, JobAnalysisRow, JobRequirementRow
 from app.models import (
+    CompanyBasicsInput,
     Job,
     JobFields,
     JobInput,
@@ -145,6 +146,8 @@ def to_job(row: JobAnalysisRow) -> Job:
     return Job(
         **fields,
         skip_reason=row.skip_reason,
+        company_note=row.company_note,
+        company_qna=row.company_qna,
         requirements=[
             Requirement(
                 category=r.category,  # type: ignore[arg-type]
@@ -236,6 +239,18 @@ class JobStore(BaseStore):
             if row is None:
                 return None
             row.verified = verified
+            db.flush()
+            return to_job(row)
+
+    def set_company_basics(self, user_id: int, job_id: int, data: CompanyBasicsInput) -> Job | None:
+        """[회사 기본] 탭의 글과 질문·답을 통째로 바꾼다. 사람 확인과 분석일은 그대로.
+        분석이 이 사용자 것이 아니면 None."""
+        with self.session() as db, db.begin():
+            row = self._row(db, user_id, job_id)
+            if row is None:
+                return None
+            row.company_note = data.company_note
+            row.company_qna = [q.model_dump() for q in data.company_qna]
             db.flush()
             return to_job(row)
 

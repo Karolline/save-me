@@ -553,6 +553,28 @@ def test_job_reader_shows_only_the_posting_and_company_trends(db_file, monkeypat
         assert hidden not in out, hidden
 
 
+def test_job_shows_company_basics_but_reader_does_not(db_file, monkeypatch, capsys):
+    from app.models import CompanyBasicsInput, CompanyQna
+
+    url, _, stores = db_file
+    user_id = stores.users.dev_user().id
+    job = stores.jobs.create(user_id, JobInput(company="누리", raw_text="원문"))
+    assert "## 회사 기본" not in run(monkeypatch, capsys, url, "job", str(job.id))
+    stores.jobs.set_company_basics(
+        user_id,
+        job.id,
+        CompanyBasicsInput(
+            company_note="조사글ZZ",
+            company_qna=[CompanyQna(question="사업은?", answer="결제ZZ"), CompanyQna(question="투자는?", answer="")],
+        ),
+    )
+    out = run(monkeypatch, capsys, url, "job", str(job.id))
+    for text in ("## 회사 기본", "조사글ZZ", "### 궁금한 점", "Q. 사업은?", "A. 결제ZZ", "Q. 투자는?", "A. (아직 답 없음)"):
+        assert text in out, text
+    reader = run(monkeypatch, capsys, url, "job", str(job.id), "--reader")
+    assert "조사글ZZ" not in reader and "## 회사 기본" not in reader
+
+
 def test_trend_source_without_url_is_plain_name():
     from app.agent_read import trend_source_text
 

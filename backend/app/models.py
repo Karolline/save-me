@@ -459,8 +459,40 @@ class JobSummary(ApiModel):
     application_id: int | None
 
 
+class CompanyQna(ApiModel):
+    """회사 기본의 궁금한 점 하나: 질문과 답 (답은 비어 있을 수 있다)."""
+
+    question: str
+    answer: str = ""
+
+
+class CompanyBasicsInput(ApiModel):
+    """[회사 기본] 탭 저장. 질문이 공백인 원소는 답도 공백이면 버리고, 답만 있으면 거절(422)한다."""
+
+    company_note: str = ""
+    company_qna: list[CompanyQna] = []
+
+    @model_validator(mode="after")
+    def clean(self) -> "CompanyBasicsInput":
+        kept: list[CompanyQna] = []
+        for q in self.company_qna:
+            question = q.question.strip()
+            if not question:
+                if q.answer.strip():
+                    raise ValueError("question is required when an answer is given")
+                continue
+            kept.append(CompanyQna(question=question, answer=q.answer))
+        self.company_qna = kept
+        if not self.company_note.strip():
+            self.company_note = ""
+        return self
+
+
 class Job(JobFields):
     """분석 하나 전체 (상세, 편집)."""
+
+    company_note: str = ""
+    company_qna: list[CompanyQna] = []
 
     id: int
     analyzed_at: date

@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.auth import current_user, get_stores, require_csrf_header
-from app.models import Job, JobInput, JobList, JobStatusFilter, User, VerifiedInput
+from app.models import CompanyBasicsInput, Job, JobInput, JobList, JobStatusFilter, User, VerifiedInput
 from app.stores import ApplicationAlreadyLinkedError, ApplicationNotFoundError, Stores
 
 router = APIRouter(
@@ -86,6 +86,20 @@ def set_verified(
 ) -> Job:
     """사람 확인 표시 ([읽고 확인했어요]). 분석일과 updatedAt은 바뀌지 않는다."""
     job = stores.jobs.set_verified(user.id, job_id, data.verified)
+    if job is None:
+        raise not_found()
+    return job
+
+
+@router.put("/{job_id}/company-basics", response_model=Job, response_model_by_alias=True)
+def set_company_basics(
+    job_id: int,
+    data: CompanyBasicsInput,
+    user: User = Depends(current_user),
+    stores: Stores = Depends(get_stores),
+) -> Job:
+    """[회사 기본] 탭 저장. 사람 확인 표시는 바뀌지 않는다."""
+    job = stores.jobs.set_company_basics(user.id, job_id, data)
     if job is None:
         raise not_found()
     return job

@@ -624,6 +624,19 @@ def render_job(job: Job, reader: bool) -> str:
     section("경험 보완 제안", [item(v) for v in job.exp_suggestions])
     section("면접 역질문", [item(v) for v in job.ask_back])
     section("확인 필요", [item(v) for v in job.checks])
+    basics_body: list[str] = []
+    if job.company_note.strip():
+        basics_body.append(text_block(job.company_note))
+    if job.company_qna:
+        if basics_body:
+            basics_body.append("")
+        basics_body.append("### 궁금한 점")
+        for q in job.company_qna:
+            basics_body.append(f"Q. {text_block(q.question)}")
+            basics_body.append(f"A. {text_block(q.answer)}" if q.answer.strip() else "A. (아직 답 없음)")
+            basics_body.append("")
+        basics_body.pop()
+    section("회사 기본", basics_body)
     trends = job_trend_lines(job)
     if trends:
         out += ["", *trends]

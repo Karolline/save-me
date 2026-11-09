@@ -309,6 +309,9 @@ class JobAnalysisRow(Base):
     trends: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
     direction_quotes: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
     direction_reading: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 회사 기본 ([회사 기본] 탭): 조사한 글과 궁금한 점 [{"question", "answer"}]. 분석 편집과 가져오기는 건드리지 않는다.
+    company_note: Mapped[str] = mapped_column(Text, default="", server_default="")
+    company_qna: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
     appeals: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
     appeal_gaps: Mapped[list] = mapped_column(JSON, default=list, server_default="[]")
 
