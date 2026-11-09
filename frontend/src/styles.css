@@ -668,6 +668,7 @@ td.mono { white-space: nowrap; }
 .cl-toc-n.over { color: var(--fail); font-weight: 600; }
 .cl-toc-total { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 .cl-qs { display: flex; flex-direction: column; gap: 16px; }
+.cl-qs > .card { padding: 20px 24px; }
 .cl-q-h { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
 .cl-q-no { font-weight: 700; color: var(--accent); }
 .cl-q-del { margin-left: auto; width: 30px; height: 30px; border-color: var(--line); color: var(--fail); }
