@@ -3,6 +3,7 @@ import { act, cleanup, render, screen, waitFor, within } from "@testing-library/
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { router } from "./router";
+import { defaultService } from "@/services";
 
 // jsdom에는 스크롤이 없다 (라우터의 스크롤 복원이 부른다).
 beforeAll(() => {
@@ -179,5 +180,44 @@ describe("resume route", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "이력" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/resume");
     expect(await screen.findByRole("region", { name: "경력" })).toBeInTheDocument();
+  });
+});
+
+describe("cover letter route", () => {
+  async function makeCoverLetter() {
+    const group = await defaultService.createDocumentGroup({
+      company: "라우트상사",
+      writtenOn: "2026-10-20",
+      jobAnalysisId: null,
+    });
+    await defaultService.createDocument(group.id, "coverletter", "");
+    await defaultService.saveCoverLetter(group.id, [{ question: "지원 동기", charLimit: null, answer: "답", appeal: "" }]);
+    return group.id;
+  }
+
+  it("keeps ?mode=edit across a reload, drops bad values, and switches with replace", { timeout: 20_000 }, async () => {
+    const id = await makeCoverLetter();
+    const user = userEvent.setup();
+    await open(`/documents/${id}/coverletter?mode=bogus`);
+    // 잘못된 mode는 버리고 조회로 연다.
+    expect(await screen.findByRole("button", { name: "편집" })).toBeInTheDocument();
+    expect(router.state.location.search).toEqual({ mode: "bogus" }); // 주소 원문은 그대로, 화면은 조회
+
+    const before = window.history.length;
+    await user.click(screen.getByRole("button", { name: "편집" }));
+    expect(await screen.findByRole("button", { name: "완료" })).toBeInTheDocument();
+    expect(router.state.location.search).toEqual({ mode: "edit" });
+    // replace 이동이라 기록이 쌓이지 않는다.
+    expect(window.history.length).toBe(before);
+
+    // 새로고침: 같은 주소로 다시 열어도 편집이다.
+    cleanup();
+    await open(`/documents/${id}/coverletter?mode=edit`);
+    expect(await screen.findByRole("button", { name: "완료" })).toBeInTheDocument();
+    expect(router.state.location.search).toEqual({ mode: "edit" });
+
+    await user.click(screen.getByRole("button", { name: "완료" }));
+    expect(await screen.findByRole("button", { name: "편집" })).toBeInTheDocument();
+    expect(router.state.location.search).toEqual({});
   });
 });

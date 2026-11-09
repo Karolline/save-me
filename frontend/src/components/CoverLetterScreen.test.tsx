@@ -559,3 +559,46 @@ describe("DocumentGroupScreen: cover letter slot", () => {
     ).not.toContain("자소서");
   });
 });
+
+describe("CoverLetterScreen with an async mode change", () => {
+  it("never flashes the view while an empty cover letter moves to edit", async () => {
+    const { service, group } = await makeService();
+    const user = userEvent.setup();
+    function AsyncHarness() {
+      const [mode, setMode] = useState<CoverLetterMode>("view");
+      return (
+        <CoverLetterScreen
+          groupId={group.id}
+          mode={mode}
+          onModeChange={(next) => void setTimeout(() => setMode(next), 50)}
+          onBack={vi.fn()}
+          onOpenDocument={vi.fn()}
+          onDeleted={vi.fn()}
+          onHome={vi.fn()}
+        />
+      );
+    }
+    const seenView = vi.fn();
+    const observer = new MutationObserver(() => {
+      if (screen.queryByText("문항을 적지 않았어요")) seenView();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    render(
+      <ServiceContext.Provider value={service}>
+        <ToastProvider>
+          <SessionContext.Provider value={{ user: MOCK_USER, expire: vi.fn() }}>
+            <AsyncHarness />
+          </SessionContext.Provider>
+        </ToastProvider>
+      </ServiceContext.Provider>,
+    );
+    expect(await screen.findByRole("button", { name: "완료" })).toBeInTheDocument();
+    // 모드가 늦게 바뀌는 동안에도 편집 화면이 유지되고, 바뀐 뒤에도 그대로다.
+    await new Promise((r) => setTimeout(r, 120));
+    observer.disconnect();
+    expect(seenView).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "완료" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "완료" }));
+    expect(screen.getByRole("button", { name: "완료" })).toBeInTheDocument();
+  });
+});

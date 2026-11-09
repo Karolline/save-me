@@ -70,6 +70,7 @@ export function CoverLetterScreen({
   const focusAfter = useRef<number | null>(null);
   // 열 때 문항이 하나도 없었다: 조회할 것이 없어 편집으로 연다 (한 번만).
   const [openedEmpty, setOpenedEmpty] = useState(false);
+  const requestedEdit = useRef(false);
 
   useEffect(() => {
     let live = true;
@@ -142,8 +143,12 @@ export function CoverLetterScreen({
 
   useEffect(() => {
     if (!openedEmpty) return;
-    setOpenedEmpty(false);
-    if (mode === "view") onModeChange?.("edit");
+    // 모드가 실제로 편집이 된 뒤에 내린다: 라우터 이동은 비동기라 먼저 내리면 조회 화면이 깜빡인다.
+    if (mode === "edit") setOpenedEmpty(false);
+    else if (!requestedEdit.current) {
+      requestedEdit.current = true;
+      onModeChange?.("edit");
+    }
   }, [openedEmpty, mode, onModeChange]);
 
   // 새 문항을 더하면 그 문항 글 칸으로 간다.
