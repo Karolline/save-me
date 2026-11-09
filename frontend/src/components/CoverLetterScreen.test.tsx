@@ -601,4 +601,30 @@ describe("CoverLetterScreen with an async mode change", () => {
     await user.click(screen.getByRole("button", { name: "완료" }));
     expect(screen.getByRole("button", { name: "완료" })).toBeInTheDocument();
   });
+
+  it("goes to view on [완료] after typing into an empty cover letter even if the parent never changes the mode", async () => {
+    const { service, group } = await makeService();
+    const user = userEvent.setup();
+    render(
+      <ServiceContext.Provider value={service}>
+        <ToastProvider>
+          <SessionContext.Provider value={{ user: MOCK_USER, expire: vi.fn() }}>
+            <CoverLetterScreen
+              groupId={group.id}
+              mode="view"
+              onModeChange={vi.fn()}
+              onBack={vi.fn()}
+              onOpenDocument={vi.fn()}
+              onDeleted={vi.fn()}
+              onHome={vi.fn()}
+            />
+          </SessionContext.Provider>
+        </ToastProvider>
+      </ServiceContext.Provider>,
+    );
+    await user.type(await screen.findByPlaceholderText("지원서의 문항을 그대로 붙여 넣으세요"), "지원 동기");
+    await user.click(screen.getByRole("button", { name: "완료" }));
+    expect(await screen.findByRole("button", { name: "편집" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "완료" })).not.toBeInTheDocument();
+  });
 });

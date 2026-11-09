@@ -34,3 +34,4 @@
 - `CoverLetterScreen.test.tsx`: 모드 변경이 50ms 늦은 하네스로 "문항을 적지 않았어요"가 한 번도 안 나타나는지(MutationObserver) 시험.
 - `router.test.tsx`: 자소서 경로 시험 추가 (잘못된 mode는 조회, [편집]이 replace 이동으로 `?mode=edit`, 다시 열어도 편집 유지, [완료]로 `mode` 제거).
 - 2c161c1 합치기는 하지 않음. 테스트: 두 파일 43개 통과, build 통과, lint 경고만(기존).
+- 재리뷰 반영: `finish`가 문항이 있을 때 `setOpenedEmpty(false)`도 해서 부모가 mode를 바꾸지 않아도 편집에 갇히지 않음(컴포넌트 시험 1개 추가), `docs/testing.md` 표에 깜빡임·자소서 경로·이 시험을 적음. 테스트 두 파일 44개 통과, build 통과, lint 경고만.

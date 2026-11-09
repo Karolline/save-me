@@ -171,7 +171,11 @@ export function CoverLetterScreen({
       toast("저장하지 못해서 이동하지 않았어요. 다시 시도해 주세요.");
       return;
     }
-    if (!list.every(isBlank)) onModeChange?.("view");
+    if (!list.every(isBlank)) {
+      // 부모가 mode를 바꾸지 않아도(조회 그대로) 빈 자소서로 열린 편집에 갇히지 않게 한다.
+      setOpenedEmpty(false);
+      onModeChange?.("view");
+    }
   }
 
   async function removeCoverLetter() {
