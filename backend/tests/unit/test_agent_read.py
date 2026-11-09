@@ -666,7 +666,12 @@ def make_documents(stores: Stores, user_id: int, company: str = "오늘의집"):
     stores.documents.save_cover_letter(
         user_id,
         group.id,
-        CoverLetterInput(items=[CoverLetterItem(question="지원동기ZZ", char_limit=500, answer="답변ZZ")]),
+        CoverLetterInput(
+            items=[
+                CoverLetterItem(question="지원동기ZZ", char_limit=500, answer="답변ZZ", appeal="어필메모ZZ"),
+                CoverLetterItem(question="둘째ZZ", answer="둘째답ZZ"),
+            ]
+        ),
     )
     return group
 
@@ -696,6 +701,9 @@ def test_document_without_type_shows_every_document(db_file, monkeypatch, capsys
     out = run(monkeypatch, capsys, url, "document", str(group.id))
     assert "경력기술서 본문ZZ" in out and "소개 문단ZZ" in out
     assert "문항 1 (글자 수 제한 500자): 지원동기ZZ" in out and "답변ZZ" in out
+    # 어필포인트는 있는 문항에만 줄이 나온다.
+    assert out.count("어필포인트") == 1 and "어필메모ZZ" in out
+    assert out.index("어필메모ZZ") < out.index("답변ZZ") < out.index("둘째ZZ")
 
 
 def test_document_uses_body_when_the_resume_has_no_fields(db_file, monkeypatch, capsys):

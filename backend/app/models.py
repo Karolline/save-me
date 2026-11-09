@@ -1207,6 +1207,8 @@ class CoverLetterItem(ApiModel):
     question: str = ""
     char_limit: int | None = Field(default=None, ge=1, le=COVER_LETTER_MAX_LIMIT)
     answer: str = ""
+    # 어필포인트 메모: 글자 수에 세지 않는다. 안 보내면 빈 글.
+    appeal: str = ""
 
 
 class CoverLetterInput(ApiModel):

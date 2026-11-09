@@ -691,6 +691,8 @@ class CoverLetterItemRow(Base):
     question: Mapped[str] = mapped_column(Text, default="", server_default="")
     char_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
     answer: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # 어필포인트: 이 문항에서 무엇을 어필하고 어떻게 쓸지 메모 (글자 수·인쇄에 들어가지 않는다)
+    appeal: Mapped[str] = mapped_column(Text, default="", server_default="")
 
 
 class DocumentReviewRow(Base):

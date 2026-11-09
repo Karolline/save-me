@@ -10,8 +10,8 @@ def make_cover_letter(client: TestClient, group_id: int) -> dict:
     return make_document(client, group_id, "coverletter", "")
 
 
-def item(question: str = "", answer: str = "", limit: int | None = None) -> dict:
-    return {"question": question, "charLimit": limit, "answer": answer}
+def item(question: str = "", answer: str = "", limit: int | None = None, appeal: str = "") -> dict:
+    return {"question": question, "charLimit": limit, "answer": answer, "appeal": appeal}
 
 
 def put(client: TestClient, group_id: int, items: list[dict]):
@@ -58,6 +58,22 @@ def test_save_and_get_round_trip_keeps_order_and_null_limit(client: TestClient):
     assert saved.json()["items"] == items
     assert client.get(f"{BASE}/{group['id']}/cover-letter").json()["items"] == items
     assert saved.json()["updatedAt"] >= made["updatedAt"]
+
+
+def test_appeal_is_saved_and_read_back_and_is_optional_in_the_body(client: TestClient):
+    group = make_group(client)
+    make_cover_letter(client, group["id"])
+
+    saved = put(client, group["id"], [item("문항", "답", 10, appeal="성과 수치를 앞에\n둘째 줄")])
+    assert saved.json()["items"][0]["appeal"] == "성과 수치를 앞에\n둘째 줄"
+    assert client.get(f"{BASE}/{group['id']}/cover-letter").json()["items"][0]["appeal"] == "성과 수치를 앞에\n둘째 줄"
+
+    # 옛 클라이언트: appeal 없이 보내도 저장되고 빈 글이 된다.
+    old = client.put(
+        f"{BASE}/{group['id']}/cover-letter", json={"items": [{"question": "q", "charLimit": None, "answer": "a"}]}
+    )
+    assert old.status_code == 200
+    assert old.json()["items"][0]["appeal"] == ""
 
 
 def test_saving_again_replaces_the_previous_items(client: TestClient):

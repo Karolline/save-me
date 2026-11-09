@@ -104,7 +104,7 @@ def to_cover_letter(row: DocumentRow) -> CoverLetter:
         updated_at=row.updated_at,
         source=row.source,  # type: ignore[arg-type]
         items=[
-            CoverLetterItem(question=i.question, char_limit=i.char_limit, answer=i.answer)
+            CoverLetterItem(question=i.question, char_limit=i.char_limit, answer=i.answer, appeal=i.appeal)
             for i in row.items
         ],
     )
@@ -348,6 +348,7 @@ class DocumentStore(BaseStore):
                     question=item.question,
                     char_limit=item.char_limit,
                     answer=item.answer,
+                    appeal=item.appeal,
                 )
                 for position, item in enumerate(data.items)
             )

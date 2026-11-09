@@ -59,6 +59,18 @@ def test_cover_letter_save_replaces_items_and_keeps_order(stores: Stores, user_i
     assert stores.documents.get_document(user_id, group.id, "coverletter").body == ""
 
 
+def test_cover_letter_appeal_round_trips_and_is_not_counted(stores: Stores, user_id: int):
+    group = _cover(stores, user_id)
+    items = [CoverLetterItem(question="q", answer="답", appeal="어필" * 50), CoverLetterItem(question="r")]
+
+    saved = stores.documents.save_cover_letter(user_id, group.id, CoverLetterInput(items=items))
+
+    assert [i.appeal for i in saved.items] == ["어필" * 50, ""]
+    assert stores.documents.get_cover_letter(user_id, group.id).items == saved.items
+    slot = next(s for s in stores.documents.get_group(user_id, group.id).documents if s.type == "coverletter")
+    assert slot.total_chars == 1
+
+
 def test_cover_letter_slot_counts(stores: Stores, user_id: int):
     group = _cover(stores, user_id)
     stores.documents.save_cover_letter(

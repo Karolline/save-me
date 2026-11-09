@@ -732,7 +732,10 @@ def render_document(stores: Stores, user_id: int, group_id: int, doc_type: str |
             letter = stores.documents.get_cover_letter(user_id, group_id)
             for n, i in enumerate(letter.items if letter else [], 1):
                 limit = f" (글자 수 제한 {i.char_limit}자)" if i.char_limit else ""
-                out += [f"## 문항 {n}{limit}: {i.question}", "", text_block(i.answer) or "(비어 있음)", ""]
+                out += [f"## 문항 {n}{limit}: {i.question}", ""]
+                if i.appeal.strip():
+                    out += ["어필포인트(작성 의도 메모):", text_block(i.appeal), ""]
+                out += [text_block(i.answer) or "(비어 있음)", ""]
             continue
         doc = stores.documents.get_document(user_id, group_id, slot.type)
         if doc is None:
