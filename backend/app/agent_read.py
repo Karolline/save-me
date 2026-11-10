@@ -24,6 +24,10 @@
     uv run python -m app.agent_read questions
     uv run python -m app.agent_read documents
     uv run python -m app.agent_read document ID [resume|career|portfolio|coverletter]
+    uv run python -m app.agent_read search "<질문>" [--k N]
+
+`search`는 경험을 뜻으로 찾는다 (Voyage AI 임베딩, 경험 원문과 질문이 밖으로 나간다. docs/semantic-search.md).
+캐시는 DB가 아니라 `private/embeddings/`에 쓴다.
 
 조회할 DB: 환경 변수 `AGENT_READ_DATABASE_URL`이 있으면 그것, 없으면 `DATABASE_URL`,
 그것도 없으면 `saveme_dev`. 출력 맨 위 줄에 읽은 DB 이름을 보인다.
@@ -39,6 +43,7 @@ from sqlalchemy.engine import make_url
 from app.db import database_url, make_engine, normalize_url
 from app.migrate import is_at_head
 from app.models import Experience, Job, Review
+from app.semantic_search import DEFAULT_K, SearchError, render_hits, search_experiences
 from app.stores import Stores
 
 NOT_AT_HEAD = "DB가 최신 버전이 아니에요. 앱을 먼저 업데이트하세요."
@@ -64,6 +69,7 @@ USAGE = """\
   questions                                빈출질문 (유형, 질문 예시, 답하는 방법, 좋은 답 예시, 피할 것. 사용자가 정한 순서)
   documents                                지원서류 묶음 목록 (회사, 작성날짜, 있는 서류)
   document ID [TYPE]                       묶음 한 건의 서류 글 (TYPE: resume, career, portfolio, coverletter. 없으면 전부)
+  search "<질문>" [--k N]                  경험을 뜻으로 찾기 (경험 단위 위 N개, 기본 5. VOYAGE_API_KEY 필요, 경험 원문이 Voyage AI로 나감)
 
 --include-reference: 근거가 아닌 참고 자료(예상 질문과 답변, 후기의 AI 첨언 등)도 보여 줘요.
                      "근거 아님" 표시가 붙고, 서류의 근거로 쓰면 안 돼요.
@@ -105,6 +111,9 @@ def build_parser() -> argparse.ArgumentParser:
     document = add("document")
     document.add_argument("id", type=int)
     document.add_argument("type", nargs="?", choices=["resume", "career", "portfolio", "coverletter"])
+    search = add("search")
+    search.add_argument("question")
+    search.add_argument("--k", type=int, default=DEFAULT_K)
     return parser
 
 
@@ -169,9 +178,7 @@ def render_experience_index(stores: Stores, user_id: int, include_reference: boo
     if not experiences:
         out.append("경험이 없어요.")
     for e in experiences:
-        meta = " · ".join(x for x in (period(e.started_on, e.ended_on, "진행 중"), e.org, e.project) if x)
-        check = "확인됨" if e.verified else "미확인"
-        out.append(f"- [id {e.id}] {e.name}" + (f" ({meta})" if meta else "") + f" - {check}")
+        out.append(f"- {experience_line(e)}")
         if e.summary.strip():
             out.append(indented(text_block(e.summary), "  "))
         if e.tags:
@@ -199,6 +206,31 @@ def render_experience_index(stores: Stores, user_id: int, include_reference: boo
             out.append(f"- [id {e.id}] {e.name}:")
             out += [f"  - {q.question}" for q in e.qas]
     return "\n".join(out) + "\n"
+
+
+def experience_line(e: Experience) -> str:
+    """`experience-index`와 같은 경험 머리말."""
+    meta = " · ".join(x for x in (period(e.started_on, e.ended_on, "진행 중"), e.org, e.project) if x)
+    check = "확인됨" if e.verified else "미확인"
+    return f"[id {e.id}] {e.name}" + (f" ({meta})" if meta else "") + f" - {check}"
+
+
+def render_search(stores: Stores, user_id: int, question: str, k: int, db_name: str) -> tuple[str, int]:
+    question = question.strip()
+    if not question:
+        UsageParser(prog="app.agent_read").error("질문이 비어 있어요")
+    if k < 1:
+        UsageParser(prog="app.agent_read").error("--k는 1 이상이어야 해요")
+    listing = stores.experiences.list(user_id)
+    experiences = [stores.experiences.get(user_id, i.id) for i in listing.items]
+    experiences = [e for e in experiences if e is not None]
+    if not experiences:
+        return "경험이 없습니다.\n", 0
+    try:
+        hits = search_experiences(experiences, user_id, question, db_name)
+    except SearchError as error:
+        return error.message + "\n", error.code
+    return render_hits(hits[:k], question, experience_line), 0
 
 
 def render_experience(e: Experience, include_reference: bool) -> str:
@@ -805,6 +837,8 @@ def run(args: argparse.Namespace, stores: Stores, user_id: int) -> tuple[str, in
         return render_documents(stores, user_id), 0
     if args.command == "document":
         return render_document(stores, user_id, args.id, args.type)
+    if args.command == "search":
+        return render_search(stores, user_id, args.question, args.k, args.db_name)
     return render_jobs(stores, user_id), 0
 
 
@@ -837,6 +871,7 @@ def main(argv: list[str] | None = None) -> None:
         raise SystemExit(2)
 
     url = read_database_url()
+    args.db_name = database_name(url)
     engine = make_engine(url)
     try:
         # 바깥 트랜잭션을 연 연결 하나로 읽고 끝에 되돌린다: 혹시라도 쓰는 코드가 섞여도 남지 않는다.

@@ -400,7 +400,7 @@ def test_parser_has_no_user_selecting_option():
     parser = build_parser()
     subparsers = next(a for a in parser._actions if hasattr(a, "choices") and a.choices)
     options = {o for p in [parser, *subparsers.choices.values()] for a in p._actions for o in a.option_strings}
-    assert options <= {"-h", "--help", "--include-reference", "--reader"}
+    assert options <= {"-h", "--help", "--include-reference", "--reader", "--k"}
     assert not any("user" in o or "database" in o for o in options)
     with pytest.raises(SystemExit):
         parser.parse_args(["jobs", "--user-id", "2"])
