@@ -231,7 +231,7 @@ def test_api_error_one_line_exit_1(seeded, monkeypatch, capsys, no_key):
     with pytest.raises(SystemExit) as info:
         main(["search", "검색"])
     assert info.value.code == 1
-    assert capsys.readouterr().err.strip() == "임베딩 API 오류: 401 Unauthorized"
+    assert capsys.readouterr().err.strip().splitlines()[-1] == "임베딩 API 오류: 401 Unauthorized"
 
 
 def test_embed_sends_request_and_batches(monkeypatch):
@@ -300,3 +300,120 @@ def test_eval_main_writes_result_file_and_prints_only_numbers(seeded, monkeypatc
     assert len(files) == 1
     detail = files[0].read_text(encoding="utf-8")
     assert "쿠버네티스 검색 느림" in detail and "검색 개선" in detail
+
+
+# ── 무료 계정의 속도 제한: 묶음, 429 다시 시도, 묶음별 저장, 진행 표시 ──
+
+
+def test_make_batches_by_chars_count_and_long_alone(monkeypatch):
+    texts = ["a" * 3000, "b" * 3000, "c" * 3000, "d" * 9000, "e" * 10]
+    assert semantic_search.make_batches(texts) == [[0, 1], [2], [3], [4]]
+    batches = semantic_search.make_batches(["x"] * 130)
+    assert [len(b) for b in batches] == [64, 64, 2]
+    for batch in semantic_search.make_batches([("y" * 700) for _ in range(30)]):
+        assert sum(700 for _ in batch) <= semantic_search.BATCH_TOKENS
+
+
+@pytest.fixture
+def sleeps(monkeypatch):
+    waited: list[float] = []
+    monkeypatch.setattr(semantic_search, "sleep", waited.append)
+    monkeypatch.setenv("VOYAGE_API_KEY", "k")
+    return waited
+
+
+def scripted_post(monkeypatch, steps):
+    """post_batch를 가짜로: steps의 항목이 예외면 던지고, 아니면 가짜 벡터를 돌려준다."""
+    sent: list[list[str]] = []
+    queue = list(steps)
+
+    def fake(texts, input_type):
+        sent.append(list(texts))
+        step = queue.pop(0) if queue else None
+        if isinstance(step, Exception):
+            raise step
+        return [fake_vector(t) for t in texts]
+
+    monkeypatch.setattr(semantic_search, "post_batch", fake)
+    return sent
+
+
+def test_429_then_success_waits_retry_after_or_21(monkeypatch, capsys, sleeps):
+    sent = scripted_post(monkeypatch, [semantic_search.RateLimited(5), semantic_search.RateLimited(None)])
+    vectors = semantic_search.embed(["하나", "둘"], "document")
+    assert len(vectors) == 2 and len(sent) == 3
+    assert sleeps == [5, 21]
+    err = capsys.readouterr().err
+    assert "속도 제한에 걸려 5초 기다립니다 (다시 시도 1/6)" in err
+    assert "속도 제한에 걸려 21초 기다립니다 (다시 시도 2/6)" in err
+
+
+def test_429_seven_times_fails_with_message(monkeypatch, sleeps):
+    scripted_post(monkeypatch, [semantic_search.RateLimited(None)] * 7)
+    with pytest.raises(semantic_search.SearchError) as info:
+        semantic_search.embed(["하나"], "query")
+    assert info.value.code == 1
+    assert info.value.message == semantic_search.RATE_LIMIT_MESSAGE
+    assert len(sleeps) == 6
+
+
+def test_http_429_header_parsed_and_401_500_not_retried(monkeypatch, sleeps):
+    def raiser(code, headers):
+        def boom(request, timeout=0):
+            raise urllib.error.HTTPError(request.full_url, code, "x", headers, None)
+
+        return boom
+
+    monkeypatch.setattr(semantic_search.urllib.request, "urlopen", raiser(429, {"Retry-After": "7"}))
+    with pytest.raises(semantic_search.RateLimited) as info:
+        semantic_search.post_batch(["a"], "query")
+    assert info.value.retry_after == 7
+    for code in (401, 500):
+        monkeypatch.setattr(semantic_search.urllib.request, "urlopen", raiser(code, {}))
+        with pytest.raises(semantic_search.SearchError):
+            semantic_search.embed(["a"], "query")
+    assert sleeps == []
+
+
+def long_experiences(stores, uid, count=3):
+    return [make(stores, uid, f"긴경험{i}", situation="가" * 5000) for i in range(count)]
+
+
+def test_cache_saved_per_batch_and_resumes(db_file, monkeypatch, capsys, sleeps, tmp_path):
+    url, _, stores = db_file
+    uid = stores.users.dev_user().id
+    exps = long_experiences(stores, uid, 3)  # 경험마다 요약(짧음)+상황(5000+) 조각
+    monkeypatch.setattr(semantic_search, "CACHE_DIR", tmp_path / "embeddings")
+    monkeypatch.delenv("AGENT_READ_DATABASE_URL", raising=False)
+    monkeypatch.setenv("DATABASE_URL", url)
+    batches = semantic_search.make_batches([c.text for e in exps for c in chunks_of(e)])
+    assert len(batches) >= 3
+    fail = semantic_search.SearchError("임베딩 API 오류: 500 boom")
+    scripted_post(monkeypatch, [None, fail])  # 질문 임베딩 전에 둘째 묶음에서 실패
+    with pytest.raises(SystemExit) as info:
+        main(["search", "검색"])
+    assert info.value.code == 1
+    path = next(semantic_search.CACHE_DIR.glob("*.json"))
+    saved = json.loads(path.read_text(encoding="utf-8"))["entries"]
+    first = len(batches[0])
+    assert len(saved) == first
+    capsys.readouterr()
+    sent = scripted_post(monkeypatch, [])
+    main(["search", "검색"])
+    err = capsys.readouterr().err
+    total = sum(len(b) for b in batches)
+    document_sent = sum(len(s) for s in sent[:-1])  # 마지막은 질문
+    assert document_sent == total - first
+    assert f"임베딩할 조각 {total - first}개 (묶음 {len(batches) - 1}개)" in err
+    assert f"임베딩 중: {len(batches) - 1}/{len(batches) - 1} 묶음" in err
+
+
+def test_progress_lines_and_silent_when_all_cached(seeded, monkeypatch, capsys, calls):
+    url, *_ = seeded
+    monkeypatch.setenv("DATABASE_URL", url)
+    main(["search", "검색"])
+    err1 = capsys.readouterr().err
+    main(["search", "검색"])
+    err2 = capsys.readouterr().err
+    assert "임베딩 중: 1/1 묶음" in err1 and "임베딩할 조각" in err1
+    assert "임베딩" not in err2

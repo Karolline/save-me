@@ -11,7 +11,9 @@ import hashlib
 import json
 import math
 import os
+import sys
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -27,6 +29,12 @@ CACHE_DIR = REPO_DIR / "private" / "embeddings"
 VOYAGE_URL = "https://api.voyageai.com/v1/embeddings"
 DEFAULT_MODEL = "voyage-3.5"
 BATCH_SIZE = 64  # API는 한 번에 128개까지
+BATCH_TOKENS = 8000  # 한 묶음의 추정 토큰(글자 수) 상한. 무료 계정 분당 1만 토큰 아래로
+RETRY_LIMIT = 6  # 429 다시 시도 횟수
+DEFAULT_WAIT = 21  # Retry-After가 없을 때 기다릴 초 (분당 3회 기준)
+RATE_LIMIT_MESSAGE = (
+    "임베딩 API 오류: 429 Too Many Requests. 지금까지 만든 것은 저장했으니 잠시 뒤 다시 돌리면 이어서 합니다."
+)
 SNIPPET_LIMIT = 300
 DEFAULT_K = 5
 
@@ -112,36 +120,93 @@ def model_name() -> str:
     return os.environ.get("VOYAGE_MODEL") or DEFAULT_MODEL
 
 
-# ── 임베딩 (테스트에서 이 함수를 바꿔 끼운다) ──
+# ── 임베딩 (테스트에서 post_batch, sleep, embed를 바꿔 끼운다) ──
+
+sleep = time.sleep  # 테스트에서 가짜로 바꿔 실제로 기다리지 않게 한다
+
+
+class RateLimited(Exception):
+    """429 응답. retry_after: Retry-After 헤더 초 (없으면 None)."""
+
+    def __init__(self, retry_after: float | None):
+        super().__init__("rate limited")
+        self.retry_after = retry_after
+
+
+def log(message: str) -> None:
+    print(message, file=sys.stderr, flush=True)
+
+
+def make_batches(texts: list[str]) -> list[list[int]]:
+    """texts의 위치를 묶음으로. 글자 수를 토큰 수로 보고 합이 BATCH_TOKENS, 개수가 BATCH_SIZE를 넘지 않게 (긴 것은 혼자)."""
+    batches: list[list[int]] = []
+    current: list[int] = []
+    tokens = 0
+    for i, text in enumerate(texts):
+        size = len(text)
+        if current and (len(current) >= BATCH_SIZE or tokens + size > BATCH_TOKENS):
+            batches.append(current)
+            current, tokens = [], 0
+        current.append(i)
+        tokens += size
+    if current:
+        batches.append(current)
+    return batches
+
+
+def post_batch(texts: list[str], input_type: str) -> list[list[float]]:
+    """실제 HTTP 한 번. 429는 RateLimited, 그 밖의 오류는 SearchError."""
+    key = api_key()
+    body = json.dumps({"input": texts, "model": model_name(), "input_type": input_type}).encode("utf-8")
+    request = urllib.request.Request(
+        VOYAGE_URL,
+        data=body,
+        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        data = sorted(payload["data"], key=lambda d: d["index"])
+        vectors = [list(map(float, d["embedding"])) for d in data]
+    except urllib.error.HTTPError as error:
+        if error.code == 429:
+            raw = error.headers.get("Retry-After") if error.headers else None
+            try:
+                retry_after = float(raw) if raw is not None else None
+            except ValueError:
+                retry_after = None
+            raise RateLimited(retry_after) from None
+        raise SearchError(f"임베딩 API 오류: {error.code} {error.reason}") from None
+    except urllib.error.URLError as error:
+        raise SearchError(f"임베딩 API 오류: {error.reason}") from None
+    except (OSError, ValueError, KeyError, TypeError) as error:
+        raise SearchError(f"임베딩 API 오류: {error}") from None
+    if len(vectors) != len(texts):
+        raise SearchError("임베딩 API 오류: 응답 개수가 맞지 않아요")
+    return vectors
+
+
+def post_with_retry(texts: list[str], input_type: str) -> list[list[float]]:
+    """429면 기다렸다 같은 묶음을 다시 보낸다 (최대 RETRY_LIMIT번)."""
+    for attempt in range(RETRY_LIMIT + 1):
+        try:
+            return post_batch(texts, input_type)
+        except RateLimited as limited:
+            if attempt == RETRY_LIMIT:
+                break
+            wait = limited.retry_after if limited.retry_after is not None else DEFAULT_WAIT
+            shown = int(wait) if float(wait).is_integer() else wait
+            log(f"속도 제한에 걸려 {shown}초 기다립니다 (다시 시도 {attempt + 1}/{RETRY_LIMIT})")
+            sleep(wait)
+    raise SearchError(RATE_LIMIT_MESSAGE)
 
 
 def embed(texts: list[str], input_type: str) -> list[list[float]]:
-    """Voyage AI로 임베딩한다. input_type: "document" | "query"."""
-    key = api_key()
+    """Voyage AI로 임베딩한다. input_type: "document" | "query". 토큰 기준 묶음으로 나눠 보낸다."""
     vectors: list[list[float]] = []
-    for start in range(0, len(texts), BATCH_SIZE):
-        batch = texts[start : start + BATCH_SIZE]
-        body = json.dumps({"input": batch, "model": model_name(), "input_type": input_type}).encode("utf-8")
-        request = urllib.request.Request(
-            VOYAGE_URL,
-            data=body,
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(request, timeout=60) as response:
-                payload = json.loads(response.read().decode("utf-8"))
-            data = sorted(payload["data"], key=lambda d: d["index"])
-            batch_vectors = [list(map(float, d["embedding"])) for d in data]
-        except urllib.error.HTTPError as error:
-            raise SearchError(f"임베딩 API 오류: {error.code} {error.reason}") from None
-        except urllib.error.URLError as error:
-            raise SearchError(f"임베딩 API 오류: {error.reason}") from None
-        except (OSError, ValueError, KeyError, TypeError) as error:
-            raise SearchError(f"임베딩 API 오류: {error}") from None
-        if len(batch_vectors) != len(batch):
-            raise SearchError("임베딩 API 오류: 응답 개수가 맞지 않아요")
-        vectors += batch_vectors
+    for batch in make_batches(texts):
+        vectors += post_with_retry([texts[i] for i in batch], input_type)
     return vectors
 
 
@@ -200,14 +265,21 @@ def chunk_vectors(user_id: int, chunks: list[Chunk], db_name: str) -> list[list[
             kept[key] = hit
         else:
             todo.append(chunk)
-    if todo:
-        new = embed([c.text for c in todo], "document")
-        for chunk, vector in zip(todo, new, strict=True):
-            key = entry_key(user_id, chunk)
-            vectors[key] = vector
-            kept[key] = {"hash": content_hash(chunk.text, model), "vector": vector}
     # kept에는 지금 있는 조각만 담긴다: 지운 경험·섹션의 항목은 여기서 빠진다.
-    save_cache(path, kept)
+    # 묶음 하나를 받을 때마다 저장해서, 중간에 끊겨도 받은 것은 남는다.
+    if todo:
+        batches = make_batches([c.text for c in todo])
+        log(f"임베딩할 조각 {len(todo)}개 (묶음 {len(batches)}개)")
+        for number, batch in enumerate(batches, 1):
+            members = [todo[i] for i in batch]
+            for chunk, vector in zip(members, embed([c.text for c in members], "document"), strict=True):
+                key = entry_key(user_id, chunk)
+                vectors[key] = vector
+                kept[key] = {"hash": content_hash(chunk.text, model), "vector": vector}
+            save_cache(path, kept)
+            log(f"임베딩 중: {number}/{len(batches)} 묶음")
+    else:
+        save_cache(path, kept)
     return [vectors[entry_key(user_id, c)] for c in chunks]
 
 
