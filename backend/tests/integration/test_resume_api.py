@@ -75,6 +75,12 @@ def test_career_dates_come_back_with_or_without_the_day(client: TestClient):
     assert (got["leaveStartedOn"], got["leaveEndedOn"]) == ("2023-08-01", "2023-09")
 
 
+def test_an_empty_certificate_date_comes_back_as_null(client: TestClient):
+    got = client.put("/api/resume/certificates", json=[{"name": "SQLD", "acquiredOn": ""}]).json()
+
+    assert got["certificates"][0]["acquiredOn"] is None
+
+
 def test_empty_months_and_missing_fields_get_defaults(client: TestClient):
     got = client.put("/api/resume/careers", json=[{"company": "가", "startedOn": "", "leaveStartedOn": ""}]).json()
 

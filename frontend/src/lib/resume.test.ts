@@ -204,6 +204,14 @@ describe("row drafts", () => {
     expect(fromRowDrafts<Career>("careers", [...rows, blank])).toEqual([career({ company: "가", startedOn: "2023-01" })]);
   });
 
+  it("saves an empty certificate date as null", () => {
+    const r = newRowDraft("certificates");
+    const row = { ...r, v: { ...r.v, name: "SQLD", acquiredOn: "" } };
+    expect(fromRowDrafts<{ name: string; acquiredOn: string | null }>("certificates", [row])).toMatchObject([
+      { name: "SQLD", acquiredOn: null },
+    ]);
+  });
+
   it("hints under the fields that block saving", () => {
     const row = (card: Parameters<typeof newRowDraft>[0], v: Record<string, string>) => {
       const r = newRowDraft(card);
