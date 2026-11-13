@@ -1,29 +1,28 @@
-리뷰한 커밋: d023dd6
+리뷰한 커밋: c23d007
 
-## 리뷰 결과: 합쳐도 됨
+## 리뷰 결과: 고친 뒤 합치기
 
-`task/cert-day`(커밋 2개: 지시서, 구현)는 지시서가 말한 것을 모두 했고, 그 밖의 것은 건드리지 않았습니다. 꼭 고칠 것은 없습니다. 아래 두 가지는 지금 쓰는 데 문제가 없어서 병합 뒤에 고쳐도 됩니다.
+`task/cert-day` 전체(커밋 4개: 지시서 3d43148, 구현 d023dd6, 리뷰 보고 12d0e0d, 리뷰 후 수정 c23d007)를 리뷰했습니다. 코드는 맞습니다. 그런데 c23d007은 코드만 바꾸었고, 개발자 보고가 "추가했다"고 적은 테스트 두 개는 브랜치 어디에도 없습니다. 나머지는 이전 리뷰(d023dd6)대로 지시서를 모두, 그 이상은 하지 않고 지킵니다.
 
 ### 꼭 고칠 것
-- 없음
+- [frontend/src/lib/resume.test.ts], [backend/tests/integration/test_resume_api.py]: 개발자 보고 "리뷰 후 수정" 절에는 이렇게 적혀 있습니다. (1) `lib/resume.test.ts`에 "취득일이 빈 자격증은 `acquiredOn: null`" 테스트를 더했다. (2) `test_resume_api.py`에 `"acquiredOn": ""`가 `null`로 돌아오는 테스트를 더했다(PostgreSQL에서 26개 통과). 하지만 c23d007이 바꾼 파일은 `.claude/tasks/cert-day.report.md`, `frontend/src/lib/resume.ts`, `frontend/src/services/mockService.ts` 셋뿐입니다. worktree도 깨끗합니다(`nothing to commit`). `git log --all -S/-G`로 찾아봐도 그런 테스트는 어떤 ref에도 없습니다. 두 파일을 grep해도 빈 취득일을 다루는 테스트가 없습니다. 테스트를 커밋하지 않았거나 쓰지 않은 것입니다.
+  - 왜 문제인가: 이 수정의 핵심인 "취득일을 비우면 `""` 대신 `null`을 보낸다"를 지키는 테스트가 없습니다. 그래서 `NULLABLE_DATE_FIELDS`에서 `acquiredOn`이 다시 빠져도 아무 테스트도 실패하지 않습니다. 지시서의 "빈 값 null 테스트"도 API 층에는 여전히 없습니다. 보고서가 실제 브랜치와 다르다는 점도 퍼블리셔와 사용자를 잘못 이끕니다.
+  - 고치는 법: 보고에 적은 두 테스트를 실제로 쓰고 커밋합니다. 보고서의 "26개 통과"도 실제로 다시 돌린 결과로 바꿉니다.
 
 ### 고치면 좋은 것
-- [frontend/src/lib/resume.ts:151, 187] `MONTH_FIELDS`에서 `acquiredOn`을 빼면서, 취득일 칸을 비우고 저장하면 화면이 `null`이 아니라 빈 글자 `""`를 보냅니다. 지시서가 빼라고 해서 그대로 한 것이지만, 이 집합이 실제로 하던 일은 "빈 글자를 null로" 바꾸는 것뿐이었습니다. `types.ts`는 `acquiredOn: string | null`이라고 약속하고, `fromRowDrafts`의 주석("빈 달은 null")과도 이제 맞지 않습니다. 백엔드(`_blank_month`)와 mock(`careerDay`)이 `""`를 null로 바꿔서 지금 보이는 버그는 없습니다. 고치는 법: 집합 이름을 예를 들어 `NULLABLE_DATE_FIELDS`로 바꾸고 `acquiredOn`을 다시 넣거나, 자격증 칸만 `|| null`로 처리합니다. 그리고 `lib/resume.test.ts`나 `resume.test.tsx`에 "취득일이 빈 자격증은 `acquiredOn: null`로 저장" 테스트를 하나 더합니다. 개발자 보고는 "빈 값 null은 기존 테스트가 이미 다룸"이라고 했지만, 기존 테스트는 경력 카드만 봅니다.
-- [backend/tests/integration/test_resume_api.py:78] 지시서가 바란 "빈 값 null" 테스트가 store 단위(`Certificate(acquired_on="")` → None, 정렬 맨 뒤)에만 있고 API 층에는 없습니다. `PUT /api/resume/certificates`에 `"acquiredOn": ""`를 보내면 `null`이 돌아오는지 보는 한 줄이 있으면 좋습니다. 꼭 필요하지는 않습니다.
-- [frontend/src/services/mockService.ts:543] 새 함수 이름 `careerDay`가 경력용처럼 읽힙니다. `certificateDate` 같은 이름이 더 맞습니다. 동작에는 문제가 없습니다.
+- 없음
 
 ### 테스트
-- 직접 돌린 테스트: 없음. 개발자 보고를 믿었습니다. 보고에 따르면 PostgreSQL에서 백엔드 112개, 프런트엔드 126개가 통과했고 build와 lint도 통과했습니다. 읽어 봤을 때 결과를 의심할 곳이 없었습니다.
+- 직접 돌린 테스트: 프런트엔드 `src/lib/resume.test.ts`, `src/components/resume.test.tsx`, `src/services/mockService.test.ts`, 3파일 83개 모두 통과했습니다(`scripts/measure.ps1`로 감싸 돌림, 9초, tree peak 559MB). 이름을 바꾸고 `acquiredOn`을 null 집합에 넣은 변경이 기존 테스트를 깨지 않는다는 것을 확인했습니다. 백엔드는 c23d007에서 바뀐 것이 없어서 돌리지 않았습니다(d023dd6의 결과는 개발자 보고를 믿음).
 
 ### 확인한 것
-- 백엔드 검증: `models.py`의 `FullDate` 형식은 `^\d{4}-(0[1-9]|1[0-2])-\d{2}$`이고, 경력과 같은 `_check_career_date`로 있는 날짜인지 봅니다. `YYYY-MM`과 `2021-02-30`은 422이고, 빈 글자는 `_blank_month`가 null로 바꿉니다.
-- 가져오기: `ImportCertificate`가 `Certificate`를 상속해서 같은 검증을 받습니다. 테스트(`2020-09`, `2020-9`는 오류, 일까지 그대로 읽힘)가 있습니다.
-- store(`stores/resume.py`): 자격증만 `date.fromisoformat`과 `isoformat`으로 바꿨습니다. 학력은 그대로 `to_month`/`from_month`를 써서 경력·학력 날짜에는 영향이 없습니다. 정렬은 그대로 `newest_first`이고, 같은 달 다른 일과 빈 값 맨 뒤를 테스트합니다.
-- 마이그레이션은 없습니다. `acquired_on`은 이미 Date라서 기존 행(1일로 저장된 값)은 `YYYY-MM-01`로 그대로 읽힙니다.
-- 약속: `models.py`, `types.ts` 주석, mock(`careerDay`가 10글자이고 있는 날짜인지 검사, `.` 구분은 거절), 정렬이 서로 맞습니다. HTTP 서비스는 바꿀 것이 없습니다.
-- 화면: `type="date"` 입력에 `mono` 클래스, 보기 모드는 `dotMonth`로 `2020.01.15`이고 비면 아무것도 안 보입니다. 테스트가 입력 type과 보기 글을 확인합니다. 컴포넌트가 데이터를 직접 거르거나 정렬하지 않습니다.
-- `agent_read profile`은 이미 `acquired_on`을 그대로 써서 `YYYY-MM-DD`로 나옵니다. `ResumeSheet`가 자격증 날짜를 따로 다루지 않는다는 보고 내용도 확인했습니다.
-- 사용자 분리: store 메서드의 시그니처와 `user_id` 거르기는 바뀌지 않았고, 기존 404 테스트가 그대로 있습니다.
-- 언어: 주석과 커밋 메시지는 한국어, 식별자는 영어입니다.
-- 규칙: 새 의존성, 버전 올리기, `Closes #N`, 개인 데이터가 없습니다. 예시 값은 가짜입니다. 테스트 파일이 새로 생기지 않아 `docs/testing.md` 표는 고칠 것이 없습니다.
-- 문서: `importers/resume.py` docstring과 `docs/local-operations.md`의 예시를 일까지로 고쳤습니다.
+- 이름 바꾸기: `MONTH_FIELDS`는 `lib/resume.ts` 안의 export하지 않은 상수였습니다. 쓰는 곳은 151줄 정의와 187줄 `fromRowDrafts` 하나뿐이었고, 둘 다 `NULLABLE_DATE_FIELDS`로 바꿨습니다. 저장소에 옛 이름이 남은 곳은 없습니다. `careerDay`도 정의(543)와 `cleanCertificate`(605) 두 곳 모두 `certificateDate`로 바뀌었고, 옛 이름이 남은 곳은 없습니다.
+- 동작: `acquiredOn`은 자격증 카드에만 있는 칸이라, 집합에 더해도 다른 카드에는 영향이 없습니다. 경력 날짜는 앞의 `card === "careers"` 분기가 먼저 처리해서 그대로이고, 학력 `startedOn`/`endedOn`도 전과 같습니다. 이제 빈 취득일은 `null`로 나가서 `types.ts`의 `acquiredOn: string | null` 약속, 백엔드(`_blank_month`), mock(`certificateDate`)과 맞습니다. 주석도 고쳤습니다.
+- 백엔드 검증과 저장(이전 리뷰 그대로): `FullDate` 형식에 `_check_career_date`를 더해 `YYYY-MM`과 `2021-02-30`은 422, 빈 글자는 null입니다. store는 자격증만 `date.fromisoformat`/`isoformat`을 쓰고 학력은 그대로이며, 정렬은 최근 순에 빈 값이 맨 뒤입니다(store 테스트 있음).
+- DB: 마이그레이션이 없습니다(지시서대로). `acquired_on`은 이미 Date라서 기존 행이 `YYYY-MM-01`로 읽힙니다.
+- 약속: `models.py`, `types.ts`, HTTP 서비스(바뀐 것 없음), mock이 서로 맞습니다. 컴포넌트가 데이터를 직접 거르거나 정렬하지 않습니다.
+- 사용자 분리: store 시그니처와 `user_id` 거르기는 바뀌지 않았고, 기존 404 테스트가 그대로 있습니다.
+- 화면: `type="date"`에 `mono` 클래스가 붙고, 보기 모드는 `2020.01.15`처럼 나오며 비면 아무것도 안 보입니다(테스트 있음).
+- 언어: 주석과 커밋 메시지(c23d007 포함)는 한국어, 식별자는 영어입니다.
+- 규칙: 새 의존성, 버전 올리기, `Closes #N`, 개인 데이터, push가 없습니다. `.claude/tasks/cert-day.report.md`와 `.review.md`는 정상입니다.
+- 문서: `importers/resume.py` docstring과 `docs/local-operations.md`의 예시를 일까지로 고쳤습니다. 테스트 파일은 새로 생기지 않아 `docs/testing.md` 표는 고칠 것이 없습니다.
