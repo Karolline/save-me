@@ -48,8 +48,8 @@ export const SAMPLE_RESUME: Resume = {
     },
   ],
   certificates: [
-    { name: "SQLD", acquiredOn: "2020-01", issuer: "한국데이터산업진흥원", number: "SQLD-0123456" },
-    { name: "정보처리기사", acquiredOn: "2019-08", issuer: "한국산업인력공단", number: "19201234567A" },
+    { name: "SQLD", acquiredOn: "2020-01-15", issuer: "한국데이터산업진흥원", number: "SQLD-0123456" },
+    { name: "정보처리기사", acquiredOn: "2019-08-23", issuer: "한국산업인력공단", number: "19201234567A" },
   ],
   skills: [
     { category: "언어", items: "Python, SQL, Scala", memo: "" },

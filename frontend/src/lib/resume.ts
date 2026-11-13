@@ -148,7 +148,7 @@ export const RESUME_FIELDS: Record<ResumeListCard, string[]> = {
   personality: ["topic", "question", "answer", "lesson"],
 };
 
-const MONTH_FIELDS = new Set(["startedOn", "endedOn", "leaveStartedOn", "leaveEndedOn", "acquiredOn"]);
+const MONTH_FIELDS = new Set(["startedOn", "endedOn", "leaveStartedOn", "leaveEndedOn"]);
 const CAREER_DATE_FIELDS = ["startedOn", "endedOn", "leaveStartedOn", "leaveEndedOn"];
 
 /** 번호 카드 하나. key는 React key (저장하지 않는다). */

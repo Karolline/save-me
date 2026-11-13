@@ -624,10 +624,11 @@ describe("mockService resume", () => {
     expect(got.careers[2].endedOn).toBeNull();
 
     const certs = await service.saveCertificates([
-      { name: "가", acquiredOn: "2019-05", issuer: "", number: "" },
-      { name: "나", acquiredOn: "2020-09", issuer: "", number: " 1 " },
+      { name: "가", acquiredOn: "2020-09-01", issuer: "", number: "" },
+      { name: "나", acquiredOn: "2020-09-16", issuer: "", number: " 1 " },
+      { name: "다", acquiredOn: null, issuer: "", number: "" },
     ]);
-    expect(certs.certificates.map((c) => [c.name, c.number])).toEqual([["나", "1"], ["가", ""]]);
+    expect(certs.certificates.map((c) => [c.name, c.number])).toEqual([["나", "1"], ["가", ""], ["다", ""]]);
     // 기술 스택과 인성 답변은 받은 순서.
     const skills = await service.saveSkills([
       { category: "나", items: "", memo: "" },
@@ -660,6 +661,8 @@ describe("mockService resume", () => {
       service.saveCareers([career({ startedOn: "2022-05-10", endedOn: "2022-05-09" })]),
       service.saveEducations([{ school: "가", major: "", startedOn: "2011-03", endedOn: "2010-02", status: "" }]),
       service.saveCertificates([{ name: "", acquiredOn: null, issuer: "", number: "" }]),
+      service.saveCertificates([{ name: "가", acquiredOn: "2020-09", issuer: "", number: "" }]),
+      service.saveCertificates([{ name: "가", acquiredOn: "2021-02-30", issuer: "", number: "" }]),
       service.saveSkills([{ category: "", items: "", memo: "" }]),
       service.savePersonality([{ topic: "주제", question: " ", answer: "", lesson: "" }]),
     ];

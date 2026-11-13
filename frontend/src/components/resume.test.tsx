@@ -124,7 +124,7 @@ describe("ResumeScreen view", () => {
     const certs = [...card("자격증").querySelectorAll(".rline")].map((r) => r.querySelector("b")!.textContent);
     expect(certs).toEqual(["SQLD", "정보처리기사"]);
     expect(within(card("자격증")).getByText("한국데이터산업진흥원 · 자격번호 SQLD-0123456")).toBeInTheDocument();
-    expect(within(card("자격증")).getByText("2020.01")).toBeInTheDocument();
+    expect(within(card("자격증")).getByText("2020.01.15")).toBeInTheDocument();
 
     const skill = [...card("기술 스택").querySelectorAll(".rskill")][1];
     expect(skill.querySelector(".k")!.textContent).toBe("분산처리");
@@ -241,14 +241,15 @@ describe("ResumeScreen editing", () => {
     const row = screen.getByLabelText("자격증 1");
     expect(within(row).getByLabelText(/^자격증/)).toHaveFocus();
     await user.type(within(row).getByLabelText(/^자격증/), "SQLD");
-    fireEvent.change(within(row).getByLabelText(/^취득/), { target: { value: "2020-09" } });
+    fireEvent.change(within(row).getByLabelText(/^취득/), { target: { value: "2020-09-16" } });
+    expect(within(row).getByLabelText(/^취득/)).toHaveAttribute("type", "date");
     await user.type(within(row).getByLabelText(/^자격번호/), "SQLD-1");
     await user.click(screen.getByRole("button", { name: "+ 자격증 추가" }));
     expect(screen.getByLabelText("자격증 2")).toBeInTheDocument();
     await user.click(within(card("자격증")).getByRole("button", { name: "저장" }));
 
     await screen.findByText("저장했어요");
-    expect(save).toHaveBeenCalledWith([{ name: "SQLD", acquiredOn: "2020-09", issuer: "", number: "SQLD-1" }]);
+    expect(save).toHaveBeenCalledWith([{ name: "SQLD", acquiredOn: "2020-09-16", issuer: "", number: "SQLD-1" }]);
     expect(within(card("자격증")).getByText("자격번호 SQLD-1")).toBeInTheDocument();
   });
 

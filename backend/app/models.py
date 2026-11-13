@@ -531,6 +531,9 @@ Month = Annotated[str, Field(pattern=MONTH_PATTERN)] | None
 # 경력의 날짜: "YYYY-MM" 또는 "YYYY-MM-DD" (일은 선택, 없는 날짜는 거절).
 CAREER_DATE_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])(-\d{2})?$"
 CareerDate = Annotated[str, Field(pattern=CAREER_DATE_PATTERN)] | None
+# 자격증 취득일: 항상 "YYYY-MM-DD" (없는 날짜는 거절).
+FULL_DATE_PATTERN = r"^\d{4}-(0[1-9]|1[0-2])-\d{2}$"
+FullDate = Annotated[str, Field(pattern=FULL_DATE_PATTERN)] | None
 
 
 class ExperienceAction(ApiModel):
@@ -879,7 +882,7 @@ class Certificate(ApiModel):
     """자격증 하나. 이름만 필수."""
 
     name: str
-    acquired_on: Month = None
+    acquired_on: FullDate = None
     issuer: str = ""
     # 자격번호.
     number: str = ""
@@ -898,8 +901,13 @@ class Certificate(ApiModel):
 
     @field_validator("acquired_on", mode="before")
     @classmethod
-    def empty_month_is_none(cls, value: object) -> object:
+    def empty_date_is_none(cls, value: object) -> object:
         return _blank_month(value)
+
+    @field_validator("acquired_on")
+    @classmethod
+    def real_date(cls, value: str | None) -> str | None:
+        return _check_career_date(value)
 
 
 class SkillGroup(ApiModel):

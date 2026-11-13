@@ -16,7 +16,7 @@ CAREERS = [
      "leaveStartedOn": "2025-08", "leaveEndedOn": "2026-12", "duties": ""},
 ]
 EDUCATIONS = [{"school": "한빛대학교", "major": "통계학", "startedOn": "2011-03", "endedOn": "2017-02", "status": "졸업"}]
-CERTIFICATES = [{"name": "SQLD", "acquiredOn": "2020-09", "issuer": "한국데이터산업진흥원", "number": "SQLD-0123456"}]
+CERTIFICATES = [{"name": "SQLD", "acquiredOn": "2020-09-12", "issuer": "한국데이터산업진흥원", "number": "SQLD-0123456"}]
 SKILLS = [{"category": "분산처리", "items": "Spark, Kafka", "memo": "AQE는 안 써 봄"}]
 PERSONALITY = [{"topic": "이직 사유", "question": "왜 그만두나요?", "answer": "", "lesson": ""}]
 LISTS = {
@@ -100,7 +100,8 @@ def test_empty_months_and_missing_fields_get_defaults(client: TestClient):
         ("educations", [{"school": ""}]),
         ("educations", [{"school": "가", "startedOn": "2011-03", "endedOn": "2010-02"}]),
         ("certificates", [{"name": ""}]),
-        ("certificates", [{"name": "가", "acquiredOn": "2020-09-01"}]),
+        ("certificates", [{"name": "가", "acquiredOn": "2020-09"}]),
+        ("certificates", [{"name": "가", "acquiredOn": "2021-02-30"}]),
         ("skills", [{"category": ""}]),
         ("personality", [{"topic": "주제만"}]),
         ("careers", {"company": "목록이 아님"}),

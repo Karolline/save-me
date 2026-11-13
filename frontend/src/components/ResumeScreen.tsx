@@ -40,6 +40,8 @@ interface Column {
   month?: boolean;
   /** 경력 날짜: 글 칸 (`2023-03-15`, 일 생략 가능). */
   date?: boolean;
+  /** 자격증 취득일: 날짜 입력 (`type="date"`, 항상 일까지). */
+  day?: boolean;
   area?: boolean;
   wide?: boolean;
 }
@@ -78,7 +80,7 @@ const RCARDS: Record<CardKey, { title: string; intro?: string; unit?: string; co
     unit: "자격증",
     cols: [
       { k: "name", label: "자격증" },
-      { k: "acquiredOn", label: "취득", month: true },
+      { k: "acquiredOn", label: "취득", day: true },
       { k: "issuer", label: "발급 기관" },
       { k: "number", label: "자격번호" },
     ],
@@ -320,8 +322,8 @@ export function ResumeScreen({ today: given }: { /** 테스트에서 정하는 �
                         />
                       ) : (
                         <input
-                          className={`input${col.month || col.date ? " mono" : ""}${hint ? " invalid" : ""}`}
-                          type={col.month ? "month" : undefined}
+                          className={`input${col.month || col.date || col.day ? " mono" : ""}${hint ? " invalid" : ""}`}
+                          type={col.month ? "month" : col.day ? "date" : undefined}
                           placeholder={col.date ? "2023-03-15" : undefined}
                           id={id}
                           value={row.v[col.k]}

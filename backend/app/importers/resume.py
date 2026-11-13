@@ -12,7 +12,7 @@
                    "duties": "정산 쿼리 개선\\n클라우드 이전 · 로그 수집 파트"}],
       "educations": [{"school": "한빛대학교", "major": "통계학", "startedOn": "2011-03",
                       "endedOn": "2017-02", "status": "졸업"}],
-      "certificates": [{"name": "SQLD", "acquiredOn": "2020-09", "issuer": "한국데이터산업진흥원",
+      "certificates": [{"name": "SQLD", "acquiredOn": "2020-09-12", "issuer": "한국데이터산업진흥원",
                         "number": "SQLD-0123456"}],
       "skills": [{"category": "분산처리", "items": "Spark, Kafka", "memo": "AQE는 써 본 적 없음"}],
       "personality": [{"topic": "이직 사유", "question": "지금 회사를 왜 그만두려 하나요",

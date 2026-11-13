@@ -26,7 +26,7 @@ FILE = {
         {"company": "미담플랫폼", "startedOn": "2023-01", "leaveStartedOn": "2025-08", "leaveEndedOn": "2026-12"},
     ],
     "educations": [{"school": "한빛대학교", "major": "통계학", "startedOn": "2011-03", "endedOn": "2017-02"}],
-    "certificates": [{"name": "SQLD", "acquiredOn": "2020-09", "number": "SQLD-0123456"}],
+    "certificates": [{"name": "SQLD", "acquiredOn": "2020-09-12", "number": "SQLD-0123456"}],
     "skills": [{"category": "분산처리", "items": "Spark, Kafka", "memo": "AQE 안 써 봄"}],
     "personality": [{"topic": "이직 사유", "question": "왜 그만두나요?"}],
 }
@@ -50,6 +50,7 @@ def test_fills_every_empty_card(stores: Stores, user_id: int, tmp_path):
     # 일이 있는 날짜와 월만 낸 날짜가 그대로 읽힌다.
     assert (got.careers[1].started_on, got.careers[1].ended_on) == ("2021-03-02", "2022-12")
     assert got.certificates[0].number == "SQLD-0123456"
+    assert got.certificates[0].acquired_on == "2020-09-12"
     assert got.skills[0].memo == "AQE 안 써 봄"
     assert got.personality[0].topic == "이직 사유"
 
@@ -102,6 +103,7 @@ def test_the_summary_lines():
         ('{"careers": [{"team": "회사 없음"}]}', "careers.0.company"),
         ('{"careers": [{"company": "가", "startedOn": "2022-05", "endedOn": "2022-04"}]}', "endedOn is before"),
         ('{"certificates": [{"name": "가", "acquiredOn": "2020-9"}]}', "acquiredOn"),
+        ('{"certificates": [{"name": "가", "acquiredOn": "2020-09"}]}', "acquiredOn"),
         # 모르는 키는 카드를 말없이 건너뛰지 않고 오류다.
         ('{"education": [{"school": "가"}]}', "education"),
         ('{"certs": []}', "certs"),

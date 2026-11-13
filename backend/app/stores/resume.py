@@ -125,8 +125,8 @@ LISTS: dict[ListCard, ListSpec] = {
     ),
     "certificates": ListSpec(
         CertificateRow,
-        lambda c: dict(name=c.name, acquired_on=to_month(c.acquired_on), issuer=c.issuer, number=c.number),
-        lambda r: Certificate(name=r.name, acquired_on=from_month(r.acquired_on), issuer=r.issuer, number=r.number),
+        lambda c: dict(name=c.name, acquired_on=date.fromisoformat(c.acquired_on) if c.acquired_on else None, issuer=c.issuer, number=c.number),
+        lambda r: Certificate(name=r.name, acquired_on=r.acquired_on.isoformat() if r.acquired_on else None, issuer=r.issuer, number=r.number),
         newest_first(lambda r: r.acquired_on),
     ),
     "skills": ListSpec(

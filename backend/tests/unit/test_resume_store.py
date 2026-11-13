@@ -80,14 +80,17 @@ def test_educations_and_certificates_sort_by_date(stores: Stores, user_id: int):
         user_id,
         "certificates",
         [
-            Certificate(name="정보처리기사", acquired_on="2019-05", issuer="한국산업인력공단", number="19201234567A"),
-            Certificate(name="SQLD", acquired_on="2020-09", issuer="한국데이터산업진흥원"),
+            Certificate(name="정보처리기사", acquired_on="2020-09-01", issuer="한국산업인력공단", number="19201234567A"),
+            Certificate(name="SQLD", acquired_on="2020-09-16", issuer="한국데이터산업진흥원"),
+            Certificate(name="날짜 없음", acquired_on=""),
         ],
     )
 
     assert [e.school for e in got.educations] == ["한빛대학교", "가람고등학교", "날짜 없음"]
     assert got.educations[0].major == "통계학"
-    assert [c.name for c in got.certificates] == ["SQLD", "정보처리기사"]
+    # 같은 달이어도 일로 갈리고, 비어 있으면 맨 뒤 (null).
+    assert [c.name for c in got.certificates] == ["SQLD", "정보처리기사", "날짜 없음"]
+    assert [c.acquired_on for c in got.certificates] == ["2020-09-16", "2020-09-01", None]
     assert got.certificates[1].number == "19201234567A"
 
 
@@ -134,6 +137,8 @@ def test_skills_and_personality_keep_the_order_given(stores: Stores, user_id: in
         lambda: Education(school="가", started_on="2011-03", ended_on="2010-02"),
         lambda: Certificate(name=" "),
         lambda: Certificate(name="가", acquired_on="19-05"),
+        lambda: Certificate(name="가", acquired_on="2020-09"),
+        lambda: Certificate(name="가", acquired_on="2021-02-30"),
         lambda: SkillGroup(category=""),
         lambda: PersonalityAnswer(question=" "),
     ],

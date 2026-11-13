@@ -621,6 +621,7 @@ export interface Education {
 export interface Certificate {
   /** 필수. */
   name: string;
+  /** `YYYY-MM-DD` (항상 일까지). */
   acquiredOn: string | null;
   issuer: string;
   /** 자격번호. */
