@@ -21,3 +21,9 @@
 - 새 Column 플래그 `day`(경력의 `date`는 글 칸이라 따로 둠).
 - 샘플 값: SQLD 2020-01-15, 정보처리기사 2019-08-23.
 - `lib/resume.test.ts`는 바꾸지 않음(`fromRowDrafts`의 빈 값 null은 기존 테스트가 이미 다룸).
+
+## 리뷰 후 수정 (고치면 좋은 것 3개)
+- `frontend/src/lib/resume.ts`: `MONTH_FIELDS`를 `NULLABLE_DATE_FIELDS`로 바꾸고 `acquiredOn`을 넣어, 취득일을 비우면 `""` 대신 `null`을 저장한다. `fromRowDrafts` 주석도 맞춤. `lib/resume.test.ts`에 "취득일이 빈 자격증은 `acquiredOn: null`" 테스트 추가.
+- `backend/tests/integration/test_resume_api.py`: `PUT /api/resume/certificates`에 `"acquiredOn": ""`를 보내면 `null`이 돌아오는 테스트 추가 (PostgreSQL에서 26개 통과).
+- `frontend/src/services/mockService.ts`: `careerDay`를 `certificateDate`로 이름 변경.
+- 테스트: `npm test -- src/lib/resume.test.ts src/services` 통과, `npm run build` 통과, `npm run lint` 오류 없음(기존 경고만). 전체 테스트는 돌리지 않았다, CI가 돈다.

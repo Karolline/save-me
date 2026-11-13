@@ -540,7 +540,7 @@ function careerDate(value: string | null): string | null {
 }
 
 /** 자격증 취득일: 빈 글자는 없음, `YYYY-MM-DD`(있는 날짜)만, 아니면 422. */
-function careerDay(value: string | null): string | null {
+function certificateDate(value: string | null): string | null {
   const d = value || null;
   if (d !== null && (d.length !== 10 || parseCareerDate(d) !== d)) throw invalidResume();
   return d;
@@ -602,7 +602,7 @@ function cleanEducation(e: Education): Education {
 const cleanCertificate = (c: Certificate): Certificate => ({
   ...c,
   name: requiredText(c.name),
-  acquiredOn: careerDay(c.acquiredOn),
+  acquiredOn: certificateDate(c.acquiredOn),
   issuer: c.issuer.trim(),
   number: c.number.trim(),
 });

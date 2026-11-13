@@ -148,7 +148,7 @@ export const RESUME_FIELDS: Record<ResumeListCard, string[]> = {
   personality: ["topic", "question", "answer", "lesson"],
 };
 
-const MONTH_FIELDS = new Set(["startedOn", "endedOn", "leaveStartedOn", "leaveEndedOn"]);
+const NULLABLE_DATE_FIELDS = new Set(["startedOn", "endedOn", "leaveStartedOn", "leaveEndedOn", "acquiredOn"]);
 const CAREER_DATE_FIELDS = ["startedOn", "endedOn", "leaveStartedOn", "leaveEndedOn"];
 
 /** 번호 카드 하나. key는 React key (저장하지 않는다). */
@@ -173,7 +173,7 @@ export function toRowDrafts(card: ResumeListCard, list: object[]): RowDraft[] {
 /** 칸이 모두 비어 있는 카드 (저장할 때 말없이 버린다). */
 export const isBlankRow = (row: RowDraft) => Object.values(row.v).every((x) => !x.trim());
 
-/** 초안 → 저장할 목록: 빈 카드는 버리고, 빈 달은 null. */
+/** 초안 → 저장할 목록: 빈 카드는 버리고, 빈 날짜(달·자격증 취득일)는 null. */
 export function fromRowDrafts<T>(card: ResumeListCard, rows: RowDraft[]): T[] {
   return rows
     .filter((r) => !isBlankRow(r))
@@ -184,7 +184,7 @@ export function fromRowDrafts<T>(card: ResumeListCard, rows: RowDraft[]): T[] {
             f,
             card === "careers" && CAREER_DATE_FIELDS.includes(f)
               ? (parseCareerDate(r.v[f]) ?? null)
-              : MONTH_FIELDS.has(f)
+              : NULLABLE_DATE_FIELDS.has(f)
                 ? r.v[f] || null
                 : r.v[f],
           ]),
