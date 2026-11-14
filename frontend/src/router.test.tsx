@@ -106,6 +106,7 @@ describe("job analysis routes", () => {
     const user = userEvent.setup();
     await open("/jobs");
     expect(await screen.findByRole("button", { name: /^미정\s*\d/ })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByText("한결로보틱스")).toBeInTheDocument();
     expect(screen.queryByText("늘봄카드")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: /^전체\s*\d/ }));
