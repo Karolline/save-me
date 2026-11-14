@@ -102,6 +102,20 @@ describe("job analysis routes", () => {
     expect(await screen.findByText("늘봄카드")).toBeInTheDocument();
   });
 
+  it("opens with the 미정 filter on, and keeps 전체 in the address", async () => {
+    const user = userEvent.setup();
+    await open("/jobs");
+    expect(await screen.findByRole("button", { name: /^미정\s*\d/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByText("늘봄카드")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^전체\s*\d/ }));
+    await waitFor(() => expect(router.state.location.search).toEqual({ status: "all" }));
+    expect(await screen.findByText("늘봄카드")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^미정\s*\d/ }));
+    await waitFor(() => expect(router.state.location.search).toEqual({}));
+  });
+
   it("keeps the 회사 기본 tab in the address and lists the tabs in order", { timeout: 15_000 }, async () => {
     const user = userEvent.setup();
     await open("/jobs/2");

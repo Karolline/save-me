@@ -433,8 +433,9 @@ const editQuestionRoute = createRoute({
 
 // ── 공고분석 (완료분 기획안 S2 10번) ──
 
-const JOB_FILTERS: JobStatusFilter[] = ["undecided", "applied", "skipped"];
+const JOB_FILTERS: JobStatusFilter[] = ["all", "applied", "skipped"];
 
+// 메뉴로 들어오면(status 없음) '미정'만 보인다. '전체'는 status=all로 주소에 남긴다.
 const jobsRoute = createRoute({
   getParentRoute: () => appRoute,
   path: "/jobs",
@@ -445,8 +446,10 @@ const jobsRoute = createRoute({
     const navigate = useNavigate();
     return (
       <JobsScreen
-        status={status ?? "all"}
-        onStatusChange={(next) => navigate({ to: "/jobs", search: next === "all" ? {} : { status: next }, replace: true })}
+        status={status ?? "undecided"}
+        onStatusChange={(next) =>
+          navigate({ to: "/jobs", search: next === "undecided" ? {} : { status: next }, replace: true })
+        }
         onOpen={(jobId) => navigate({ to: "/jobs/$jobId", params: { jobId: String(jobId) } })}
         onAdd={() => navigate({ to: "/jobs/new" })}
       />
